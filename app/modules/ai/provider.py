@@ -2,12 +2,7 @@ import base64
 from dataclasses import dataclass
 from typing import Protocol
 
-from google import genai
-from google.genai import types
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent, NativeOutput
-from pydantic_ai.models.google import GoogleModel
-from pydantic_ai.providers.google import GoogleProvider
 
 from app.core.config import Settings
 
@@ -30,6 +25,12 @@ class AIProvider(Protocol):
 
 class Gemini:
     def __init__(self, settings: Settings):
+        from google import genai
+        from google.genai import types
+        from pydantic_ai import Agent, NativeOutput
+        from pydantic_ai.models.google import GoogleModel
+        from pydantic_ai.providers.google import GoogleProvider
+
         assert settings.gemini_api_key is not None
         self.settings = settings
         self.client = genai.Client(
@@ -56,6 +57,8 @@ class Gemini:
         if task == "coach":
             answer = await self.coach.run(prompt)
             return Selected(answer.output.key, answer.usage.total_tokens)
+        from google.genai import types
+
         reply = await self.client.aio.models.generate_content(
             model=self.settings.gemini_text_model,
             contents=prompt,
@@ -99,6 +102,8 @@ class Gemini:
         return base64.b64decode(audio.data, validate=True)
 
     async def embed(self, texts: list[str], *, query: bool) -> list[list[float]]:
+        from google.genai import types
+
         response = await self.client.aio.models.embed_content(
             model=self.settings.gemini_embedding_model,
             contents=[
