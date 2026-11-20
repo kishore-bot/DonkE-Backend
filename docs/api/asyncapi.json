@@ -1,0 +1,603 @@
+{
+  "asyncapi": "3.0.0",
+  "channels": {
+    "match": {
+      "address": "/api/v1/games/{game_id}/ws",
+      "description": "Authenticate with the Authorization Bearer header. Resume with the after_sequence query parameter.",
+      "messages": {
+        "ack": {
+          "$ref": "#/components/messages/ack"
+        },
+        "command": {
+          "$ref": "#/components/messages/command"
+        },
+        "error": {
+          "$ref": "#/components/messages/error"
+        },
+        "events": {
+          "$ref": "#/components/messages/events"
+        },
+        "left": {
+          "$ref": "#/components/messages/left"
+        },
+        "pong": {
+          "$ref": "#/components/messages/pong"
+        },
+        "state_sync": {
+          "$ref": "#/components/messages/state_sync"
+        }
+      },
+      "parameters": {
+        "game_id": {
+          "description": "UUID assigned to the ready room"
+        }
+      }
+    }
+  },
+  "components": {
+    "messages": {
+      "ack": {
+        "name": "ack",
+        "payload": {
+          "properties": {
+            "request_id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "sequence": {
+              "type": "integer"
+            },
+            "type": {
+              "const": "ack"
+            },
+            "version": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "type",
+            "version",
+            "sequence",
+            "request_id"
+          ],
+          "type": "object"
+        }
+      },
+      "command": {
+        "name": "command",
+        "payload": {
+          "discriminator": {
+            "mapping": {
+              "leave": "#/components/schemas/SocketLeave",
+              "ping": "#/components/schemas/SocketPing",
+              "play_card": "#/components/schemas/SocketPlay"
+            },
+            "propertyName": "action"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/SocketPlay"
+            },
+            {
+              "$ref": "#/components/schemas/SocketLeave"
+            },
+            {
+              "$ref": "#/components/schemas/SocketPing"
+            }
+          ]
+        }
+      },
+      "error": {
+        "name": "error",
+        "payload": {
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "type": {
+              "const": "error"
+            }
+          },
+          "required": [
+            "type",
+            "code"
+          ],
+          "type": "object"
+        }
+      },
+      "events": {
+        "name": "events",
+        "payload": {
+          "properties": {
+            "events": {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "title": "Events",
+              "type": "array"
+            },
+            "sequence": {
+              "title": "Sequence",
+              "type": "integer"
+            },
+            "type": {
+              "const": "events"
+            }
+          },
+          "required": [
+            "sequence",
+            "events",
+            "type"
+          ],
+          "title": "EventBatch",
+          "type": "object"
+        }
+      },
+      "left": {
+        "name": "left",
+        "payload": {
+          "properties": {
+            "type": {
+              "const": "left"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
+      },
+      "pong": {
+        "name": "pong",
+        "payload": {
+          "properties": {
+            "type": {
+              "const": "pong"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        }
+      },
+      "state_sync": {
+        "name": "state_sync",
+        "payload": {
+          "properties": {
+            "id": {
+              "format": "uuid",
+              "title": "Id",
+              "type": "string"
+            },
+            "outcome": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Outcome"
+            },
+            "seats": {
+              "items": {
+                "$ref": "#/components/schemas/GameSeat"
+              },
+              "title": "Seats",
+              "type": "array"
+            },
+            "sequence": {
+              "title": "Sequence",
+              "type": "integer"
+            },
+            "status": {
+              "enum": [
+                "active",
+                "finished"
+              ],
+              "title": "Status",
+              "type": "string"
+            },
+            "turn_deadline_ms": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Turn Deadline Ms"
+            },
+            "type": {
+              "const": "state_sync"
+            },
+            "version": {
+              "title": "Version",
+              "type": "integer"
+            },
+            "view": {
+              "$ref": "#/components/schemas/PlayerView"
+            }
+          },
+          "required": [
+            "id",
+            "status",
+            "sequence",
+            "version",
+            "turn_deadline_ms",
+            "outcome",
+            "seats",
+            "view",
+            "type"
+          ],
+          "title": "PublicMatch",
+          "type": "object"
+        }
+      }
+    },
+    "schemas": {
+      "AllSafeOutcome": {
+        "properties": {
+          "reason": {
+            "const": "all_safe",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "AllSafeOutcome",
+        "type": "object"
+      },
+      "Card": {
+        "additionalProperties": false,
+        "properties": {
+          "rank": {
+            "$ref": "#/components/schemas/Rank"
+          },
+          "suit": {
+            "$ref": "#/components/schemas/Suit"
+          }
+        },
+        "required": [
+          "suit",
+          "rank"
+        ],
+        "title": "Card",
+        "type": "object"
+      },
+      "DonkeyOutcome": {
+        "properties": {
+          "reason": {
+            "const": "donkey",
+            "title": "Reason",
+            "type": "string"
+          },
+          "seat": {
+            "title": "Seat",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reason",
+          "seat"
+        ],
+        "title": "DonkeyOutcome",
+        "type": "object"
+      },
+      "GameSeat": {
+        "properties": {
+          "bot": {
+            "title": "Bot",
+            "type": "boolean"
+          },
+          "consecutive_timeouts": {
+            "default": 0,
+            "title": "Consecutive Timeouts",
+            "type": "integer"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "forfeited": {
+            "default": false,
+            "title": "Forfeited",
+            "type": "boolean"
+          },
+          "player_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Player Id"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "timeouts": {
+            "default": 0,
+            "title": "Timeouts",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "display_name",
+          "ready",
+          "bot"
+        ],
+        "title": "GameSeat",
+        "type": "object"
+      },
+      "PlayLimitOutcome": {
+        "properties": {
+          "reason": {
+            "const": "play_limit",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "PlayLimitOutcome",
+        "type": "object"
+      },
+      "PlayerView": {
+        "properties": {
+          "card_counts": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Card Counts",
+            "type": "array"
+          },
+          "escape_order": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Escape Order",
+            "type": "array"
+          },
+          "hand": {
+            "items": {
+              "$ref": "#/components/schemas/Card"
+            },
+            "title": "Hand",
+            "type": "array"
+          },
+          "legal_moves": {
+            "items": {
+              "$ref": "#/components/schemas/Card"
+            },
+            "title": "Legal Moves",
+            "type": "array"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "all_safe": "#/components/schemas/AllSafeOutcome",
+                    "donkey": "#/components/schemas/DonkeyOutcome",
+                    "play_limit": "#/components/schemas/PlayLimitOutcome"
+                  },
+                  "propertyName": "reason"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/DonkeyOutcome"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AllSafeOutcome"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PlayLimitOutcome"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "table": {
+            "items": {
+              "$ref": "#/components/schemas/TableCard"
+            },
+            "title": "Table",
+            "type": "array"
+          },
+          "turn": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "turn",
+          "outcome",
+          "card_counts",
+          "table",
+          "escape_order",
+          "hand",
+          "legal_moves"
+        ],
+        "title": "PlayerView",
+        "type": "object"
+      },
+      "Rank": {
+        "enum": [
+          "Two",
+          "Three",
+          "Four",
+          "Five",
+          "Six",
+          "Seven",
+          "Eight",
+          "Nine",
+          "Ten",
+          "Jack",
+          "Queen",
+          "King",
+          "Ace"
+        ],
+        "type": "string"
+      },
+      "SocketLeave": {
+        "properties": {
+          "action": {
+            "const": "leave",
+            "title": "Action",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "SocketLeave",
+        "type": "object"
+      },
+      "SocketPing": {
+        "properties": {
+          "action": {
+            "const": "ping",
+            "title": "Action",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "SocketPing",
+        "type": "object"
+      },
+      "SocketPlay": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "const": "play_card",
+            "title": "Action",
+            "type": "string"
+          },
+          "card": {
+            "$ref": "#/components/schemas/Card"
+          },
+          "expected_version": {
+            "minimum": 0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_version",
+          "card",
+          "action"
+        ],
+        "title": "SocketPlay",
+        "type": "object"
+      },
+      "Suit": {
+        "enum": [
+          "Clubs",
+          "Diamonds",
+          "Hearts",
+          "Spades"
+        ],
+        "type": "string"
+      },
+      "TableCard": {
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/Card"
+          },
+          "seat": {
+            "title": "Seat",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seat",
+          "card"
+        ],
+        "title": "TableCard",
+        "type": "object"
+      }
+    }
+  },
+  "defaultContentType": "application/json",
+  "info": {
+    "title": "DonkE gameplay",
+    "version": "0.1.0"
+  },
+  "operations": {
+    "receiveCommand": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/match"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/match/messages/command"
+        }
+      ]
+    },
+    "sendUpdates": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/match"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/match/messages/events"
+        },
+        {
+          "$ref": "#/channels/match/messages/state_sync"
+        },
+        {
+          "$ref": "#/channels/match/messages/ack"
+        },
+        {
+          "$ref": "#/channels/match/messages/error"
+        },
+        {
+          "$ref": "#/channels/match/messages/pong"
+        },
+        {
+          "$ref": "#/channels/match/messages/left"
+        }
+      ]
+    }
+  }
+}

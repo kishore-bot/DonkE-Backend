@@ -12,6 +12,8 @@ from app.modules.admin.repository import prune_expired as prune_admin_sessions
 from app.modules.identity.repository import prune_expired as prune_player_sessions
 from app.modules.lobby.repository import LobbyConflict, LobbyRepository
 from app.modules.lobby.service import QUEUES, LobbyService
+from app.modules.matches.repository import MatchConflict
+from app.modules.matches.service import MatchService
 
 logger = logging.getLogger(__name__)
 
@@ -44,12 +46,14 @@ async def prune_sessions(platform: Platform) -> None:
 
 async def run(platform: Platform, stop: asyncio.Event) -> None:
     lobby = LobbyService(LobbyRepository(platform.redis, platform.settings))
+    matches = MatchService(platform)
     next_prune = 0.0
     loop = asyncio.get_running_loop()
     while not stop.is_set():
         try:
             await match_once(lobby)
-        except (RedisError, LobbyConflict) as error:
+            await matches.tick()
+        except (RedisError, SQLAlchemyError, LobbyConflict, MatchConflict) as error:
             logger.warning("Matchmaking tick failed (%s)", type(error).__name__)
         if loop.time() >= next_prune:
             try:

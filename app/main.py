@@ -24,6 +24,7 @@ from app.modules.game.service import PracticeService
 from app.modules.identity.google import GoogleIdentity, GoogleVerifier
 from app.modules.identity.router import router as identity_router
 from app.modules.lobby.router import matchmaking, rooms
+from app.modules.matches.router import router as matches_router
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,14 @@ def create_app(
     app.add_exception_handler(SQLAlchemyError, handle_store_error)
     app.add_exception_handler(OSError, handle_store_error)
     app.add_exception_handler(RedisError, handle_store_error)
-    for router in (practice_router, identity_router, rooms, matchmaking, admin_router):
+    for router in (
+        practice_router,
+        identity_router,
+        rooms,
+        matchmaking,
+        admin_router,
+        matches_router,
+    ):
         app.include_router(router)
 
     @app.get("/healthz")

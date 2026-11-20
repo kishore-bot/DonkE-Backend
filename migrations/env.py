@@ -9,8 +9,9 @@ from app.core.config import Settings
 from app.core.platform import Base
 from app.modules.admin.models import AdminAudit, AdminSession, AdminUser
 from app.modules.identity.models import Player, PlayerSession, RefreshToken
+from app.modules.matches.models import MatchRecord
 
-# Import both owners so schema comparison sees all of their tables.
+# Import the metadata owners so migration drift checks see all tables.
 MAPPED_MODELS = (
     AdminAudit,
     AdminSession,
@@ -18,6 +19,7 @@ MAPPED_MODELS = (
     Player,
     PlayerSession,
     RefreshToken,
+    MatchRecord,
 )
 
 

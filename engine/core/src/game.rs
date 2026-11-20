@@ -1,17 +1,17 @@
 use rand::{Rng, seq::SliceRandom};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::Card;
 
 const PLAY_LIMIT: u32 = 1_000;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct PlayedCard {
     pub seat: usize,
     pub card: Card,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(tag = "reason", rename_all = "snake_case")]
 pub enum Outcome {
     Donkey { seat: usize },
@@ -64,7 +64,7 @@ pub struct View<'a> {
     pub legal_moves: Vec<Card>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Game {
     hands: Vec<Vec<Card>>,
     table: Vec<PlayedCard>,

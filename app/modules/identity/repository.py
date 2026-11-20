@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,3 +52,11 @@ async def lookup_token(
 
 async def prune_expired(db: AsyncSession, now: datetime) -> None:
     await db.execute(delete(PlayerSession).where(PlayerSession.expires_at <= now))
+
+
+async def apply_rating(db: AsyncSession, player_id: UUID, delta: int) -> None:
+    await db.execute(
+        update(Player)
+        .where(Player.id == player_id)
+        .values(mmr=func.greatest(0, Player.mmr + delta))
+    )

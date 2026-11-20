@@ -17,7 +17,10 @@ class Room(BaseModel):
     id: UUID
     host_id: UUID
     capacity: int
-    status: Literal["waiting", "ready"]
+    status: Literal["waiting", "ready", "playing", "finished"]
+    revision: int = 0
+    start_at_ms: int | None = None
+    game_id: UUID | None = None
     mode: Mode | None = None
     seats: list[Seat]
 

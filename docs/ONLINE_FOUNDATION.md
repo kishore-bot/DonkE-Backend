@@ -5,7 +5,7 @@
 - Granian serves the FastAPI practice, player identity, lobby, matchmaking and admin APIs. With online settings absent, local practice runs on its own. In online mode, readiness checks PostgreSQL migrations and Redis connectivity.
 - PostgreSQL owns player identities, session families, admin accounts and audit history. Alembic enables pgvector and creates the first schema. The downgrade removes DonkE's tables and retains the vector extension.
 - Standalone Redis owns waiting rooms, queue membership, leases and rate counters. The matchmaking worker claims and finalizes lobbies independently of HTTP workers. Redis must use a no-eviction policy for these records.
-- Matched rooms stop at the lobby boundary in this phase. A ready lobby has reserved seats and can be passed to the multiplayer game phase.
+- A ready lobby has reserved seats. The worker starts its multiplayer match when the countdown ends and publishes the game UUID on the room.
 
 ## Player identity
 

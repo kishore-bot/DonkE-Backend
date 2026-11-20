@@ -186,6 +186,28 @@
         "title": "ErrorResponse",
         "type": "object"
       },
+      "EventBatch": {
+        "properties": {
+          "events": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sequence",
+          "events"
+        ],
+        "title": "EventBatch",
+        "type": "object"
+      },
       "GameFinished": {
         "properties": {
           "event": {
@@ -221,6 +243,56 @@
           "outcome"
         ],
         "title": "GameFinished",
+        "type": "object"
+      },
+      "GameSeat": {
+        "properties": {
+          "bot": {
+            "title": "Bot",
+            "type": "boolean"
+          },
+          "consecutive_timeouts": {
+            "default": 0,
+            "title": "Consecutive Timeouts",
+            "type": "integer"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "forfeited": {
+            "default": false,
+            "title": "Forfeited",
+            "type": "boolean"
+          },
+          "player_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Player Id"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "timeouts": {
+            "default": 0,
+            "title": "Timeouts",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "display_name",
+          "ready",
+          "bot"
+        ],
+        "title": "GameSeat",
         "type": "object"
       },
       "GameUpdate": {
@@ -305,6 +377,64 @@
           "password"
         ],
         "title": "Login",
+        "type": "object"
+      },
+      "MatchReplay": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventBatch"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "classic",
+                  "ranked"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "outcome": {
+            "additionalProperties": true,
+            "title": "Outcome",
+            "type": "object"
+          },
+          "room_id": {
+            "format": "uuid",
+            "title": "Room Id",
+            "type": "string"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/GameSeat"
+            },
+            "title": "Seats",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "room_id",
+          "mode",
+          "seats",
+          "outcome",
+          "events"
+        ],
+        "title": "MatchReplay",
         "type": "object"
       },
       "PlayLimitOutcome": {
@@ -723,6 +853,18 @@
             "title": "Capacity",
             "type": "integer"
           },
+          "game_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Id"
+          },
           "host_id": {
             "format": "uuid",
             "title": "Host Id",
@@ -748,6 +890,11 @@
             ],
             "title": "Mode"
           },
+          "revision": {
+            "default": 0,
+            "title": "Revision",
+            "type": "integer"
+          },
           "seats": {
             "items": {
               "$ref": "#/components/schemas/Seat"
@@ -755,10 +902,23 @@
             "title": "Seats",
             "type": "array"
           },
+          "start_at_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At Ms"
+          },
           "status": {
             "enum": [
               "waiting",
-              "ready"
+              "ready",
+              "playing",
+              "finished"
             ],
             "title": "Status",
             "type": "string"
@@ -1439,6 +1599,64 @@
         "summary": "Refresh",
         "tags": [
           "Identity"
+        ]
+      }
+    },
+    "/api/v1/games/{game_id}/replay": {
+      "get": {
+        "operationId": "replay_api_v1_games__game_id__replay_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchReplay"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Replay",
+        "tags": [
+          "Multiplayer"
         ]
       }
     },

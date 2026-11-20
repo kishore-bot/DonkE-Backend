@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     claim_lease_seconds: float = Field(default=5, gt=0, le=30)
     matchmaking_poll_seconds: float = Field(default=0.25, gt=0, le=2)
 
+    room_start_seconds: float = Field(default=3, ge=0, le=30)
+    turn_seconds: float = Field(default=40, gt=0, le=120)
+    bot_turn_seconds: float = Field(default=0.5, gt=0, le=5)
+    match_minutes: int = Field(default=45, ge=1, le=120)
+    match_archive_seconds: int = Field(default=86400, ge=60, le=604800)
+
     @model_validator(mode="after")
     def online_settings(self) -> Settings:
         online = (self.postgres_dsn, self.redis_dsn, self.auth_secret)

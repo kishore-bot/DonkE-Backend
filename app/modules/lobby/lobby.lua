@@ -67,6 +67,14 @@ local function save_room(room)
     for _, seat in ipairs(room.seats) do
         if not seat.ready then ready = false end
     end
+    room.revision = (room.revision or 0) + 1
+    if ready then
+        room.start_at_ms = room.start_at_ms or (now_ms() + input.start_delay_ms)
+        redis.call('ZADD', key('rooms', 'ready'), room.start_at_ms, room.id)
+    else
+        room.start_at_ms = nil
+        redis.call('ZREM', key('rooms', 'ready'), room.id)
+    end
     room.status = ready and 'ready' or 'waiting'
     write('room', room.id, room, input.room_ttl)
     for _, seat in ipairs(room.seats) do
@@ -241,7 +249,7 @@ local owns_seat = seat and matching_id(member, 'room', room.id)
 
 if op == 'join_room' then
     if owns_seat then return cjson.encode(room) end
-    if room.mode then return failure('room_not_found') end
+    if room.mode or room.status == 'playing' then return failure('room_not_found') end
     if member then return failure('player_busy') end
     if #room.seats >= room.capacity then return failure('room_full') end
     table.insert(room.seats, new_seat(input.player, input.name, false, false))
@@ -251,6 +259,7 @@ end
 
 if not owns_seat then return failure('room_not_found') end
 if op == 'get_room' then return cjson.encode(room) end
+if room.status == 'playing' then return failure('game_in_progress') end
 
 if op == 'ready' then
     if room.mode then return failure('matchmade_room') end
@@ -281,11 +290,13 @@ if op == 'leave_room' then
             end
         end
         remove('room', room.id)
+        redis.call('ZREM', key('rooms', 'ready'), room.id)
     else
         table.remove(room.seats, seat)
         remove('member', input.player)
         if #room.seats == 0 then
             remove('room', room.id)
+            redis.call('ZREM', key('rooms', 'ready'), room.id)
         else
             if room.host_id == input.player then room.host_id = room.seats[1].player_id end
             save_room(room)

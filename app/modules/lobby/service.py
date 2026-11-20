@@ -15,6 +15,7 @@ QUEUES: tuple[tuple[Mode, str], ...] = (
     ("ranked", "ranked:champion_legend"),
 )
 ERRORS = {
+    "game_in_progress": (409, "Leave an active match through the game connection"),
     "room_not_found": (404, "Room not found"),
     "seat_not_found": (404, "Seat not found"),
     "player_busy": (409, "Leave your current room or queue first"),

@@ -20,6 +20,7 @@ class LobbyRepository:
         self.prefix = f"{settings.redis_prefix}:lobby"
         self.parameters = {
             "room_ttl": settings.room_ttl_seconds,
+            "start_delay_ms": round(settings.room_start_seconds * 1000),
             "queue_ttl": settings.queue_ttl_seconds,
             "bot_wait_ms": round(settings.bot_fill_seconds * 1000),
             "lease_ms": max(1, round(settings.claim_lease_seconds * 1000)),

@@ -1,3 +1,5 @@
+mod online;
+
 use donke_core::{Card, Event, Game, GameError};
 use pyo3::{
     exceptions::{PyRuntimeError, PyValueError},
@@ -76,5 +78,6 @@ impl PracticeGame {
 #[pymodule(gil_used = true)]
 fn donke_engine(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PracticeGame>()?;
+    module.add_class::<online::OnlineGame>()?;
     Ok(())
 }
