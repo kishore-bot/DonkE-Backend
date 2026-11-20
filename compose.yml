@@ -1,0 +1,70 @@
+x-backend: &backend
+  image: localhost/donke-backend:dev
+  pull_policy: never
+  environment:
+    DONKE_POSTGRES_DSN: postgresql+asyncpg://donke:${DONKE_POSTGRES_PASSWORD:?Set DONKE_POSTGRES_PASSWORD}@postgres:5432/donke
+    DONKE_REDIS_DSN: redis://redis:6379/0
+    DONKE_AUTH_SECRET: ${DONKE_AUTH_SECRET:?Set DONKE_AUTH_SECRET}
+    DONKE_GOOGLE_CLIENT_ID: ${DONKE_GOOGLE_CLIENT_ID:-}
+    DONKE_BOT_FILL_SECONDS: ${DONKE_BOT_FILL_SECONDS:-10}
+    DONKE_PRACTICE_SESSION_TTL_SECONDS: ${DONKE_PRACTICE_SESSION_TTL_SECONDS:-3600}
+    DONKE_PRACTICE_MAX_SESSIONS: ${DONKE_PRACTICE_MAX_SESSIONS:-128}
+    DONKE_REDIS_PREFIX: ${DONKE_REDIS_PREFIX:-donke}
+    DONKE_ACCESS_SECONDS: ${DONKE_ACCESS_SECONDS:-1800}
+    DONKE_REFRESH_SECONDS: ${DONKE_REFRESH_SECONDS:-604800}
+    DONKE_ADMIN_SESSION_SECONDS: ${DONKE_ADMIN_SESSION_SECONDS:-900}
+    DONKE_ROOM_TTL_SECONDS: ${DONKE_ROOM_TTL_SECONDS:-3600}
+    DONKE_QUEUE_TTL_SECONDS: ${DONKE_QUEUE_TTL_SECONDS:-120}
+    DONKE_CLAIM_LEASE_SECONDS: ${DONKE_CLAIM_LEASE_SECONDS:-5}
+    DONKE_MATCHMAKING_POLL_SECONDS: ${DONKE_MATCHMAKING_POLL_SECONDS:-0.25}
+
+services:
+  postgres:
+    image: docker.io/pgvector/pgvector:0.8.7-pg18
+    environment:
+      POSTGRES_USER: donke
+      POSTGRES_DB: donke
+      POSTGRES_PASSWORD: ${DONKE_POSTGRES_PASSWORD:?Set DONKE_POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "donke", "-d", "donke"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  redis:
+    image: docker.io/library/redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+  app:
+    <<: *backend
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+  matchmaking:
+    <<: *backend
+    command: ["python", "-m", "app.workers.matchmaking"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+volumes:
+  postgres-data:
+  redis-data:

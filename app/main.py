@@ -1,0 +1,91 @@
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from redis.exceptions import RedisError
+from sqlalchemy.exc import SQLAlchemyError
+
+from app.core.config import Settings
+from app.core.errors import (
+    AppError,
+    ErrorResponse,
+    handle_app_error,
+    handle_validation_error,
+)
+from app.core.platform import Platform, open_platform
+from app.modules.admin.router import router as admin_router
+from app.modules.admin.service import AdminService
+from app.modules.game.repository import PracticeRepository
+from app.modules.game.router import router as practice_router
+from app.modules.game.service import PracticeService
+from app.modules.identity.google import GoogleIdentity, GoogleVerifier
+from app.modules.identity.router import router as identity_router
+from app.modules.lobby.router import matchmaking, rooms
+
+logger = logging.getLogger(__name__)
+
+
+async def handle_store_error(request: Request, error: Exception) -> JSONResponse:
+    logger.warning("Online storage request failed (%s)", type(error).__name__)
+    return await handle_app_error(
+        request, AppError(503, "store_unavailable", "Online storage is unavailable")
+    )
+
+
+def create_app(
+    settings: Settings | None = None, google: GoogleIdentity | None = None
+) -> FastAPI:
+    config = settings or Settings()
+
+    @asynccontextmanager
+    async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+        if config.postgres_dsn is None:
+            yield
+            return
+        async with open_platform(config) as platform:
+            application.state.platform = platform
+            application.state.admin = AdminService(platform)
+            application.state.google = (
+                google
+                if google is not None
+                else GoogleVerifier(config.google_client_id)
+            )
+            try:
+                yield
+            finally:
+                application.state.platform = None
+
+    app = FastAPI(
+        title="DonkE",
+        version="0.2.0",
+        lifespan=lifespan,
+        responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
+    )
+    app.state.platform = None
+    app.state.practice = PracticeService(PracticeRepository(), config)
+    app.add_exception_handler(AppError, handle_app_error)
+    app.add_exception_handler(RequestValidationError, handle_validation_error)
+    app.add_exception_handler(SQLAlchemyError, handle_store_error)
+    app.add_exception_handler(OSError, handle_store_error)
+    app.add_exception_handler(RedisError, handle_store_error)
+    for router in (practice_router, identity_router, rooms, matchmaking, admin_router):
+        app.include_router(router)
+
+    @app.get("/healthz")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/ready")
+    async def ready(request: Request) -> dict[str, str]:
+        platform: Platform | None = request.app.state.platform
+        if platform is not None:
+            await platform.ready()
+        return {"status": "ok"}
+
+    return app
+
+
+app = create_app()

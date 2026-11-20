@@ -1,0 +1,53 @@
+name: Verify DonkE
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.9"
+      - name: Install the Rust toolchain
+        run: rustup toolchain install 1.96.0 --profile minimal --component rustfmt,clippy
+      - name: Install locked Python dependencies
+        env:
+          RUSTUP_TOOLCHAIN: "1.96.0"
+        run: uv sync --locked
+      - name: Static and engine checks
+        env:
+          RUSTUP_TOOLCHAIN: "1.96.0"
+        run: |
+          uv run ruff check .
+          uv run ruff format --check app migrations scripts tests typings
+          uv run pyright
+          uv run python -m scripts.export_openapi --check
+          cargo fmt --all --manifest-path engine/Cargo.toml -- --check
+          cargo test --locked --manifest-path engine/Cargo.toml
+          cargo clippy --locked --manifest-path engine/Cargo.toml --workspace --all-targets -- -D warnings
+      - name: Start disposable integration stores
+        run: |
+          podman run -d --name donke-test-pg -p 127.0.0.1:55432:5432 -e POSTGRES_PASSWORD=synthetic docker.io/pgvector/pgvector:0.8.7-pg18
+          podman run -d --name donke-test-redis -p 127.0.0.1:56379:6379 docker.io/library/redis:8-alpine
+          timeout 45s sh -c 'until podman exec donke-test-pg pg_isready -h 127.0.0.1 -U postgres && podman exec donke-test-redis redis-cli ping; do sleep 1; done'
+      - name: Migration round trip
+        env:
+          DONKE_POSTGRES_DSN: postgresql+asyncpg://postgres:synthetic@127.0.0.1:55432/postgres
+          DONKE_REDIS_DSN: redis://127.0.0.1:56379/0
+          DONKE_AUTH_SECRET: synthetic-ci-key-with-at-least-32-bytes
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+      - name: API and integration tests
+        env:
+          TEST_POSTGRES_DSN: postgresql+asyncpg://postgres:synthetic@127.0.0.1:55432/postgres
+          TEST_REDIS_DSN: redis://127.0.0.1:56379/0
+        run: uv run pytest -q

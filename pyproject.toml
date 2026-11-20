@@ -1,0 +1,45 @@
+[project]
+name = "donke-backend"
+version = "0.2.0"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "donke-engine",
+    "fastapi==0.165.0",
+    "pydantic>=2.13,<3",
+    "pydantic-settings>=2.15,<3",
+    "granian>=2.8,<3",
+    "alembic>=1.16,<2",
+    "anyio>=4,<5",
+    "argon2-cffi>=25,<26",
+    "asyncpg>=0.31,<1",
+    "google-auth[requests]>=2.40,<3",
+    "pyjwt>=2.10,<3",
+    "redis>=6,<9",
+    "requests>=2.32,<3",
+    "sqlalchemy[asyncio]>=2.0,<3",
+]
+
+[dependency-groups]
+dev = ["httpx2", "pyright[nodejs]>=1.1,<2", "pytest>=9,<10", "ruff>=0.9,<1"]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["engine/py"]
+
+[tool.uv.sources]
+donke-engine = { workspace = true }
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = ["integration: uses disposable PostgreSQL and Redis servers"]
+
+[tool.pyright]
+include = ["app"]
+stubPath = "typings"
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.14"
+typeCheckingMode = "basic"

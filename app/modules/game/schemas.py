@@ -1,0 +1,123 @@
+from typing import Annotated, Literal
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
+
+type Suit = Literal["Clubs", "Diamonds", "Hearts", "Spades"]
+type Rank = Literal[
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Jack",
+    "Queen",
+    "King",
+    "Ace",
+]
+
+
+class Card(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    suit: Suit
+    rank: Rank
+
+
+class TableCard(BaseModel):
+    seat: int
+    card: Card
+
+
+class DonkeyOutcome(BaseModel):
+    reason: Literal["donkey"]
+    seat: int
+
+
+class AllSafeOutcome(BaseModel):
+    reason: Literal["all_safe"]
+
+
+class PlayLimitOutcome(BaseModel):
+    reason: Literal["play_limit"]
+
+
+Outcome = Annotated[
+    DonkeyOutcome | AllSafeOutcome | PlayLimitOutcome,
+    Field(discriminator="reason"),
+]
+
+
+class CardPlayed(BaseModel):
+    event: Literal["card_played"]
+    seat: int
+    card: Card
+
+
+class TrickDiscarded(BaseModel):
+    event: Literal["trick_discarded"]
+    leader: int
+    pile: list[TableCard]
+
+
+class Vettu(BaseModel):
+    event: Literal["vettu"]
+    cutter: int
+    receiver: int
+    pile: list[TableCard]
+
+
+class PlayerEscaped(BaseModel):
+    event: Literal["player_escaped"]
+    seat: int
+    place: int
+
+
+class GameFinished(BaseModel):
+    event: Literal["game_finished"]
+    outcome: Outcome
+
+
+Event = Annotated[
+    CardPlayed | TrickDiscarded | Vettu | PlayerEscaped | GameFinished,
+    Field(discriminator="event"),
+]
+
+
+class PlayerView(BaseModel):
+    version: int
+    turn: int | None
+    outcome: Outcome | None
+    card_counts: list[int]
+    table: list[TableCard]
+    escape_order: list[int]
+    hand: list[Card]
+    legal_moves: list[Card]
+
+
+class GameUpdate(BaseModel):
+    view: PlayerView
+    events: list[Event]
+
+
+class PracticeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    seats: int = Field(default=4, ge=2, le=5, strict=True)
+
+
+class PracticeCreated(GameUpdate):
+    game_id: UUID
+    access_token: str
+
+
+class PlayRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: UUID
+    expected_version: int = Field(ge=0, strict=True)
+    card: Card
