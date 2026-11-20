@@ -1,12 +1,15 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from secrets import compare_digest
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from anyio import CapacityLimiter, to_thread
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.core.platform import Platform
@@ -154,3 +157,36 @@ class AdminService:
                 AuditEntry.model_validate(row)
                 for row in await repository.recent_audit(db)
             ]
+
+
+@asynccontextmanager
+async def admin_write(
+    platform: Platform,
+    cookie: str | None,
+    csrf: str | None,
+    request_id: UUID | None,
+    action: str,
+    reason: str,
+) -> AsyncIterator[AsyncSession]:
+    async with platform.sessions.begin() as db:
+        row = await repository.session_owner(
+            db, token_digest(cookie or ""), datetime.now(UTC), lock=True
+        )
+        if row is None:
+            raise AppError(401, "invalid_admin_session", "Admin authentication failed")
+        session, admin = row
+        if admin.role != "admin":
+            raise AppError(403, "admin_required", "Admin role required")
+        if csrf is None or not compare_digest(
+            csrf.encode(), session.csrf_token.encode()
+        ):
+            raise AppError(403, "csrf_required", "Send a valid CSRF token")
+        db.add(
+            AdminAudit(
+                admin_id=admin.id,
+                action=action,
+                reason=reason,
+                request_id=request_id or uuid4(),
+            )
+        )
+        yield db

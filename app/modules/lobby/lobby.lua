@@ -94,9 +94,10 @@ local function new_seat(player, name, ready, bot)
     return {player_id = player, display_name = name, ready = ready, bot = bot}
 end
 
-local function enqueue(player, name, mode, queue, since)
+local function enqueue(player, name, mode, queue, since, party, mates)
     write('member', player, {
         kind = 'queued', id = queue, mode = mode, enqueued_ms = since, name = name,
+        party = party, mates = mates,
     }, input.queue_ttl)
     redis.call('ZADD', key('queue', queue), since, player)
 end
@@ -113,7 +114,7 @@ local function rollback(id, claim)
         local member = membership(entry.player_id)
         if not (claim.cancelled and claim.cancelled[entry.player_id])
             and matching_id(member, 'claim', id) then
-            enqueue(entry.player_id, entry.name, claim.mode, claim.queue, entry.since)
+            enqueue(entry.player_id, entry.name, claim.mode, claim.queue, entry.since, entry.party, entry.mates)
         end
     end
     drop_claim(id)
@@ -130,14 +131,34 @@ end
 
 if op == 'claim' then
     local queue = key('queue', input.queue)
-    local entries = {}
+    local entries, taken = {}, {}
     for _, player in ipairs(redis.call('ZRANGE', queue, 0, 31)) do
         local member = membership(player)
-        if matching_id(member, 'queued', input.queue) then
-            table.insert(entries, {player_id = player, name = member.name, since = member.enqueued_ms})
-            if #entries == input.seats then break end
-        else
+        if not matching_id(member, 'queued', input.queue) then
             redis.call('ZREM', queue, player)
+        elseif not taken[player] then
+            local mates = member.mates or {player}
+            local unit = {}
+            if #entries + #mates <= input.seats then
+                for _, mate in ipairs(mates) do
+                    local queued = membership(mate)
+                    if not matching_id(queued, 'queued', input.queue)
+                        or queued.party ~= member.party or taken[mate] then
+                        break
+                    end
+                    table.insert(unit, {
+                        player_id = mate, name = queued.name, since = queued.enqueued_ms,
+                        party = queued.party, mates = queued.mates,
+                    })
+                end
+            end
+            if #unit == #mates then
+                for _, entry in ipairs(unit) do
+                    taken[entry.player_id] = true
+                    table.insert(entries, entry)
+                end
+                if #entries == input.seats then break end
+            end
         end
     end
     local now = now_ms()
@@ -155,6 +176,7 @@ if op == 'claim' then
         redis.call('ZREM', queue, entry.player_id)
         write('member', entry.player_id, {
             kind = 'claim', id = input.claim_id, mode = claim.mode, enqueued_ms = entry.since,
+            party = entry.party, mates = entry.mates,
         }, input.queue_ttl)
     end
     return cjson.encode({claim_id = input.claim_id})
@@ -209,18 +231,40 @@ if op == 'enqueue' then
     return cjson.encode(status(membership(input.player)))
 end
 
-if op == 'cancel' then
-    if member and member.kind == 'queued' then
-        redis.call('ZREM', key('queue', member.id), input.player)
-        remove('member', input.player)
-    elseif member and member.kind == 'claim' then
-        local claim = read('claim', member.id)
-        if claim then
-            claim.cancelled = claim.cancelled or {}
-            claim.cancelled[input.player] = true
-            write('claim', member.id, claim)
+if op == 'enqueue_party' then
+    local roster = cjson.decode(input.roster)
+    local mates = {}
+    for _, entry in ipairs(roster) do
+        local current = membership(entry.player_id)
+        if current then
+            if current.party == input.party then return cjson.encode(status(current)) end
+            return failure('player_busy')
         end
-        remove('member', input.player)
+        table.insert(mates, entry.player_id)
+    end
+    local since = now_ms()
+    for _, entry in ipairs(roster) do
+        enqueue(entry.player_id, entry.name, 'classic', 'classic', since, input.party, mates)
+    end
+    return cjson.encode(status(membership(input.player)))
+end
+
+if op == 'cancel' then
+    if member and (member.kind == 'queued' or member.kind == 'claim') then
+        local claim = member.kind == 'claim' and read('claim', member.id) or nil
+        for _, mate in ipairs(member.mates or {input.player}) do
+            local current = membership(mate)
+            if matching_id(current, member.kind, member.id) and current.party == member.party then
+                if member.kind == 'queued' then
+                    redis.call('ZREM', key('queue', member.id), mate)
+                elseif claim then
+                    claim.cancelled = claim.cancelled or {}
+                    claim.cancelled[mate] = true
+                end
+                remove('member', mate)
+            end
+        end
+        if claim then write('claim', member.id, claim) end
     elseif member and member.kind == 'room' then
         return failure('player_busy')
     end

@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from uuid import UUID, uuid4
 
@@ -84,6 +85,20 @@ class LobbyService:
             name=player.display_name,
             mode=mode,
             queue=queue_for(mode, player.mmr),
+        )
+        return QueueStatus.model_validate(result)
+
+    async def join_party(self, party_id: UUID, roster: list[Profile]) -> QueueStatus:
+        result = await self._command(
+            "enqueue_party",
+            player=str(roster[0].id),
+            party=str(party_id),
+            roster=json.dumps(
+                [
+                    {"player_id": str(member.id), "name": member.display_name}
+                    for member in roster
+                ]
+            ),
         )
         return QueueStatus.model_validate(result)
 

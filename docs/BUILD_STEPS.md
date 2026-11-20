@@ -6,7 +6,7 @@
 | 2 ✓ | Build the Rust rules crate, PyO3 binding and local FastAPI practice API. | Play a complete match for each supported seat count. Verify private views, retry behavior and concurrent plays. |
 | 3 ✓ | Add platform storage and identity, then online rooms and matchmaking. | Run PostgreSQL migrations and prove queue claims, rollback and cancellation against real Redis. |
 | 4 ✓ | Add multiplayer WebSockets, turn deadlines, settlement and replay. | Test multi-worker fencing, outbox recovery, private reconnects, timeout takeover and duplicate settlement. Export the KMP-facing AsyncAPI contract. |
-| 5 | Add friends, parties, progression, the free season pass and the earned-coin store. | Test each reward and season close under retries. |
+| 5 ✓ | Add friends, parties, progression, the free season pass and the earned-coin store. | Test each reward and season close under retries. |
 | 6 | Add optional localized commentary, voice, coaching and operator tools. | Verify scripted fallbacks, worker recovery, cost limits and output validation. |
 
 The [online foundation](ONLINE_FOUNDATION.md) details Step 3. The product briefs document the remaining features within each step.

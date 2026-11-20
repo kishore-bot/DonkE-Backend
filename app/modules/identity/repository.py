@@ -1,11 +1,12 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import Integer, cast, delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity.models import Player, PlayerSession, RefreshToken
+from app.modules.identity.schemas import Profile
 
 
 async def find_or_create_player(db: AsyncSession, subject: str) -> Player:
@@ -59,4 +60,21 @@ async def apply_rating(db: AsyncSession, player_id: UUID, delta: int) -> None:
         update(Player)
         .where(Player.id == player_id)
         .values(mmr=func.greatest(0, Player.mmr + delta))
+    )
+
+
+async def profiles(db: AsyncSession, player_ids: list[UUID]) -> dict[UUID, Profile]:
+    rows = await db.scalars(
+        select(Player)
+        .where(Player.id.in_(player_ids), Player.active.is_(True))
+        .order_by(Player.id)
+    )
+    return {player.id: Profile.model_validate(player) for player in rows}
+
+
+async def reset_ratings(db: AsyncSession) -> None:
+    await db.execute(
+        update(Player).values(
+            mmr=1200 + cast(func.trunc((Player.mmr - 1200) / 2), Integer)
+        )
     )

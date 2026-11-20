@@ -1,0 +1,118 @@
+from datetime import UTC, datetime
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Path
+
+from app.modules.admin.router import Cookie, CsrfToken, RequestId
+from app.modules.admin.service import admin_write
+from app.modules.identity.router import CurrentPlayer, PlatformDep
+from app.modules.lobby.router import Writes
+from app.modules.progression import service
+from app.modules.progression.schemas import (
+    CatalogItem,
+    CloseSeason,
+    MySeason,
+    SeasonCreate,
+    SeasonInfo,
+    Standing,
+    WalletView,
+)
+from app.modules.progression.service import ProgressionService
+
+router = APIRouter(prefix="/api/v1", tags=["Progression"])
+Sku = Annotated[str, Path(min_length=1, max_length=80)]
+
+
+def progression(platform: PlatformDep) -> ProgressionService:
+    return ProgressionService(platform)
+
+
+Progression = Annotated[ProgressionService, Depends(progression)]
+
+
+@router.get("/store/wallet")
+async def balance(player: CurrentPlayer, progress: Progression) -> WalletView:
+    return WalletView(coins=await progress.balance(player.profile.id))
+
+
+@router.get("/store/catalog")
+async def catalog(player: CurrentPlayer, progress: Progression) -> list[CatalogItem]:
+    return await progress.catalog(player.profile.id)
+
+
+@router.get("/store/inventory")
+async def inventory(player: CurrentPlayer, progress: Progression) -> list[str]:
+    return await progress.inventory(player.profile.id)
+
+
+@router.post("/store/{sku}/buy", dependencies=Writes)
+async def buy(sku: Sku, player: CurrentPlayer, progress: Progression) -> WalletView:
+    return WalletView(coins=await progress.buy(player.profile.id, sku))
+
+
+@router.put("/store/{sku}/equip", status_code=204, dependencies=Writes)
+async def equip(sku: Sku, player: CurrentPlayer, progress: Progression) -> None:
+    await progress.equip(player.profile.id, sku)
+
+
+@router.get("/seasons/current")
+async def current(player: CurrentPlayer, progress: Progression) -> MySeason | None:
+    return await progress.current(player.profile.id)
+
+
+@router.get("/seasons/{season_id}/board")
+async def board(
+    season_id: UUID, _: CurrentPlayer, progress: Progression
+) -> list[Standing]:
+    return await progress.board(season_id)
+
+
+@router.post("/seasons/{season_id}/tiers/{tier}/claim", dependencies=Writes)
+async def claim_tier(
+    season_id: UUID,
+    tier: Annotated[int, Path(ge=1, le=30)],
+    player: CurrentPlayer,
+    progress: Progression,
+) -> dict[str, bool]:
+    return {"credited": await progress.claim(player.profile.id, season_id, tier=tier)}
+
+
+@router.post("/seasons/{season_id}/weekly/{challenge}/claim", dependencies=Writes)
+async def claim_weekly(
+    season_id: UUID, challenge: Sku, player: CurrentPlayer, progress: Progression
+) -> dict[str, bool]:
+    return {
+        "credited": await progress.claim(
+            player.profile.id, season_id, challenge=challenge
+        )
+    }
+
+
+@router.post("/admin/seasons", status_code=201)
+async def create_season(
+    body: SeasonCreate,
+    platform: PlatformDep,
+    cookie: Cookie,
+    csrf: CsrfToken = None,
+    request_id: RequestId = None,
+) -> SeasonInfo:
+    async with admin_write(
+        platform, cookie, csrf, request_id, "create_season", body.reason
+    ) as db:
+        return await service.create_season(db, body)
+
+
+@router.post("/admin/seasons/{season_id}/close")
+async def close_season(
+    season_id: UUID,
+    body: CloseSeason,
+    platform: PlatformDep,
+    cookie: Cookie,
+    csrf: CsrfToken = None,
+    request_id: RequestId = None,
+) -> SeasonInfo:
+    async with admin_write(
+        platform, cookie, csrf, request_id, "close_season", body.reason
+    ) as db:
+        return await service.close_season(db, season_id, datetime.now(UTC))

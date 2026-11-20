@@ -1,5 +1,7 @@
+from datetime import UTC, datetime
 from uuid import UUID
 
+from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert
 
 from app.core.errors import AppError
@@ -7,6 +9,7 @@ from app.core.platform import Platform
 from app.modules.identity.repository import apply_rating
 from app.modules.matches.models import MatchRecord
 from app.modules.matches.schemas import MatchReplay
+from app.modules.progression.service import active_season, on_match
 
 
 def rated_changes(replay: MatchReplay) -> dict[UUID, int]:
@@ -43,8 +46,12 @@ async def persist(platform: Platform, replay: MatchReplay) -> bool:
         )
         if applied is None:
             return False
+        await db.execute(text("SELECT pg_advisory_xact_lock_shared(470053)"))
+        now = datetime.now(UTC)
+        season = await active_season(db, now)
         for player_id, delta in sorted(rated_changes(replay).items()):
             await apply_rating(db, player_id, delta)
+        await on_match(db, replay, season, now)
         return True
 
 

@@ -10,6 +10,15 @@ from app.core.platform import Base
 from app.modules.admin.models import AdminAudit, AdminSession, AdminUser
 from app.modules.identity.models import Player, PlayerSession, RefreshToken
 from app.modules.matches.models import MatchRecord
+from app.modules.progression.models import (
+    CoinLedger,
+    Cosmetic,
+    Season,
+    SeasonPlayer,
+    Wallet,
+    WeeklyPlayer,
+)
+from app.modules.social.models import Friendship, Party, PartyInvite, PartyMember
 
 # Import the metadata owners so migration drift checks see all tables.
 MAPPED_MODELS = (
@@ -20,6 +29,16 @@ MAPPED_MODELS = (
     PlayerSession,
     RefreshToken,
     MatchRecord,
+    CoinLedger,
+    Cosmetic,
+    Season,
+    SeasonPlayer,
+    Wallet,
+    WeeklyPlayer,
+    Friendship,
+    Party,
+    PartyInvite,
+    PartyMember,
 )
 
 

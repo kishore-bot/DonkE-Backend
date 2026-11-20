@@ -25,6 +25,8 @@ from app.modules.identity.google import GoogleIdentity, GoogleVerifier
 from app.modules.identity.router import router as identity_router
 from app.modules.lobby.router import matchmaking, rooms
 from app.modules.matches.router import router as matches_router
+from app.modules.progression.router import router as progress_router
+from app.modules.social.router import router as social_router
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +81,8 @@ def create_app(
         matchmaking,
         admin_router,
         matches_router,
+        progress_router,
+        social_router,
     ):
         app.include_router(router)
 
