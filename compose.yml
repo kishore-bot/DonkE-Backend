@@ -22,6 +22,13 @@ x-backend: &backend
     DONKE_BOT_TURN_SECONDS: ${DONKE_BOT_TURN_SECONDS:-0.5}
     DONKE_MATCH_MINUTES: ${DONKE_MATCH_MINUTES:-45}
     DONKE_MATCH_ARCHIVE_SECONDS: ${DONKE_MATCH_ARCHIVE_SECONDS:-86400}
+    DONKE_GEMINI_API_KEY: ${DONKE_GEMINI_API_KEY:-}
+    DONKE_GEMINI_TEXT_MODEL: ${DONKE_GEMINI_TEXT_MODEL:-gemini-3.8-flash}
+    DONKE_GEMINI_VOICE_MODEL: ${DONKE_GEMINI_VOICE_MODEL:-gemini-3.8-flash-tts}
+    DONKE_GEMINI_EMBEDDING_MODEL: ${DONKE_GEMINI_EMBEDDING_MODEL:-gemini-embedding-2}
+    DONKE_AI_TEXT_DAILY_CALLS: ${DONKE_AI_TEXT_DAILY_CALLS:-250}
+    DONKE_AI_VOICE_DAILY_CALLS: ${DONKE_AI_VOICE_DAILY_CALLS:-100}
+    DONKE_VOICE_CONCURRENCY: ${DONKE_VOICE_CONCURRENCY:-2}
 
 services:
   postgres:
@@ -65,6 +72,14 @@ services:
   matchmaking:
     <<: *backend
     command: ["python", "-m", "app.workers.matchmaking"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+  voice:
+    <<: *backend
+    command: ["python", "-m", "app.workers.voice"]
     depends_on:
       migrate:
         condition: service_completed_successfully

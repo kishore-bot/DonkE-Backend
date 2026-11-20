@@ -1,6 +1,6 @@
 # DonkE Backend
 
-DonkE is a fresh backend for the Kerala card game Kazhutha. Play a local practice match with one human and one to four bots, or use online identity, rooms and matchmaking to form a lobby. The Rust engine owns the rules. FastAPI starts matches, protects each private hand with a match-scoped token, and rejects stale card commands.
+DonkE is a fresh backend for the Kerala card game Kazhutha. Play a local practice match with one human and one to four bots, or play online with rooms, friends and matchmaking. The Rust engine owns the rules. FastAPI starts matches, protects each private hand with a match-scoped token, and rejects stale card commands.
 
 ## Run the practice API
 
@@ -25,9 +25,13 @@ podman compose up -d
 curl --fail http://127.0.0.1:8000/ready
 ```
 
-The stack starts PostgreSQL with pgvector, Redis, an Alembic migration, the API and the matchmaking worker. PostgreSQL and Redis are on the internal network. Run `podman compose down` to stop the stack while keeping data. [Podman Compose documentation](https://docs.podman.io/en/latest/markdown/podman-compose.1.html)
+The stack starts PostgreSQL with pgvector, Redis, an Alembic migration, the API, the matchmaking and game worker, and the optional voice worker. Set `DONKE_GEMINI_API_KEY` to enable Gemini calls. PostgreSQL and Redis are on the internal network. Run `podman compose down` to stop the stack while keeping data. [Podman Compose documentation](https://docs.podman.io/en/latest/markdown/podman-compose.1.html)
 
 For an existing local PostgreSQL and Redis setup, configure `DONKE_POSTGRES_DSN`, `DONKE_REDIS_DSN` and `DONKE_AUTH_SECRET` in `.env`. Run `uv run alembic upgrade head`, start Granian as above and run `uv run python -m app.workers.matchmaking` in a separate terminal.
+
+## Local branches
+
+`dev-deploy` is the integration branch. The multiplayer, progression and AI phases are retained on `phase-4-multiplayer`, `phase-5-progression` and `phase-6-ai`.
 
 ## Verify
 
@@ -37,9 +41,10 @@ cargo clippy --locked --workspace --all-targets --manifest-path engine/Cargo.tom
 uv run ruff check .
 uv run pyright
 uv run python -m scripts.export_openapi --check
+uv run python -m scripts.export_asyncapi --check
 uv run pytest -q
 ```
 
 [Reference study and architecture](docs/STUDY_NOTES.md) · [Build steps and practice design](docs/BUILD_STEPS.md) · [Online foundation](docs/ONLINE_FOUNDATION.md)
 
-[November 2026 stack review](docs/STACK_REVIEW.md)
+[Multiplayer](docs/MULTIPLAYER.md) · [Progression](docs/PROGRESSION.md) · [AI and voice](docs/AI.md) · [November 2026 stack review](docs/STACK_REVIEW.md)

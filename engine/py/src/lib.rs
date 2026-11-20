@@ -75,9 +75,15 @@ impl PracticeGame {
     }
 }
 
+#[pyfunction]
+fn rank_passages(py: Python<'_>, query: String, passages: Vec<String>) -> Vec<usize> {
+    py.detach(move || donke_core::rank_passages(&query, &passages))
+}
+
 #[pymodule(gil_used = true)]
 fn donke_engine(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PracticeGame>()?;
     module.add_class::<online::OnlineGame>()?;
+    module.add_function(wrap_pyfunction!(rank_passages, module)?)?;
     Ok(())
 }

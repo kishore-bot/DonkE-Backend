@@ -229,6 +229,91 @@
         "title": "CloseSeason",
         "type": "object"
       },
+      "CoachReply": {
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation"
+          },
+          "source": {
+            "enum": [
+              "rules",
+              "gemini_selected",
+              "no_match"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "answer",
+          "source"
+        ],
+        "title": "CoachReply",
+        "type": "object"
+      },
+      "CoachRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "question": {
+            "maxLength": 400,
+            "minLength": 2,
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "CoachRequest",
+        "type": "object"
+      },
+      "Commentary": {
+        "properties": {
+          "language": {
+            "enum": [
+              "ml",
+              "ta",
+              "hi",
+              "kn",
+              "te",
+              "en"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "script",
+              "gemini"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "language",
+          "text",
+          "source"
+        ],
+        "title": "Commentary",
+        "type": "object"
+      },
       "DonkeyOutcome": {
         "properties": {
           "reason": {
@@ -1032,6 +1117,22 @@
         "title": "RefreshRequest",
         "type": "object"
       },
+      "ReindexRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReindexRequest",
+        "type": "object"
+      },
       "Room": {
         "properties": {
           "capacity": {
@@ -1413,6 +1514,25 @@
         "title": "Vettu",
         "type": "object"
       },
+      "VoiceStatus": {
+        "properties": {
+          "status": {
+            "enum": [
+              "disabled",
+              "pending",
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "VoiceStatus",
+        "type": "object"
+      },
       "WalletView": {
         "properties": {
           "coins": {
@@ -1445,10 +1565,156 @@
   },
   "info": {
     "title": "DonkE",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/ai/reindex": {
+      "post": {
+        "operationId": "sync_index_api_v1_admin_ai_reindex_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReindexRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Sync Index Api V1 Admin Ai Reindex Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Sync Index",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/admin/ai/usage": {
+      "get": {
+        "operationId": "usage_api_v1_admin_ai_usage_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Usage Api V1 Admin Ai Usage Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Usage",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
     "/api/v1/admin/audit": {
       "get": {
         "operationId": "audit_api_v1_admin_audit_get",
@@ -2125,6 +2391,62 @@
         ]
       }
     },
+    "/api/v1/coach/ask": {
+      "post": {
+        "operationId": "ask_api_v1_coach_ask_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoachRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoachReply"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Ask",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
     "/api/v1/friends": {
       "get": {
         "operationId": "friends_api_v1_friends_get",
@@ -2321,6 +2643,166 @@
         "summary": "Accept",
         "tags": [
           "Social"
+        ]
+      }
+    },
+    "/api/v1/games/{game_id}/commentary/{sequence}": {
+      "get": {
+        "operationId": "commentary_api_v1_games__game_id__commentary__sequence__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sequence",
+            "required": true,
+            "schema": {
+              "maximum": 1020,
+              "minimum": 1,
+              "title": "Sequence",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Commentary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Commentary",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/games/{game_id}/commentary/{sequence}/voice": {
+      "get": {
+        "operationId": "voice_api_v1_games__game_id__commentary__sequence__voice_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sequence",
+            "required": true,
+            "schema": {
+              "maximum": 1020,
+              "minimum": 1,
+              "title": "Sequence",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "voice_id",
+            "required": false,
+            "schema": {
+              "default": "kore",
+              "enum": [
+                "kore",
+                "puck",
+                "leda",
+                "aoede"
+              ],
+              "title": "Voice Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceStatus"
+                }
+              },
+              "audio/wav": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Voice",
+        "tags": [
+          "AI"
         ]
       }
     },

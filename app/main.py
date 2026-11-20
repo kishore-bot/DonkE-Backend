@@ -18,6 +18,9 @@ from app.core.errors import (
 from app.core.platform import Platform, open_platform
 from app.modules.admin.router import router as admin_router
 from app.modules.admin.service import AdminService
+from app.modules.ai.gateway import open_gateway
+from app.modules.ai.provider import AIProvider
+from app.modules.ai.router import router as ai_router
 from app.modules.game.repository import PracticeRepository
 from app.modules.game.router import router as practice_router
 from app.modules.game.service import PracticeService
@@ -39,7 +42,9 @@ async def handle_store_error(request: Request, error: Exception) -> JSONResponse
 
 
 def create_app(
-    settings: Settings | None = None, google: GoogleIdentity | None = None
+    settings: Settings | None = None,
+    google: GoogleIdentity | None = None,
+    ai: AIProvider | None = None,
 ) -> FastAPI:
     config = settings or Settings()
 
@@ -48,7 +53,11 @@ def create_app(
         if config.postgres_dsn is None:
             yield
             return
-        async with open_platform(config) as platform:
+        async with (
+            open_platform(config) as platform,
+            open_gateway(platform, ai) as gateway,
+        ):
+            application.state.gateway = gateway
             application.state.platform = platform
             application.state.admin = AdminService(platform)
             application.state.google = (
@@ -63,7 +72,7 @@ def create_app(
 
     app = FastAPI(
         title="DonkE",
-        version="0.2.0",
+        version="0.3.0",
         lifespan=lifespan,
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
     )
@@ -83,6 +92,7 @@ def create_app(
         matches_router,
         progress_router,
         social_router,
+        ai_router,
     ):
         app.include_router(router)
 

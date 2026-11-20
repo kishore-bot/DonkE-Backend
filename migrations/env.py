@@ -8,6 +8,7 @@ from sqlalchemy.pool import NullPool
 from app.core.config import Settings
 from app.core.platform import Base
 from app.modules.admin.models import AdminAudit, AdminSession, AdminUser
+from app.modules.ai.index import RuleEmbedding
 from app.modules.identity.models import Player, PlayerSession, RefreshToken
 from app.modules.matches.models import MatchRecord
 from app.modules.progression.models import (
@@ -39,6 +40,7 @@ MAPPED_MODELS = (
     Party,
     PartyInvite,
     PartyMember,
+    RuleEmbedding,
 )
 
 

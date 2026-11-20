@@ -34,6 +34,14 @@ class Settings(BaseSettings):
     match_minutes: int = Field(default=45, ge=1, le=120)
     match_archive_seconds: int = Field(default=86400, ge=60, le=604800)
 
+    gemini_api_key: SecretStr | None = None
+    gemini_text_model: str = "gemini-3.8-flash"
+    gemini_voice_model: str = "gemini-3.8-flash-tts"
+    gemini_embedding_model: str = "gemini-embedding-2"
+    ai_text_daily_calls: int = Field(default=250, ge=0, le=5000)
+    ai_voice_daily_calls: int = Field(default=100, ge=0, le=5000)
+    voice_concurrency: int = Field(default=2, ge=1, le=8)
+
     @model_validator(mode="after")
     def online_settings(self) -> Settings:
         online = (self.postgres_dsn, self.redis_dsn, self.auth_secret)
