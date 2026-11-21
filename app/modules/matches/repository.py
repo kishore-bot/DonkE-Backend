@@ -77,6 +77,15 @@ class MatchRepository:
         raw = await self.redis.get(self.game_key("state", game_id))
         return MatchState.model_validate_json(raw) if raw else None
 
+    async def latest_sequence(self, game_id: UUID) -> int | None:
+        """Sequence of the newest event batch: one XREVRANGE, no state decode.
+        Event ids are `{sequence}-0`, so the stream doubles as an index."""
+        newest = cast(
+            "list[tuple[str, dict[str, str]]]",
+            await self.redis.xrevrange(self.game_key("events", game_id), count=1),
+        )
+        return int(newest[0][0].split("-", maxsplit=1)[0]) if newest else None
+
     async def events(self, game_id: UUID, after: int, through: int) -> list[EventBatch]:
         records = await self.redis.xrange(
             self.game_key("events", game_id), f"({after}-0", f"{through}-0"

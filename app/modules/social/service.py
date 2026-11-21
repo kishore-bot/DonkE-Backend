@@ -1,8 +1,9 @@
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import cast, delete, or_, select
-from sqlalchemy.dialects.postgresql import JSONB, insert
+from sqlalchemy import delete, or_, select
+from sqlalchemy.orm import aliased
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
@@ -12,7 +13,7 @@ from app.modules.identity.schemas import Profile
 from app.modules.lobby.repository import LobbyRepository
 from app.modules.lobby.schemas import QueueStatus, Room
 from app.modules.lobby.service import LobbyService
-from app.modules.matches.models import MatchRecord
+from app.modules.matches.models import MatchPlayer, MatchRecord
 from app.modules.matches.schemas import MatchReplay
 from app.modules.progression.analytics import finishing_ranks, match_analytics
 from app.modules.social import live
@@ -347,17 +348,16 @@ class SocialService:
     async def together(self, player_id: UUID, other: UUID) -> Together:
         pair(player_id, other)
 
-        def seated(player: UUID):
-            return MatchRecord.replay.contains(
-                cast({"seats": [{"player_id": str(player)}]}, JSONB)
-            )
-
+        mine, theirs = aliased(MatchPlayer), aliased(MatchPlayer)
         async with self.platform.sessions() as db:
+            # Index walk: this player's recent matches joined to the other's.
             records = list(
                 await db.scalars(
                     select(MatchRecord)
-                    .where(seated(player_id), seated(other))
-                    .order_by(MatchRecord.finished_at.desc())
+                    .join(mine, mine.game_id == MatchRecord.id)
+                    .join(theirs, theirs.game_id == MatchRecord.id)
+                    .where(mine.player_id == player_id, theirs.player_id == other)
+                    .order_by(mine.finished_at.desc())
                     .limit(200)
                 )
             )

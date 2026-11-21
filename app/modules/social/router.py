@@ -114,6 +114,7 @@ async def unblock(player_id: UUID, player: CurrentPlayer, social: Social) -> Non
 
 @router.get("/friends/{player_id}/together")
 async def together(player_id: UUID, player: CurrentPlayer, social: Social) -> Together:
+    await limit(social.platform, "together", str(player.profile.id), 30, 60)
     return await social.together(player.profile.id, player_id)
 
 

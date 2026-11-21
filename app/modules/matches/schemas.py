@@ -64,4 +64,21 @@ class MatchReplay(BaseModel):
     seats: list[GameSeat]
     outcome: dict[str, Any]
     events: list[EventBatch]
+    # Private: every player's opening hand, kept only for engine analysis.
+    # Never return this model to clients; use PublicReplay.
     opening: str | None = None
+
+
+class PublicReplay(BaseModel):
+    """A finished match as players may see it: public events only."""
+
+    id: UUID
+    room_id: UUID
+    mode: Mode | None
+    seats: list[GameSeat]
+    outcome: dict[str, Any]
+    events: list[EventBatch]
+
+    @classmethod
+    def of(cls, replay: MatchReplay) -> PublicReplay:
+        return cls.model_validate(replay.model_dump(exclude={"opening"}))

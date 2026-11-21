@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.errors import AppError, ErrorResponse
+from app.core.rate_limit import client_host
 from app.modules.game.schemas import (
     GameUpdate,
     PlayRequest,
@@ -43,13 +44,17 @@ AUTH_ERRORS: dict[int | str, dict[str, Any]] = {
 @router.post(
     "",
     status_code=201,
-    responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
+    responses={
+        422: {"model": ErrorResponse},
+        429: {"model": ErrorResponse},
+        503: {"model": ErrorResponse},
+    },
 )
 def create_practice(
-    body: PracticeRequest, response: Response, service: Service
+    body: PracticeRequest, request: Request, response: Response, service: Service
 ) -> PracticeCreated:
     response.headers["Cache-Control"] = "no-store"
-    return service.create(body.seats, body.level)
+    return service.create(body.seats, body.level, client_host(request))
 
 
 @router.get("/{game_id}", responses=AUTH_ERRORS)

@@ -1502,75 +1502,6 @@
         "title": "MatchAnalytics",
         "type": "object"
       },
-      "MatchReplay": {
-        "properties": {
-          "events": {
-            "items": {
-              "$ref": "#/components/schemas/EventBatch"
-            },
-            "title": "Events",
-            "type": "array"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "mode": {
-            "anyOf": [
-              {
-                "enum": [
-                  "classic",
-                  "ranked"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mode"
-          },
-          "opening": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Opening"
-          },
-          "outcome": {
-            "additionalProperties": true,
-            "title": "Outcome",
-            "type": "object"
-          },
-          "room_id": {
-            "format": "uuid",
-            "title": "Room Id",
-            "type": "string"
-          },
-          "seats": {
-            "items": {
-              "$ref": "#/components/schemas/GameSeat"
-            },
-            "title": "Seats",
-            "type": "array"
-          }
-        },
-        "required": [
-          "id",
-          "room_id",
-          "mode",
-          "seats",
-          "outcome",
-          "events"
-        ],
-        "title": "MatchReplay",
-        "type": "object"
-      },
       "MatchRow": {
         "properties": {
           "finished_at": {
@@ -2316,6 +2247,65 @@
           }
         },
         "title": "ProfileUpdate",
+        "type": "object"
+      },
+      "PublicReplay": {
+        "description": "A finished match as players may see it: public events only.",
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventBatch"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "classic",
+                  "ranked"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "outcome": {
+            "additionalProperties": true,
+            "title": "Outcome",
+            "type": "object"
+          },
+          "room_id": {
+            "format": "uuid",
+            "title": "Room Id",
+            "type": "string"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/GameSeat"
+            },
+            "title": "Seats",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "room_id",
+          "mode",
+          "seats",
+          "outcome",
+          "events"
+        ],
+        "title": "PublicReplay",
         "type": "object"
       },
       "QueueRequest": {
@@ -7117,6 +7107,7 @@
     },
     "/api/v1/games/{game_id}/replay": {
       "get": {
+        "description": "Public events of a finished match. The opening deal is never sent.",
         "operationId": "replay_api_v1_games__game_id__replay_get",
         "parameters": [
           {
@@ -7135,7 +7126,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MatchReplay"
+                  "$ref": "#/components/schemas/PublicReplay"
                 }
               }
             },
@@ -7951,6 +7942,16 @@
               }
             },
             "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           },
           "503": {
             "content": {

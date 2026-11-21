@@ -16,7 +16,7 @@ from app.modules.identity.router import CurrentPlayer, PlatformDep
 from app.modules.identity.service import IdentityService, Principal
 from app.modules.matches import settlement
 from app.modules.matches.repository import MatchConflict
-from app.modules.matches.schemas import MatchReplay
+from app.modules.matches.schemas import PublicReplay
 from app.modules.matches.service import MatchService, position
 from app.modules.social import live
 from app.modules.social.safety import (
@@ -61,8 +61,11 @@ COMMAND = TypeAdapter(Command)
 @router.get("/{game_id}/replay")
 async def replay(
     game_id: UUID, player: CurrentPlayer, platform: PlatformDep
-) -> MatchReplay:
-    return await settlement.read_replay(platform, game_id, player.profile.id)
+) -> PublicReplay:
+    """Public events of a finished match. The opening deal is never sent."""
+    return PublicReplay.of(
+        await settlement.read_replay(platform, game_id, player.profile.id)
+    )
 
 
 async def send(socket: WebSocket, data: dict) -> None:
@@ -130,6 +133,7 @@ async def socket_loop(
     }
     feed_cursor = await forward_feed(None)
     next_auth = monotonic() + 5
+    next_renew = 0.0
     pending = asyncio.create_task(socket.receive())
     try:
         while True:
@@ -137,9 +141,14 @@ async def socket_loop(
                 await identity.active_session(player_id, principal.session_id)
                 await live.touch(service.platform, player_id)
                 next_auth = monotonic() + 5
-            await service.repo.execute(
-                "renew", game_id, player_id=str(player_id), owner=owner
-            )
+            # The 15 s connection lease is renewed every 3 s, not every tick;
+            # a replaced connection is noticed at the next renewal.
+            renewed = monotonic() >= next_renew
+            if renewed:
+                await service.repo.execute(
+                    "renew", game_id, player_id=str(player_id), owner=owner
+                )
+                next_renew = monotonic() + 3
             done, _ = await asyncio.wait({pending}, timeout=0.3)
             if done:
                 frame = pending.result()
@@ -183,9 +192,13 @@ async def socket_loop(
                         raise
                     await send(socket, {"type": "error", "code": exc.code})
                 pending = asyncio.create_task(socket.receive())
-            state = await service.load(game_id, player_id)
-            if state.sequence != cursor:
-                cursor = await sync(cursor)
+            # Idle ticks read one stream id instead of the whole match state.
+            # A full load still runs on each renewal, to notice a deleted game.
+            latest = await service.repo.latest_sequence(game_id)
+            if renewed or latest != cursor:
+                state = await service.load(game_id, player_id)
+                if state.sequence != cursor:
+                    cursor = await sync(cursor)
             feed_cursor = await forward_feed(feed_cursor)
     finally:
         if not pending.done():

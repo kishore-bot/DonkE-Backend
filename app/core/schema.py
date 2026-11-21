@@ -9,7 +9,7 @@ from app.modules.ai.fair_play import FairPlayCase
 from app.modules.ai.index import RuleEmbedding
 from app.modules.ai.rivals import PlayerRival
 from app.modules.identity.models import Player, PlayerSession, RefreshToken
-from app.modules.matches.models import MatchRecord
+from app.modules.matches.models import MatchPlayer, MatchRecord
 from app.modules.progression.models import (
     Achievement,
     CoinLedger,
@@ -41,6 +41,7 @@ MAPPED_MODELS = (
     PlayerSession,
     RefreshToken,
     MatchRecord,
+    MatchPlayer,
     CoinLedger,
     Cosmetic,
     Season,

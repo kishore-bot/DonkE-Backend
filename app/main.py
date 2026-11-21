@@ -1,4 +1,5 @@
 import logging
+from ipaddress import ip_network
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -81,6 +82,9 @@ def create_app(
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
     )
     app.state.platform = None
+    app.state.trusted_proxies = tuple(
+        ip_network(network, strict=False) for network in config.trusted_proxies
+    )
     app.state.practice = PracticeService(PracticeRepository(), config)
     app.add_exception_handler(AppError, handle_app_error)
     app.add_exception_handler(RequestValidationError, handle_validation_error)

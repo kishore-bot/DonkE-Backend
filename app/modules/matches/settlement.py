@@ -8,7 +8,7 @@ from app.core.errors import AppError
 from app.core.platform import Platform
 from app.modules.ai import rivals
 from app.modules.identity.repository import apply_rating
-from app.modules.matches.models import MatchRecord
+from app.modules.matches.models import MatchPlayer, MatchRecord
 from app.modules.matches.schemas import MatchReplay
 from app.modules.progression.service import active_season, on_match
 
@@ -22,7 +22,10 @@ def rated_changes(replay: MatchReplay) -> dict[UUID, int]:
         (index, seat) for index, seat in enumerate(replay.seats) if seat.player_id
     ]
     changes: dict[UUID, int] = {}
-    if replay.mode != "ranked":
+    # Ratings measure play against people. A ranked table that bots filled
+    # around a single human is unrated, so solo bot games cannot farm MMR
+    # (and, through peak MMR, season rewards).
+    if replay.mode != "ranked" or len(humans) < 2:
         return changes
     rank_stake = {1: 3, 2: 5, 3: 8, 4: 10}.get(len(humans), 10)
     loser = (
@@ -54,6 +57,20 @@ async def persist(
         )
         if applied is None:
             return False
+        seated = [
+            {
+                "game_id": replay.id,
+                "player_id": seat.player_id,
+                "seat": index,
+                "finished_at": completed,
+            }
+            for index, seat in enumerate(replay.seats)
+            if seat.player_id is not None
+        ]
+        if seated:
+            await db.execute(
+                insert(MatchPlayer).values(seated).on_conflict_do_nothing()
+            )
         await db.execute(text("SELECT pg_advisory_xact_lock_shared(470053)"))
         season = await active_season(db, completed)
         for player_id, delta in sorted(rated_changes(replay).items()):

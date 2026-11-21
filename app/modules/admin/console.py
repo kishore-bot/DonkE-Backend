@@ -7,8 +7,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import cast, func, select, update
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import func, select, update
 
 from app.core.errors import AppError
 from app.modules.admin import flags
@@ -19,7 +18,7 @@ from app.modules.admin.service import AdminService, admin_write
 from app.modules.ai.fair_play import FairPlayCase
 from app.modules.ai.gateway import Gateway
 from app.modules.identity.models import Player, PlayerSession
-from app.modules.matches.models import MatchRecord
+from app.modules.matches.models import MatchPlayer, MatchRecord
 from app.modules.matches.schemas import MatchReplay
 from app.modules.progression.analytics import MatchAnalytics, match_analytics
 from app.modules.progression.catalog import CATALOG, in_window
@@ -249,11 +248,11 @@ async def player_detail(
                 .order_by(Cosmetic.sku)
             )
         )
-        seated = cast({"seats": [{"player_id": str(player_id)}]}, JSONB)
         records = await db.scalars(
             select(MatchRecord)
-            .where(MatchRecord.replay.contains(seated))
-            .order_by(MatchRecord.finished_at.desc())
+            .join(MatchPlayer, MatchPlayer.game_id == MatchRecord.id)
+            .where(MatchPlayer.player_id == player_id)
+            .order_by(MatchPlayer.finished_at.desc())
             .limit(10)
         )
         recent = [match_row(record) for record in records]

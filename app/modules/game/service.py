@@ -1,4 +1,5 @@
 import json
+from collections import deque
 from hashlib import sha256
 from secrets import compare_digest, token_urlsafe
 from time import monotonic
@@ -28,26 +29,52 @@ class PracticeService:
         self.repository = repository
         self.settings = settings
 
+    def _admit(self, client: str, now: float) -> None:
+        """Caps checked before any bot runs, so rejected requests cost nothing.
+        Must hold the repository lock."""
+        sessions = self.repository.sessions
+        for game_id in [key for key, s in sessions.items() if s.expires_at <= now]:
+            del sessions[game_id]
+        recent = self.repository.created.setdefault(client, deque())
+        while recent and recent[0] <= now - 60:
+            recent.popleft()
+        if len(recent) >= self.settings.practice_creates_per_minute:
+            raise AppError(
+                429, "rate_limited", "Too many practice matches. Wait a minute"
+            )
+        mine = sum(1 for session in sessions.values() if session.client == client)
+        if mine >= self.settings.practice_sessions_per_client:
+            raise AppError(
+                429, "practice_limit", "Finish one of your practice matches first"
+            )
+        if len(sessions) >= self.settings.practice_max_sessions:
+            raise AppError(503, "practice_full", "Practice is at capacity")
+        recent.append(now)
+        # Forget idle clients so the window table cannot grow without bound.
+        for key in [key for key, times in self.repository.created.items() if not times]:
+            del self.repository.created[key]
+
     def create(
-        self, seats: int, level: Literal["easy", "medium", "hard"] = "medium"
+        self,
+        seats: int,
+        level: Literal["easy", "medium", "hard"] = "medium",
+        client: str = "unknown",
     ) -> PracticeCreated:
         with self.repository.lock:
-            now = monotonic()
+            self._admit(client, monotonic())
+        # Bots may play before the human's first turn: outside the table lock.
+        game = PracticeGame(seats, level, iterations=200)
+        update = GameUpdate.model_validate_json(game.snapshot())
+        game_id, token = uuid4(), token_urlsafe(32)
+        with self.repository.lock:
             sessions = self.repository.sessions
-            for game_id in [
-                key for key, session in sessions.items() if session.expires_at <= now
-            ]:
-                del sessions[game_id]
             if len(sessions) >= self.settings.practice_max_sessions:
                 raise AppError(503, "practice_full", "Practice is at capacity")
-
-            game = PracticeGame(seats, level, iterations=200)
-            update = GameUpdate.model_validate_json(game.snapshot())
-            game_id, token = uuid4(), token_urlsafe(32)
             sessions[game_id] = PracticeSession(
                 game=game,
                 token_digest=sha256(token.encode()).digest(),
-                expires_at=now + self.settings.practice_session_ttl_seconds,
+                expires_at=monotonic() + self.settings.practice_session_ttl_seconds,
+                client=client,
             )
             return PracticeCreated(
                 game_id=game_id,
@@ -84,6 +111,7 @@ class PracticeService:
     def play(self, game_id: UUID, token: str, command: PlayRequest) -> GameUpdate:
         with self.repository.lock:
             session = self._session(game_id, token)
+        with session.lock:
             previous = session.plays.get(command.request_id)
             if previous is not None:
                 if (previous.version, previous.card) != (
