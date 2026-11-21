@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     gemini_voice_model: str = "gemini-3.8-flash-tts"
     gemini_embedding_model: str = "gemini-embedding-2"
     admin_ui_dir: str = "admin-ui"
+    public_base_url: str = Field(default="https://donke.app", max_length=200)
     practice_hint_iterations: int = Field(default=200, ge=10, le=2000)
     ai_text_daily_calls: int = Field(default=250, ge=0, le=5000)
     ai_voice_daily_calls: int = Field(default=100, ge=0, le=5000)

@@ -2,7 +2,7 @@
 need CSRF, a reason, and the right role, and every write is audited."""
 
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Query, Request, Response
@@ -32,6 +32,8 @@ from app.modules.progression.models import (
 )
 from app.modules.progression.schemas import SeasonInfo
 from app.modules.progression.service import credit, own, wallet_lock
+from app.modules.social.models import PlayerMute, PlayerReport
+from app.modules.social.schemas import ReportView
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Admin console"])
 STAFF: tuple[Role, ...] = ("viewer", "moderator", "admin")
@@ -62,6 +64,14 @@ class CoinGrant(Reason):
 
 class CosmeticGrant(Reason):
     sku: str = Field(min_length=1, max_length=80)
+
+
+class MuteRequest(Reason):
+    minutes: int = Field(ge=0, le=60 * 24 * 30)  # 0 lifts the mute
+
+
+class ReportResolve(Reason):
+    decision: Literal["dismissed", "actioned"]
 
 
 class FlagUpdate(Reason):
@@ -116,6 +126,8 @@ class PlayerDetail(BaseModel):
     cosmetics: list[str]
     recent_matches: list[MatchRow]
     open_cases: int
+    open_reports: int
+    muted_until: datetime | None
 
 
 class StoreItem(BaseModel):
@@ -250,6 +262,12 @@ async def player_detail(
                 FairPlayCase.player_id == player_id, FairPlayCase.status == "open"
             )
         )
+        reports = await db.scalar(
+            select(func.count()).where(
+                PlayerReport.target_id == player_id, PlayerReport.status == "open"
+            )
+        )
+        mute = await db.get(PlayerMute, player_id)
     counters = (
         "games",
         "escapes",
@@ -269,6 +287,8 @@ async def player_detail(
         cosmetics=cosmetics,
         recent_matches=recent,
         open_cases=cases or 0,
+        open_reports=reports or 0,
+        muted_until=mute.until if mute and mute.until > datetime.now(UTC) else None,
     )
 
 
@@ -408,7 +428,7 @@ async def store(
                 await db.execute(
                     select(Cosmetic.sku, func.count()).group_by(Cosmetic.sku)
                 )
-            ).tuples()
+            ).all()
         )
     today = datetime.now(UTC).date()
     return [
@@ -528,3 +548,81 @@ async def update_admin_user(
             user.active = body.active
         await db.flush()
         return AdminRow.model_validate(user)
+
+
+@router.post("/players/{player_id}/mute")
+async def mute(
+    player_id: UUID,
+    body: MuteRequest,
+    platform: PlatformDep,
+    cookie: Cookie,
+    csrf: CsrfToken = None,
+    request_id: RequestId = None,
+) -> dict[str, datetime | None]:
+    """Chat mute; the player can still play. `minutes: 0` lifts it."""
+    action = "unmute_player" if body.minutes == 0 else "mute_player"
+    async with admin_write(
+        platform, cookie, csrf, request_id, action, body.reason, roles=MODERATORS
+    ) as db:
+        if await db.get(Player, player_id) is None:
+            raise AppError(404, "player_not_found", "Player not found")
+        row = await db.get(PlayerMute, player_id, with_for_update=True)
+        if body.minutes == 0:
+            if row is not None:
+                await db.delete(row)
+            return {"muted_until": None}
+        until = datetime.now(UTC) + timedelta(minutes=body.minutes)
+        if row is None:
+            db.add(PlayerMute(player_id=player_id, until=until, reason=body.reason))
+        else:
+            row.until, row.reason = until, body.reason
+        return {"muted_until": until}
+
+
+@router.get("/reports")
+async def reports(
+    response: Response,
+    cookie: Cookie,
+    admin: Admin,
+    platform: PlatformDep,
+    status: Literal["open", "dismissed", "actioned"] = "open",
+) -> list[ReportView]:
+    await staff(admin, cookie, MODERATORS)
+    no_store(response)
+    async with platform.sessions() as db:
+        rows = await db.scalars(
+            select(PlayerReport)
+            .where(PlayerReport.status == status)
+            .order_by(PlayerReport.created_at.desc())
+            .limit(100)
+        )
+        return [ReportView.model_validate(row) for row in rows]
+
+
+@router.post("/reports/{report_id}/resolve")
+async def resolve_report(
+    report_id: UUID,
+    body: ReportResolve,
+    platform: PlatformDep,
+    cookie: Cookie,
+    csrf: CsrfToken = None,
+    request_id: RequestId = None,
+) -> ReportView:
+    async with admin_write(
+        platform,
+        cookie,
+        csrf,
+        request_id,
+        f"report_{body.decision}",
+        body.reason,
+        roles=MODERATORS,
+    ) as db:
+        report = await db.get(PlayerReport, report_id, with_for_update=True)
+        if report is None:
+            raise AppError(404, "report_not_found", "Report not found")
+        if report.status == "open":
+            report.status = body.decision
+            report.resolution = body.reason
+            report.resolved_at = datetime.now(UTC)
+        await db.flush()
+        return ReportView.model_validate(report)

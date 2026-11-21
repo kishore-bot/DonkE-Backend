@@ -14,6 +14,7 @@ from app.modules.identity.schemas import (
     SessionTokens,
 )
 from app.modules.identity.service import IdentityService, Principal, unauthorized
+from app.modules.social.live import touch
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Identity"])
 PlatformDep = Annotated[Platform, Depends(get_platform)]
@@ -30,7 +31,10 @@ async def current_player(
 ) -> Principal:
     if credentials is None:
         raise unauthorized()
-    return await IdentityService(platform).authenticate(credentials.credentials)
+    principal = await IdentityService(platform).authenticate(credentials.credentials)
+    # Any authenticated request keeps the player "online" for friends.
+    await touch(platform, principal.profile.id)
+    return principal
 
 
 CurrentPlayer = Annotated[Principal, Depends(current_player)]

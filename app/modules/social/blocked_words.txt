@@ -1,0 +1,10 @@
+# One word or phrase per line. Matching ignores case and digit swaps and only
+# masks whole words. Extend this list for each supported language.
+idiot
+stupid
+moron
+bastard
+bitch
+shit
+fuck
+asshole

@@ -22,7 +22,15 @@ from app.modules.progression.models import (
     Wallet,
     WeeklyPlayer,
 )
-from app.modules.social.models import Friendship, Party, PartyInvite, PartyMember
+from app.modules.social.models import (
+    Friendship,
+    Party,
+    PartyInvite,
+    PartyMember,
+    PlayerBlock,
+    PlayerMute,
+    PlayerReport,
+)
 
 # Import all mapped tables for both migration drift checks and startup on an expanded schema.
 MAPPED_MODELS = (
@@ -47,6 +55,9 @@ MAPPED_MODELS = (
     PlayerRival,
     FairPlayCase,
     RuntimeFlag,
+    PlayerBlock,
+    PlayerReport,
+    PlayerMute,
     Friendship,
     Party,
     PartyInvite,

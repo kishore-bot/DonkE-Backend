@@ -16,7 +16,7 @@ from sqlalchemy.orm import DeclarativeBase
 from app.core.config import Settings
 from app.core.errors import AppError
 
-SCHEMA_HEAD = "20261121_admin_console"
+SCHEMA_HEAD = "20261121_social_safety"
 
 
 class Base(DeclarativeBase):

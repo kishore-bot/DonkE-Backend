@@ -10,13 +10,21 @@ from redis.exceptions import RedisError
 
 from app.core.errors import AppError
 from app.core.platform import Platform
+from app.core.rate_limit import limit
 from app.modules.game.schemas import PlayRequest
 from app.modules.identity.router import CurrentPlayer, PlatformDep
 from app.modules.identity.service import IdentityService, Principal
 from app.modules.matches import settlement
 from app.modules.matches.repository import MatchConflict
 from app.modules.matches.schemas import MatchReplay
-from app.modules.matches.service import MatchService
+from app.modules.matches.service import MatchService, position
+from app.modules.social import live
+from app.modules.social.safety import (
+    allowed_emote,
+    blocked_with,
+    clean,
+    ensure_can_chat,
+)
 
 router = APIRouter(prefix="/api/v1/games", tags=["Multiplayer"])
 
@@ -33,8 +41,19 @@ class SocketPing(BaseModel):
     action: Literal["ping"]
 
 
+class SocketEmote(BaseModel):
+    action: Literal["emote"]
+    emote: str = Field(min_length=1, max_length=80)
+
+
+class SocketChat(BaseModel):
+    action: Literal["chat"]
+    text: str = Field(min_length=1, max_length=400)
+
+
 Command = Annotated[
-    SocketPlay | SocketLeave | SocketPing, Field(discriminator="action")
+    SocketPlay | SocketLeave | SocketPing | SocketEmote | SocketChat,
+    Field(discriminator="action"),
 ]
 COMMAND = TypeAdapter(Command)
 
@@ -77,13 +96,46 @@ async def socket_loop(
         )
         return state.sequence
 
+    async def social(command: SocketEmote | SocketChat) -> None:
+        """Emotes and table chat go to a side feed, never the game log, so
+        they cannot change the game version clients play against."""
+        platform = service.platform
+        state = await service.load(game_id, player_id)
+        seat = position(state, player_id)
+        async with platform.sessions() as db:
+            if isinstance(command, SocketEmote):
+                await limit(platform, "emote", str(player_id), 6, 10)
+                value = await allowed_emote(db, player_id, command.emote)
+                await live.post_feed(platform, game_id, seat, "emote", value)
+            else:
+                await limit(platform, "table_chat", str(player_id), 5, 3)
+                await ensure_can_chat(db, player_id)
+                await live.post_feed(
+                    platform, game_id, seat, "chat", clean(command.text)
+                )
+
+    async def forward_feed(last: str | None) -> str | None:
+        for entry in await live.read_feed(service.platform, game_id, last):
+            last = entry["id"]
+            if entry["seat"] not in hidden_seats:
+                await send(socket, {"type": "feed", **entry})
+        return last
+
     cursor = await sync(after)
+    opening = await service.load(game_id, player_id)
+    async with service.platform.sessions() as db:
+        hidden = await blocked_with(db, player_id)
+    hidden_seats = {
+        index for index, seat in enumerate(opening.seats) if seat.player_id in hidden
+    }
+    feed_cursor = await forward_feed(None)
     next_auth = monotonic() + 5
     pending = asyncio.create_task(socket.receive())
     try:
         while True:
             if monotonic() >= next_auth:
                 await identity.active_session(player_id, principal.session_id)
+                await live.touch(service.platform, player_id)
                 next_auth = monotonic() + 5
             await service.repo.execute(
                 "renew", game_id, player_id=str(player_id), owner=owner
@@ -112,6 +164,11 @@ async def socket_loop(
                                 **ack.model_dump(),
                             },
                         )
+                    elif isinstance(command, SocketEmote | SocketChat):
+                        try:
+                            await social(command)
+                        except AppError as exc:
+                            await send(socket, {"type": "error", "code": exc.code})
                     elif isinstance(command, SocketLeave):
                         await service.leave(game_id, player_id, owner)
                         await send(socket, {"type": "left"})
@@ -129,6 +186,7 @@ async def socket_loop(
             state = await service.load(game_id, player_id)
             if state.sequence != cursor:
                 cursor = await sync(cursor)
+            feed_cursor = await forward_feed(feed_cursor)
     finally:
         if not pending.done():
             pending.cancel()

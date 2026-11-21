@@ -1,17 +1,39 @@
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import or_, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import cast, delete, or_, select
+from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.core.platform import Platform
 from app.modules.identity.repository import profiles
+from app.modules.identity.schemas import Profile
 from app.modules.lobby.repository import LobbyRepository
-from app.modules.lobby.schemas import QueueStatus
+from app.modules.lobby.schemas import QueueStatus, Room
 from app.modules.lobby.service import LobbyService
-from app.modules.social.models import Friendship, Party, PartyInvite, PartyMember
-from app.modules.social.schemas import FriendStatus, PartyView
+from app.modules.matches.models import MatchRecord
+from app.modules.matches.schemas import MatchReplay
+from app.modules.progression.analytics import finishing_ranks, match_analytics
+from app.modules.social import live
+from app.modules.social.models import (
+    Friendship,
+    Party,
+    PartyInvite,
+    PartyMember,
+    PlayerBlock,
+    PlayerReport,
+)
+from app.modules.social.safety import blocked_with, ensure_not_blocked
+from app.modules.social.schemas import (
+    Activity,
+    FriendStatus,
+    InviteLink,
+    PartyView,
+    ReportCreate,
+    ReportView,
+    Together,
+)
 
 
 def missing(code: str) -> AppError:
@@ -79,24 +101,37 @@ class SocialService:
                 for edge in edges
             ]
             known = await profiles(db, others)
-            return [
-                FriendStatus(
-                    player=known[other],
-                    status="friends"
-                    if edge.accepted
-                    else "outgoing"
-                    if edge.requester_id == player_id
-                    else "incoming",
-                )
-                for edge, other in zip(edges, others, strict=True)
-                if other in known
-            ]
+        accepted = [
+            other
+            for edge, other in zip(edges, others, strict=True)
+            if edge.accepted and other in known
+        ]
+        present = await live.online(self.platform, accepted)
+        activity: dict[UUID, Activity] = {
+            other: (await self.lobby.queue_status(known[other])).status
+            for other in accepted
+        }
+        return [
+            FriendStatus(
+                player=known[other],
+                status="friends"
+                if edge.accepted
+                else "outgoing"
+                if edge.requester_id == player_id
+                else "incoming",
+                online=other in present,
+                activity=activity.get(other),
+            )
+            for edge, other in zip(edges, others, strict=True)
+            if other in known
+        ]
 
     async def request(self, player_id: UUID, other: UUID) -> None:
         first, second = pair(player_id, other)
         async with self.platform.sessions.begin() as db:
             if other not in await profiles(db, [other]):
                 raise missing("player_not_found")
+            await ensure_not_blocked(db, player_id, other)
             await db.execute(
                 insert(Friendship)
                 .values(
@@ -170,6 +205,7 @@ class SocialService:
             edge = await db.get(Friendship, pair(player_id, other))
             if edge is None or not edge.accepted:
                 raise AppError(403, "friend_required", "Invite an accepted friend")
+            await ensure_not_blocked(db, player_id, other)
             await db.execute(
                 insert(PartyInvite)
                 .values(party_id=party.id, player_id=other)
@@ -258,3 +294,173 @@ class SocialService:
                 *(roster[member] for member in member_ids if member != player_id),
             ]
             return await self.lobby.join_party(party.id, lineup)
+
+    # Blocking ------------------------------------------------------------
+
+    async def block(self, player_id: UUID, other: UUID) -> None:
+        first, second = pair(player_id, other)
+        async with self.platform.sessions.begin() as db:
+            if other not in await profiles(db, [other]):
+                raise missing("player_not_found")
+            await db.execute(
+                insert(PlayerBlock)
+                .values(blocker_id=player_id, blocked_id=other)
+                .on_conflict_do_nothing()
+            )
+            # A block ends the friendship and any pending party invites.
+            await db.execute(
+                delete(Friendship).where(
+                    Friendship.first_id == first, Friendship.second_id == second
+                )
+            )
+            for host, guest in ((player_id, other), (other, player_id)):
+                parties = select(PartyMember.party_id).where(
+                    PartyMember.player_id == host
+                )
+                await db.execute(
+                    delete(PartyInvite).where(
+                        PartyInvite.player_id == guest,
+                        PartyInvite.party_id.in_(parties),
+                    )
+                )
+
+    async def unblock(self, player_id: UUID, other: UUID) -> None:
+        async with self.platform.sessions.begin() as db:
+            await db.execute(
+                delete(PlayerBlock).where(
+                    PlayerBlock.blocker_id == player_id, PlayerBlock.blocked_id == other
+                )
+            )
+
+    async def blocks(self, player_id: UUID) -> list[UUID]:
+        async with self.platform.sessions() as db:
+            return list(
+                await db.scalars(
+                    select(PlayerBlock.blocked_id)
+                    .where(PlayerBlock.blocker_id == player_id)
+                    .order_by(PlayerBlock.created_at)
+                )
+            )
+
+    # Head-to-head --------------------------------------------------------
+
+    async def together(self, player_id: UUID, other: UUID) -> Together:
+        pair(player_id, other)
+
+        def seated(player: UUID):
+            return MatchRecord.replay.contains(
+                cast({"seats": [{"player_id": str(player)}]}, JSONB)
+            )
+
+        async with self.platform.sessions() as db:
+            records = list(
+                await db.scalars(
+                    select(MatchRecord)
+                    .where(seated(player_id), seated(other))
+                    .order_by(MatchRecord.finished_at.desc())
+                    .limit(200)
+                )
+            )
+        totals = Together(
+            games=0, ahead=0, behind=0, tied=0, my_donkeys=0, their_donkeys=0
+        )
+        for record in records:
+            replay = MatchReplay.model_validate(record.replay)
+            stats = match_analytics(replay)
+            ranks = finishing_ranks(stats)
+            seats = {seat.player_id: seat.seat for seat in stats.seats}
+            mine, theirs = seats[player_id], seats[other]
+            totals.games += 1
+            if ranks[mine] < ranks[theirs]:
+                totals.ahead += 1
+            elif ranks[mine] > ranks[theirs]:
+                totals.behind += 1
+            else:
+                totals.tied += 1
+            totals.my_donkeys += int(stats.seats[mine].donkey)
+            totals.their_donkeys += int(stats.seats[theirs].donkey)
+        return totals
+
+    # Room invites and links -------------------------------------------------
+
+    async def member_room(self, profile: Profile, room_id: UUID) -> Room:
+        room = await self.lobby.room("get_room", profile, room_id)
+        if all(seat.player_id != profile.id for seat in room.seats):
+            raise AppError(403, "room_member_required", "Join the room first")
+        return room
+
+    async def invite_to_room(
+        self, profile: Profile, room_id: UUID, friend: UUID
+    ) -> None:
+        room = await self.member_room(profile, room_id)
+        async with self.platform.sessions() as db:
+            edge = await db.get(Friendship, pair(profile.id, friend))
+            if edge is None or not edge.accepted:
+                raise AppError(403, "friend_required", "Invite an accepted friend")
+            await ensure_not_blocked(db, profile.id, friend)
+        await live.add_room_invite(
+            self.platform,
+            friend,
+            live.RoomInvite(
+                room_id=room.id,
+                from_id=profile.id,
+                from_name=profile.display_name,
+                expires_at=live.invite_expiry(),
+            ),
+        )
+
+    async def room_invites(self, player_id: UUID) -> list[live.RoomInvite]:
+        invites = await live.room_invites(self.platform, player_id)
+        async with self.platform.sessions() as db:
+            hidden = await blocked_with(db, player_id)
+        return [invite for invite in invites if invite.from_id not in hidden]
+
+    async def invite_link(self, profile: Profile, room_id: UUID) -> InviteLink:
+        room = await self.member_room(profile, room_id)
+        code = await live.create_link(self.platform, room.id, profile.id)
+        base = self.platform.settings.public_base_url.rstrip("/")
+        return InviteLink(
+            code=code,
+            url=f"{base}/join/{code}",
+            app_link=f"donke://join/{code}",
+            expires_in=live.LINK_SECONDS,
+        )
+
+    async def join_by_link(self, profile: Profile, code: str) -> Room:
+        found = await live.resolve_link(self.platform, code)
+        if found is None:
+            raise missing("invite_not_found")
+        room_id, inviter = found
+        async with self.platform.sessions() as db:
+            await ensure_not_blocked(db, profile.id, inviter)
+        return await self.lobby.room("join_room", profile, room_id)
+
+    # Reports ---------------------------------------------------------------
+
+    async def report(self, player_id: UUID, body: ReportCreate) -> ReportView:
+        pair(player_id, body.player_id)
+        async with self.platform.sessions.begin() as db:
+            if body.player_id not in await profiles(db, [body.player_id]):
+                raise missing("player_not_found")
+            # One open report per reporter and target a day; repeats return it.
+            existing = await db.scalar(
+                select(PlayerReport).where(
+                    PlayerReport.reporter_id == player_id,
+                    PlayerReport.target_id == body.player_id,
+                    PlayerReport.status == "open",
+                    PlayerReport.created_at >= datetime.now(UTC) - timedelta(days=1),
+                )
+            )
+            if existing is not None:
+                return ReportView.model_validate(existing)
+            report = PlayerReport(
+                reporter_id=player_id,
+                target_id=body.player_id,
+                reason=body.reason,
+                game_id=body.game_id,
+                note=body.note,
+            )
+            db.add(report)
+            await db.flush()
+            await db.refresh(report)
+            return ReportView.model_validate(report)

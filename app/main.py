@@ -32,6 +32,7 @@ from app.modules.identity.router import router as identity_router
 from app.modules.lobby.router import matchmaking, rooms
 from app.modules.matches.router import router as matches_router
 from app.modules.progression.router import router as progress_router
+from app.modules.social.router import landing as join_landing
 from app.modules.social.router import router as social_router
 
 logger = logging.getLogger(__name__)
@@ -96,6 +97,7 @@ def create_app(
         matches_router,
         progress_router,
         social_router,
+        join_landing,
         ai_router,
     ):
         app.include_router(router)

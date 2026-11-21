@@ -74,6 +74,7 @@ async function playerDetail(id, refresh) {
     player.active
       ? h("button", { class: "danger", onclick: () => act(`Ban ${player.display_name}`, [], (v) => api.post(`${path}/ban`, v), refresh, "Player banned") }, "Ban")
       : h("button", { onclick: () => act(`Unban ${player.display_name}`, [], (v) => api.post(`${path}/unban`, v), refresh, "Player unbanned") }, "Unban"),
+    h("button", { onclick: () => act(data.muted_until ? "Lift chat mute" : "Mute chat", data.muted_until ? [] : [{ name: "minutes", label: "Minutes (max 43200)", type: "number", value: "60", parse: Number }], (v) => api.post(`${path}/mute`, { minutes: 0, ...v }), refresh, data.muted_until ? "Mute lifted" : "Player muted") }, data.muted_until ? "Unmute" : "Mute"),
     h("button", { onclick: () => act("Grant or remove coins", [{ name: "amount", label: "Coins (negative removes)", type: "number", parse: Number }], (v) => api.post(`${path}/coins`, v), refresh) }, "Coins"),
     h("button", { onclick: () => act("Grant a cosmetic", [{ name: "sku", label: "Cosmetic SKU" }], (v) => api.post(`${path}/cosmetics`, v), refresh) }, "Cosmetic"),
   ];
@@ -85,11 +86,12 @@ async function playerDetail(id, refresh) {
       stat("Matches", data.stats.games),
       stat("Escapes", data.stats.escapes),
       stat("Donkey", data.stats.donkeys),
-      stat("Open cases", data.open_cases)),
+      stat("Open cases", data.open_cases),
+      stat("Open reports", data.open_reports)),
     h("div", { class: "card" },
       h("h2", {}, "Profile"),
       h("p", {}, h("span", { class: "muted" }, "ID "), h("code", {}, player.id)),
-      h("p", {}, badge(player.active ? "active" : "banned", player.active ? "ok" : "bad"), " ", `Language ${player.language} · joined ${when(player.created_at)}`),
+      h("p", {}, badge(player.active ? "active" : "banned", player.active ? "ok" : "bad"), " ", data.muted_until ? badge(`muted until ${when(data.muted_until)}`, "warn") : null, " ", `Language ${player.language} · joined ${when(player.created_at)}`),
       data.skill ? h("p", { class: "muted" }, `Hidden skill μ ${data.skill.mu.toFixed(2)} · σ ${data.skill.sigma.toFixed(2)} · ${data.skill.matches} rated matches`) : null,
       h("p", { class: "muted" }, `Cosmetics: ${data.cosmetics.length ? data.cosmetics.join(", ") : "none"}`)),
     h("div", { class: "card" }, h("h2", {}, "Recent matches"), matchTable(data.recent_matches)));
@@ -147,6 +149,26 @@ async function fairPlay({ refresh }) {
             (v) => api.post(`/admin/fair-play/${row.id}/resolve`, v), refresh, "Case resolved");
         } }, "Resolve")
         : h("span", { class: "muted" }, row.note ?? row.status)) },
+    ], rows)));
+}
+
+async function reports({ refresh }) {
+  const status = new URLSearchParams(location.hash.split("?")[1] ?? "").get("status") ?? "open";
+  const rows = await api.get(`/admin/reports${query({ status })}`);
+  const filter = h("select", { "aria-label": "Report status", onchange: (event) => (location.hash = `#/reports?status=${event.target.value}`) },
+    ["open", "dismissed", "actioned"].map((value) => h("option", { value, selected: value === status }, value)));
+  return h("div", {},
+    header("Player reports", filter),
+    h("div", { class: "card" }, table([
+      { label: "Reported", render: (row) => h("a", { href: `#/players/${row.target_id}` }, row.target_id.slice(0, 8)) },
+      { label: "Reason", render: (row) => badge(row.reason, row.reason === "cheating" ? "bad" : "warn") },
+      { label: "Note", render: (row) => row.note ?? "—" },
+      { label: "Match", render: (row) => (row.game_id ? h("a", { href: `#/matches/${row.game_id}` }, row.game_id.slice(0, 8)) : "—") },
+      { label: "Filed", render: (row) => when(row.created_at) },
+      { label: "", render: (row) => (row.status === "open"
+        ? h("button", { onclick: () => act("Resolve report", [{ name: "decision", label: "Decision", options: [["dismissed", "Dismiss"], ["actioned", "Action taken"]], value: "dismissed" }],
+          (v) => api.post(`/admin/reports/${row.id}/resolve`, v), refresh, "Report resolved") }, "Resolve")
+        : h("span", { class: "muted" }, row.resolution ?? row.status)) },
     ], rows)));
 }
 
@@ -282,6 +304,7 @@ export const VIEWS = {
   dashboard: { title: "Dashboard", render: dashboard },
   players: { title: "Players", render: players },
   matches: { title: "Matches", render: matches },
+  reports: { title: "Reports", render: reports, roles: MOD },
   "fair-play": { title: "Fair play", render: fairPlay, roles: MOD },
   seasons: { title: "Seasons", render: seasons },
   store: { title: "Store", render: store },
