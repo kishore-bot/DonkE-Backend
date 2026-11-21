@@ -27,7 +27,10 @@ from app.modules.social.service import SocialService
 router = APIRouter(prefix="/api/v1", tags=["Social"])
 landing = APIRouter(tags=["Social"])
 Code = Annotated[str, Path(pattern=r"^[A-Za-z0-9_-]{8}$")]
-Channel = Annotated[str, Path(pattern=r"^(global|room:[0-9a-fA-F-]{36})$")]
+UUID_TEXT = (
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+)
+Channel = Annotated[str, Path(pattern=rf"^(global|room:{UUID_TEXT})$")]
 
 
 def get_social(platform: PlatformDep) -> SocialService:
@@ -160,7 +163,11 @@ async def chat_access(
     social: SocialService, principal: Principal, channel: str
 ) -> None:
     if channel.startswith("room:"):
-        await social.member_room(principal.profile, UUID(channel.removeprefix("room:")))
+        try:
+            room_id = UUID(channel.removeprefix("room:"))
+        except ValueError as error:  # the path pattern already rejects these
+            raise AppError(422, "invalid_channel", "Unknown chat channel") from error
+        await social.member_room(principal.profile, room_id)
 
 
 @router.get("/chat/{channel}")
@@ -169,8 +176,8 @@ async def read_chat(
     player: CurrentPlayer,
     social: Social,
     after: Annotated[str | None, Query(pattern=r"^\d+-\d+$")] = None,
-) -> list[live.ChatMessage]:
-    """Global or room chat, oldest first. Poll with `after` = last id."""
+) -> live.ChatPage:
+    """Global or room chat, oldest first. Poll with `after` = `next_after`."""
     await chat_access(social, player, channel)
     async with social.platform.sessions() as db:
         hidden = await blocked_with(db, player.profile.id)

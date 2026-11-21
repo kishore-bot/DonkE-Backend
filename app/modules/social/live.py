@@ -95,14 +95,36 @@ async def stream_rows(
     ]
 
 
+class ChatPage(BaseModel):
+    messages: list[ChatMessage]
+    # Poll again with this. It moves past every message read, including ones
+    # hidden by blocks, so a run of hidden messages can never stall polling.
+    next_after: str | None
+
+
 async def read_chat(
     platform: Platform, channel: str, after: str | None, hidden: set[UUID]
-) -> list[ChatMessage]:
-    rows = await stream_rows(platform, key(platform, "chat", channel), after, 50)
-    messages = [
-        ChatMessage.model_validate({"id": entry, **fields}) for entry, fields in rows
-    ]
-    return [message for message in messages if message.player_id not in hidden]
+) -> ChatPage:
+    """Up to 50 visible messages after `after`, oldest first. Hidden rows are
+    skipped and the scan continues until a full page or the end."""
+    stream = key(platform, "chat", channel)
+    cursor = after
+    messages: list[ChatMessage] = []
+    # The stream keeps about CHAT_KEEP entries, so a few pages reach its end.
+    for _ in range(CHAT_KEEP // 50 + 2):
+        rows = await stream_rows(platform, stream, cursor, 50)
+        if not rows:
+            break
+        for entry, fields in rows:
+            cursor = entry
+            message = ChatMessage.model_validate({"id": entry, **fields})
+            if message.player_id not in hidden:
+                messages.append(message)
+                if len(messages) == 50:
+                    return ChatPage(messages=messages, next_after=cursor)
+        if after is None:
+            break  # The first read returns the latest page only.
+    return ChatPage(messages=messages, next_after=cursor)
 
 
 # In-match feed -----------------------------------------------------------

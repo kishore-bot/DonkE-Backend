@@ -68,11 +68,11 @@ def test_blocks_presence_chat_mutes_reports_and_head_to_head(client, settings):
     )
     assert posted.status_code == 201 and posted.json()["text"] == "gg you *****"
     client.post("/api/v1/chat/global", json={"text": "hello"}, headers=headers(cara))
-    seen = client.get("/api/v1/chat/global", headers=headers(alice)).json()
+    seen = client.get("/api/v1/chat/global", headers=headers(alice)).json()["messages"]
     assert [m["text"] for m in seen[-2:]] == ["gg you *****", "hello"]
     newer = client.get(
         "/api/v1/chat/global", params={"after": seen[-2]["id"]}, headers=headers(alice)
-    ).json()
+    ).json()["messages"]
     assert [m["text"] for m in newer] == ["hello"]
 
     # Blocking ends the friendship, hides chat and stops requests.
@@ -84,7 +84,9 @@ def test_blocks_presence_chat_mutes_reports_and_head_to_head(client, settings):
         for f in client.get("/api/v1/friends", headers=headers(alice)).json()
     ]
     assert b_id not in ids
-    hidden = client.get("/api/v1/chat/global", headers=headers(alice)).json()
+    hidden = client.get("/api/v1/chat/global", headers=headers(alice)).json()[
+        "messages"
+    ]
     assert all(m["player_id"] != b_id for m in hidden)
     again = client.post(f"/api/v1/friends/{a_id}", headers=headers(bob))
     assert (
@@ -260,3 +262,92 @@ def test_room_invites_links_and_in_match_emotes(settings):
 )
 def test_word_list_covers_every_language_without_common_false_positives(text, blocked):
     assert (clean(text) != text) is blocked
+
+
+@pytest.mark.integration
+def test_chat_polling_moves_past_runs_of_blocked_messages(client, settings):
+    from app.modules.social import live
+
+    reader, spammer, friend = (sign_in(client) for _ in range(3))
+    spammer_id = profile(client, spammer)["id"]
+    start = client.get("/api/v1/chat/global", headers=headers(reader)).json()
+    client.post(f"/api/v1/blocks/{spammer_id}", headers=headers(reader))
+
+    async def flood():
+        # More hidden messages than one page, written past the rate limit.
+        async with open_platform(settings) as platform:
+            for number in range(60):
+                await live.post_chat(
+                    platform, "global", UUID(spammer_id), "Spam", f"spam {number}"
+                )
+
+    asyncio.run(flood())
+    client.post(
+        "/api/v1/chat/global", json={"text": "real one"}, headers=headers(friend)
+    )
+    page = client.get(
+        "/api/v1/chat/global",
+        params={"after": start["next_after"]} if start["next_after"] else {},
+        headers=headers(reader),
+    ).json()
+    assert [m["text"] for m in page["messages"]][-1:] == ["real one"]
+    assert all(m["player_id"] != spammer_id for m in page["messages"])
+    after = client.get(
+        "/api/v1/chat/global",
+        params={"after": page["next_after"]},
+        headers=headers(reader),
+    ).json()
+    assert after == {"messages": [], "next_after": page["next_after"]}
+
+
+@pytest.mark.integration
+def test_blocking_mid_match_hides_the_next_table_message(settings):
+    from app.modules.social import live
+
+    config = settings.model_copy(update={"room_start_seconds": 0})
+    with prepare_match(config) as client:
+        tokens = [sign_in(client) for _ in range(2)]
+        players = [headers(token) for token in tokens]
+        _, room_id = ready_room(client, players)
+
+        async def start():
+            async with open_platform(config) as platform:
+                return await MatchService(platform).start(room_id)
+
+        game = asyncio.run(start())
+
+        async def say(text):  # seat 1 speaks at the table
+            async with open_platform(config) as platform:
+                await live.post_feed(platform, game, 1, "chat", text)
+
+        def next_feed(socket):
+            message = socket.receive_json()
+            while message["type"] != "feed":
+                message = socket.receive_json()
+            return message
+
+        other = profile(client, tokens[1])["id"]
+        with client.websocket_connect(
+            f"/api/v1/games/{game}/ws", headers=players[0]
+        ) as socket:
+            asyncio.run(say("before block"))
+            assert next_feed(socket)["value"] == "before block"
+            assert (
+                client.post(f"/api/v1/blocks/{other}", headers=players[0]).status_code
+                == 204
+            )
+            asyncio.run(say("after block"))
+            socket.send_json({"action": "emote", "emote": "clap"})
+            # The blocked player's message is skipped; our own emote arrives.
+            assert next_feed(socket)["value"] == "clap"
+
+
+def test_malformed_room_channels_are_rejected_not_crashing(client):
+    tokens = sign_in(client)
+    for channel in (
+        "room:zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz",
+        "room:------------------------------------",
+        "room:0123456789abcdef0123456789abcdef0123",
+    ):
+        response = client.get(f"/api/v1/chat/{channel}", headers=headers(tokens))
+        assert response.status_code == 422, (channel, response.status_code)

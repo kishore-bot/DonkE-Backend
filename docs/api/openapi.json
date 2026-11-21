@@ -603,6 +603,34 @@
         "title": "ChatMessage",
         "type": "object"
       },
+      "ChatPage": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ChatMessage"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "next_after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next After"
+          }
+        },
+        "required": [
+          "messages",
+          "next_after"
+        ],
+        "title": "ChatPage",
+        "type": "object"
+      },
       "ChatPost": {
         "additionalProperties": false,
         "properties": {
@@ -6318,7 +6346,7 @@
     },
     "/api/v1/chat/{channel}": {
       "get": {
-        "description": "Global or room chat, oldest first. Poll with `after` = last id.",
+        "description": "Global or room chat, oldest first. Poll with `after` = `next_after`.",
         "operationId": "read_chat_api_v1_chat__channel__get",
         "parameters": [
           {
@@ -6326,7 +6354,7 @@
             "name": "channel",
             "required": true,
             "schema": {
-              "pattern": "^(global|room:[0-9a-fA-F-]{36})$",
+              "pattern": "^(global|room:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
               "title": "Channel",
               "type": "string"
             }
@@ -6354,11 +6382,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ChatMessage"
-                  },
-                  "title": "Response Read Chat Api V1 Chat  Channel  Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/ChatPage"
                 }
               }
             },
@@ -6403,7 +6427,7 @@
             "name": "channel",
             "required": true,
             "schema": {
-              "pattern": "^(global|room:[0-9a-fA-F-]{36})$",
+              "pattern": "^(global|room:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
               "title": "Channel",
               "type": "string"
             }

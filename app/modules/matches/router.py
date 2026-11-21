@@ -117,20 +117,25 @@ async def socket_loop(
                     platform, game_id, seat, "chat", clean(command.text)
                 )
 
+    seat_players = [
+        seat.player_id for seat in (await service.load(game_id, player_id)).seats
+    ]
+
     async def forward_feed(last: str | None) -> str | None:
-        for entry in await live.read_feed(service.platform, game_id, last):
+        entries = await live.read_feed(service.platform, game_id, last)
+        if not entries:
+            return last
+        # Blocks are read fresh for every batch, so blocking someone mid-match
+        # hides their very next message. Idle sockets never query.
+        async with service.platform.sessions() as db:
+            hidden = await blocked_with(db, player_id)
+        for entry in entries:
             last = entry["id"]
-            if entry["seat"] not in hidden_seats:
+            if seat_players[entry["seat"]] not in hidden:
                 await send(socket, {"type": "feed", **entry})
         return last
 
     cursor = await sync(after)
-    opening = await service.load(game_id, player_id)
-    async with service.platform.sessions() as db:
-        hidden = await blocked_with(db, player_id)
-    hidden_seats = {
-        index for index, seat in enumerate(opening.seats) if seat.player_id in hidden
-    }
     feed_cursor = await forward_feed(None)
     next_auth = monotonic() + 5
     next_renew = 0.0
