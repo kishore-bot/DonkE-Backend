@@ -9,9 +9,11 @@ from app.core.platform import Platform, get_platform
 from app.core.rate_limit import limit
 from app.modules.admin.router import Admin, Cookie, CsrfToken, RequestId
 from app.modules.admin.service import admin_write
+from app.modules.ai.coaching import Coaching, coaching
 from app.modules.ai.commentary import line
 from app.modules.ai.gateway import Gateway
 from app.modules.ai.index import ranked_rules, reindex
+from app.modules.ai.insights import Insights, Roast, insights, roast
 from app.modules.ai.knowledge import NO_MATCH
 from app.modules.ai.schemas import (
     CoachReply,
@@ -22,6 +24,7 @@ from app.modules.ai.schemas import (
 )
 from app.modules.ai.voice import Voice
 from app.modules.identity.router import CurrentPlayer, PlatformDep
+from app.modules.matches.settlement import read_replay
 
 router = APIRouter(prefix="/api/v1", tags=["AI"])
 Sequence = Annotated[int, Path(ge=1, le=1020)]
@@ -102,6 +105,27 @@ async def ask(body: CoachRequest, player: CurrentPlayer, gateway: AI) -> CoachRe
         citation=rule.source,
         source="gemini_selected" if chosen else "rules",
     )
+
+
+@router.get("/games/{game_id}/analysis")
+async def analysis(game_id: UUID, player: CurrentPlayer, gateway: AI) -> Coaching:
+    """Engine review of your real choices in a finished match, with tips."""
+    await limit(gateway.platform, "analysis", str(player.profile.id), 10, 60)
+    replay = await read_replay(gateway.platform, game_id, player.profile.id)
+    return await coaching(gateway, replay, player.profile.id, player.profile.language)
+
+
+@router.get("/coach/insights")
+async def coach_insights(player: CurrentPlayer, gateway: AI) -> Insights:
+    return await insights(gateway, player.profile.id, player.profile.language)
+
+
+@router.get("/games/{game_id}/roast")
+async def donkey_roast(game_id: UUID, player: CurrentPlayer, gateway: AI) -> Roast:
+    """A playful share card for the match's Donkey."""
+    await limit(gateway.platform, "roast", str(player.profile.id), 20, 60)
+    replay = await read_replay(gateway.platform, game_id, player.profile.id)
+    return await roast(gateway, replay, player.profile.language)
 
 
 @router.get("/admin/ai/usage")

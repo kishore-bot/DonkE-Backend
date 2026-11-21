@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import cast
 
 from app.core.platform import Platform
-from app.modules.ai.provider import AIProvider, Gemini, Selected
+from app.modules.ai.provider import AIProvider, Gemini, Selected, Written
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ class Gateway:
             await redis.execute_command("EVAL", FAILURE, 1, breaker)
             return None
         await redis.delete(breaker)
-        if isinstance(result, Selected):
+        if isinstance(result, Selected | Written):
             await redis.hincrby(usage, f"{feature}_tokens", max(0, result.tokens))
         return result
 

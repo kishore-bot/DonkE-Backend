@@ -19,6 +19,8 @@ class MatchState(BaseModel):
     mode: Mode | None
     seats: list[GameSeat]
     native: str
+    # The opening deal, kept so a finished match can be re-played for coaching.
+    opening: str | None = None
     version: int = 0
     sequence: int = 1
     status: Literal["active", "finished"] = "active"
@@ -57,3 +59,4 @@ class MatchReplay(BaseModel):
     seats: list[GameSeat]
     outcome: dict[str, Any]
     events: list[EventBatch]
+    opening: str | None = None

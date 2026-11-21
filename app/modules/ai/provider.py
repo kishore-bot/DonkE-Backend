@@ -17,8 +17,15 @@ class Selected:
     tokens: int = 0
 
 
+@dataclass(frozen=True, slots=True)
+class Written:
+    text: str
+    tokens: int = 0
+
+
 class AIProvider(Protocol):
     async def select(self, task: str, prompt: str) -> Selected: ...
+    async def write(self, task: str, prompt: str) -> Written: ...
     async def render(self, text: str, voice: str) -> bytes: ...
     async def embed(self, texts: list[str], *, query: bool) -> list[list[float]]: ...
 
@@ -71,6 +78,19 @@ class Gemini:
         choice = Choice.model_validate_json(reply.text or "")
         usage = reply.usage_metadata
         return Selected(choice.key, (usage.total_token_count or 0) if usage else 0)
+
+    async def write(self, task: str, prompt: str) -> Written:
+        from google.genai import types
+
+        reply = await self.client.aio.models.generate_content(
+            model=self.settings.gemini_text_model,
+            contents=prompt,
+            config=types.GenerateContentConfig(max_output_tokens=200, temperature=0.8),
+        )
+        usage = reply.usage_metadata
+        return Written(
+            (reply.text or "").strip(), (usage.total_token_count or 0) if usage else 0
+        )
 
     async def render(self, text: str, voice: str) -> bytes:
         response = await self.client.aio.interactions.create(

@@ -65,6 +65,7 @@ class MatchService:
             mode=room.mode,
             seats=[GameSeat(**seat.model_dump()) for seat in room.seats],
             native=game.snapshot(),
+            opening=game.snapshot(),
             started_ms=now,
             turn=game.turn,
             deadline_ms=now,
@@ -267,6 +268,7 @@ class MatchService:
             seats=state.seats,
             outcome=state.outcome,
             events=await self.repo.events(game_id, 0, state.sequence),
+            opening=state.opening,
         )
         await settlement.persist(self.platform, replay, finished_at=finished_at)
         await self.repo.execute(

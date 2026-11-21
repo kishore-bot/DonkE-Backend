@@ -3,6 +3,7 @@ from sqlalchemy.engine import Connection
 
 from app.core.platform import Base
 from app.modules.admin.models import AdminAudit, AdminSession, AdminUser
+from app.modules.ai.coaching import MatchAnalysis
 from app.modules.ai.index import RuleEmbedding
 from app.modules.identity.models import Player, PlayerSession, RefreshToken
 from app.modules.matches.models import MatchRecord
@@ -39,6 +40,7 @@ MAPPED_MODELS = (
     Achievement,
     PlayerSkill,
     SeasonDay,
+    MatchAnalysis,
     Friendship,
     Party,
     PartyInvite,

@@ -16,7 +16,7 @@ from sqlalchemy.orm import DeclarativeBase
 from app.core.config import Settings
 from app.core.errors import AppError
 
-SCHEMA_HEAD = "20261121_progression_plus"
+SCHEMA_HEAD = "20261121_ai_coaching"
 
 
 class Base(DeclarativeBase):
