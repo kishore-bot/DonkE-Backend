@@ -319,7 +319,7 @@ class MatchService:
         for room_id in await self.repo.due("unused", lobby=True):
             try:
                 await self.start(room_id)
-            except Exception as error:  # noqa: BLE001 - Keep processing other rooms.
+            except Exception as error:
                 await self.defer("room", room_id, error)
         for game_id in await self.repo.due("turns"):
             try:
@@ -327,12 +327,12 @@ class MatchService:
             except MatchConflict as exc:
                 if exc.code not in {"turn_unclaimed", "game_finished", "stale_version"}:
                     await self.defer("turn", game_id, exc)
-            except Exception as error:  # noqa: BLE001 - Keep processing other turns.
+            except Exception as error:
                 await self.defer("turn", game_id, error)
         for game_id in await self.repo.due("settlement"):
             try:
                 await self.settle(game_id)
-            except Exception as error:  # noqa: BLE001 - Keep processing other results.
+            except Exception as error:
                 await self.defer("settlement", game_id, error)
 
     async def defer(self, work: str, identifier: UUID, error: Exception) -> None:

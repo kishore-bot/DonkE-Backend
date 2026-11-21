@@ -17,7 +17,7 @@ async def limit(
 ) -> None:
     key = f"{platform.settings.redis_prefix}:rate:{action}:{scope}"
     result = await platform.redis.execute_command("EVAL", COUNTER, 1, key, seconds)
-    if cast(int, result) > maximum:
+    if cast("int", result) > maximum:
         raise AppError(429, "rate_limited", "Too many attempts. Try again later")
 
 

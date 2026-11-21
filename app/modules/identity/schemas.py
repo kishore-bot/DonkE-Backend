@@ -65,5 +65,5 @@ class Profile(BaseModel):
 class SessionTokens(BaseModel):
     access_token: str = Field(repr=False)
     refresh_token: str = Field(repr=False)
-    token_type: Literal["bearer"] = "bearer"
+    token_type: Literal["bearer"] = "bearer"  # noqa: S105 - a token type, not a secret
     expires_in: int

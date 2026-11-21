@@ -145,6 +145,13 @@ async def judge(
     return results
 
 
+def write_report(out: Path, report: dict[str, Any]) -> Path:
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / f"judge-{datetime.now(UTC):%Y%m%dT%H%M%S}.json"
+    path.write_text(json.dumps(report, indent=2))
+    return path
+
+
 async def main(limit: int, run: bool, out: Path) -> None:
     async with open_platform(Settings()) as platform:
         samples = await collect(platform, limit)
@@ -162,9 +169,7 @@ async def main(limit: int, run: bool, out: Path) -> None:
         "created_at": datetime.now(UTC).isoformat(),
         "by_prompt": summarize(results),
     }
-    out.mkdir(parents=True, exist_ok=True)
-    path = out / f"judge-{datetime.now(UTC):%Y%m%dT%H%M%S}.json"
-    path.write_text(json.dumps(report, indent=2))
+    path = await asyncio.to_thread(write_report, out, report)
     print(json.dumps(report["by_prompt"], indent=2))
     print(f"Wrote {path}")
 

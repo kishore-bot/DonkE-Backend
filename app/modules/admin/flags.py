@@ -102,7 +102,7 @@ async def publish(platform: Platform, db: AsyncSession) -> dict[str, Any]:
 
 async def current(platform: Platform) -> dict[str, Any]:
     """All flags with overrides applied. Hot-path safe: one Redis read."""
-    raw = cast(dict[str, str], await platform.redis.hgetall(cache_key(platform)))
+    raw = cast("dict[str, str]", await platform.redis.hgetall(cache_key(platform)))
     if LOADED not in raw:
         return await refresh(platform)
     values = defaults(platform)

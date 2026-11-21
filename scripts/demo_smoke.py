@@ -212,7 +212,7 @@ async def cleanup_room(
 async def play_match(
     base: str, game_id: UUID, players: tuple[DemoSession, DemoSession]
 ) -> int:
-    rng = random.Random(game_id.int)
+    rng = random.Random(game_id.int)  # noqa: S311 - reproducible demo play
     async with AsyncExitStack() as stack:
         peers = [await open_peer(stack, base, game_id, player) for player in players]
         snapshots = await asyncio.gather(*(peer.snapshot() for peer in peers))
@@ -275,7 +275,7 @@ async def play_match(
         return ack.sequence
 
 
-async def smoke(base: str, data: DemoSessions, timeout: float) -> dict[str, Any]:
+async def smoke(base: str, data: DemoSessions, timeout: float) -> dict[str, Any]:  # noqa: ASYNC109 - whole-run time budget
     ws_url = websocket_base(base)
     start = monotonic()
     async with (

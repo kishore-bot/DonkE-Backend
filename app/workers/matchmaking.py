@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 import signal
 
@@ -50,12 +51,10 @@ async def run(platform: Platform, stop: asyncio.Event) -> None:
             MatchConflict,
         ) as error:
             logger.warning("Matchmaking tick failed (%s)", type(error).__name__)
-        try:
+        with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(
                 stop.wait(), timeout=platform.settings.matchmaking_poll_seconds
             )
-        except TimeoutError:
-            pass
 
 
 async def main() -> None:

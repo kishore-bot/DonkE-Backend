@@ -31,7 +31,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     if not re.fullmatch(USERNAME, args.username):
-        parser.error("Use 3–48 lowercase letters, digits, dots, underscores or hyphens")
+        parser.error("Use 3-48 lowercase letters, digits, dots, underscores or hyphens")
     if not sys.stdin.isatty():
         parser.error(
             "Run this command in an interactive terminal to enter the password"
@@ -42,7 +42,7 @@ def main() -> None:
     if password != getpass("Confirm password: "):
         parser.error("Passwords do not match")
     try:
-        asyncio.run(create_admin(args.username, password, cast(Role, args.role)))
+        asyncio.run(create_admin(args.username, password, cast("Role", args.role)))
     except AppError as error:
         parser.error(str(error))
 

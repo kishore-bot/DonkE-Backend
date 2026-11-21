@@ -86,7 +86,7 @@ class MatchRepository:
                 sequence=int(identifier.split("-", maxsplit=1)[0]),
                 events=json.loads(fields["events"]),
             )
-            for identifier, fields in cast(list[tuple[str, dict[str, str]]], records)
+            for identifier, fields in cast("list[tuple[str, dict[str, str]]]", records)
         ]
 
     async def due(self, name: str, *, lobby: bool = False) -> list[UUID]:
@@ -98,7 +98,7 @@ class MatchRepository:
         raw = await self.redis.zrangebyscore(
             key, "-inf", await self.now_ms(), start=0, num=32
         )
-        return [UUID(identifier) for identifier in cast(list[str], raw)]
+        return [UUID(identifier) for identifier in cast("list[str]", raw)]
 
     async def acquire_turn(self, game_id: UUID, owner: str) -> bool:
         return bool(

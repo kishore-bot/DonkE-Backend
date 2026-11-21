@@ -40,7 +40,7 @@ class Gateway:
 
     async def usage(self) -> dict[str, int]:
         raw = await self.platform.redis.hgetall(self.usage_key())
-        return {name: int(total) for name, total in cast(dict[str, str], raw).items()}
+        return {name: int(total) for name, total in cast("dict[str, str]", raw).items()}
 
     async def call[T](
         self,
@@ -75,7 +75,7 @@ class Gateway:
         try:
             async with asyncio.timeout(12 if voice else 6), self.limit:
                 result = await operation(provider)
-        except Exception as error:  # noqa: BLE001 - AI provider failures fall back.
+        except Exception as error:
             logger.info("AI %s request failed (%s)", feature, type(error).__name__)
             await redis.hincrby(usage, f"{feature}_failures", 1)
             await redis.execute_command("EVAL", FAILURE, 1, breaker)

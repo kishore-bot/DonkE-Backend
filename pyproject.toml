@@ -50,3 +50,35 @@ venvPath = "."
 venv = ".venv"
 pythonVersion = "3.14"
 typeCheckingMode = "basic"
+
+[tool.ruff]
+target-version = "py314"
+line-length = 88
+extend-exclude = ["engine/target"]
+
+[tool.ruff.lint]
+# Pinned explicitly so every ruff version checks the same things.
+# UP flags deprecated syntax and imports; ASYNC, B, DTZ and TRY catch the
+# bugs that matter most in an async FastAPI service.
+select = [
+  "F", "E4", "E7", "E9", "W", "UP", "B", "SIM", "RUF", "C4", "PIE", "PERF",
+  "FURB", "ASYNC", "DTZ", "TRY", "LOG", "G", "PT", "PTH", "PYI", "TC", "FA",
+  "S", "T10", "T20", "EXE", "INT", "YTT", "PLE", "PLW", "PLC", "PLR",
+]
+ignore = [
+  "PLR09",    # complexity counts: reviewed by hand, not by thresholds
+  "PLR2004",  # magic numbers: game rules are numbers
+  "TRY003",   # long messages in AppError are the user-facing text
+  "S101",     # assert is used for invariants and in tests
+  "T201",     # print is the interface of CLI scripts
+  "TC001",    # FastAPI and Pydantic read annotations at runtime, so
+  "TC002",    # moving imports under TYPE_CHECKING would break them
+  "TC003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "PLR", "PT011", "PT018", "PLC0415"]
+# Google SDKs load only when a Gemini key is configured.
+"app/modules/ai/provider.py" = ["PLC0415"]
+"scripts/**" = ["S603", "S607"]
+"migrations/**" = ["E501"]

@@ -138,7 +138,7 @@ async def claim_pending(platform: Platform, limit: int = BATCH) -> list[str]:
     key = pending_key(platform)
     now = datetime.now(UTC).timestamp()
     pending = cast(
-        list[str | bytes],
+        "list[str | bytes]",
         await redis.zrangebyscore(key, "-inf", now, start=0, num=limit),
     )
     claimed = []

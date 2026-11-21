@@ -42,7 +42,8 @@ class Platform:
                     503, "schema_unavailable", "Online storage has not been initialized"
                 )
             if versions != {SCHEMA_HEAD}:
-                from app.core.schema import has_required_schema
+                # Imported here: app.core.schema imports every module's models.
+                from app.core.schema import has_required_schema  # noqa: PLC0415
 
                 if not await connection.run_sync(has_required_schema):
                     raise AppError(

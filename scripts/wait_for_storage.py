@@ -41,7 +41,7 @@ def main() -> None:
         parser.exit(
             1, "Storage did not become ready. Check the migration and store logs.\n"
         )
-    os.execvp(args.command[0], args.command)
+    os.execvp(args.command[0], args.command)  # noqa: S606 - replace this process with the service
 
 
 if __name__ == "__main__":

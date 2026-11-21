@@ -84,10 +84,10 @@ async def stream_rows(
     redis = platform.redis
     if after:
         rows = cast(
-            list[Row], await redis.xrange(stream, f"({after}", "+", count=count)
+            "list[Row]", await redis.xrange(stream, f"({after}", "+", count=count)
         )
     else:
-        latest = cast(list[Row], await redis.xrevrange(stream, "+", "-", count=count))
+        latest = cast("list[Row]", await redis.xrevrange(stream, "+", "-", count=count))
         rows = list(reversed(latest))
     return [
         (text(entry), {text(name): text(value) for name, value in fields.items()})
@@ -153,7 +153,7 @@ async def add_room_invite(platform: Platform, to: UUID, invite: RoomInvite) -> N
     inbox = key(platform, "room-invites", to)
     redis = platform.redis
     # One invite per room: replace an older one for the same room.
-    for raw in cast(list[str | bytes], await redis.zrange(inbox, 0, -1)):
+    for raw in cast("list[str | bytes]", await redis.zrange(inbox, 0, -1)):
         if RoomInvite.model_validate_json(raw).room_id == invite.room_id:
             await redis.zrem(inbox, raw)
     await redis.zadd(inbox, {invite.model_dump_json(): invite.expires_at.timestamp()})
@@ -164,7 +164,7 @@ async def room_invites(platform: Platform, player: UUID) -> list[RoomInvite]:
     inbox = key(platform, "room-invites", player)
     redis = platform.redis
     await redis.zremrangebyscore(inbox, "-inf", datetime.now(UTC).timestamp())
-    raw = cast(list[str | bytes], await redis.zrange(inbox, 0, -1))
+    raw = cast("list[str | bytes]", await redis.zrange(inbox, 0, -1))
     return [RoomInvite.model_validate_json(item) for item in raw]
 
 
