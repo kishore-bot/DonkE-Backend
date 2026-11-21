@@ -37,6 +37,8 @@ def settings():
         auth_secret="synthetic-test-key-with-at-least-32-bytes",
         redis_prefix=f"test-{uuid4().hex}",
         bot_fill_seconds=0,
+        # Most tests check theft detection; the retry window has its own test.
+        refresh_reuse_grace_seconds=0,
     )
 
 
@@ -334,3 +336,59 @@ def test_ready_reports_unavailable_store_without_affecting_liveness(settings, ke
         response = client.get("/ready")
         assert response.status_code == 503
         assert response.json()["error"]["code"] == "store_unavailable"
+
+
+def test_a_lost_refresh_response_can_be_retried_but_theft_still_revokes(settings):
+    from datetime import UTC, datetime, timedelta
+
+    from app.modules.identity import service as identity_service
+
+    config = settings.model_copy(update={"refresh_reuse_grace_seconds": 20})
+    with TestClient(
+        create_app(config, TestGoogle()), base_url="https://testserver"
+    ) as client:
+        original = sign_in(client)
+        payload = {"refresh_token": original["refresh_token"]}
+        first = client.post("/api/v1/auth/refresh", json=payload)
+        # The app never saw `first` (network dropped) and retries.
+        retry = client.post("/api/v1/auth/refresh", json=payload)
+        assert first.status_code == retry.status_code == 200
+        assert (
+            client.get("/api/v1/auth/me", headers=headers(retry.json())).status_code
+            == 200
+        )
+
+        later = datetime.now(UTC) + timedelta(seconds=21)
+
+        class Later(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return later
+
+        identity_service.datetime = Later
+        try:
+            stolen = client.post("/api/v1/auth/refresh", json=payload)
+        finally:
+            identity_service.datetime = datetime
+        assert stolen.status_code == 401
+        assert (
+            client.get("/api/v1/auth/me", headers=headers(retry.json())).status_code
+            == 401
+        )
+
+
+def test_empty_secrets_are_rejected_or_treated_as_unset():
+    online = {
+        "postgres_dsn": "postgresql+asyncpg://u:p@localhost/d",
+        "redis_dsn": "redis://localhost:6379/0",
+    }
+    with pytest.raises(ValueError):
+        Settings(_env_file=None, auth_secret="", **online)
+    assert (
+        Settings(
+            _env_file=None, auth_secret="x" * 32, admin_totp_key="", **online
+        ).admin_totp_key
+        is None
+    )
+    with pytest.raises(ValueError):
+        Settings(_env_file=None, auth_secret="x" * 32, admin_totp_key="short", **online)

@@ -106,10 +106,21 @@ class IdentityService:
             if previous is None:
                 raise unauthorized()
             player = await db.get(Player, session.player_id)
-            if previous.used_at is not None or player is None or not player.active:
+            grace = timedelta(
+                seconds=self.platform.settings.refresh_reuse_grace_seconds
+            )
+            retry = previous.used_at is not None and now - previous.used_at <= grace
+            if (
+                player is None
+                or not player.active
+                or (previous.used_at is not None and not retry)
+            ):
+                # Reuse outside the grace window means the token leaked:
+                # end the whole session.
                 session.revoked_at = now
             else:
-                previous.used_at = now
+                if previous.used_at is None:
+                    previous.used_at = now
                 refresh, row = self._new_refresh(session.id)
                 db.add(row)
                 result = self._tokens(session, refresh, now)

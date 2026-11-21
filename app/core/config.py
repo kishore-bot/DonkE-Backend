@@ -1,4 +1,11 @@
-from pydantic import Field, PostgresDsn, RedisDsn, SecretStr, model_validator
+from pydantic import (
+    Field,
+    PostgresDsn,
+    RedisDsn,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,6 +36,9 @@ class Settings(BaseSettings):
     redis_prefix: str = Field(default="donke", pattern=r"^[a-zA-Z0-9_-]{1,64}$")
     access_seconds: int = Field(default=1800, ge=60, le=3600)
     refresh_seconds: int = Field(default=604800, ge=3600, le=2592000)
+    # A used refresh token presented again within this window is a client
+    # retry (the response was lost), not theft: it gets a fresh pair.
+    refresh_reuse_grace_seconds: int = Field(default=20, ge=0, le=120)
     admin_session_seconds: int = Field(default=900, ge=60, le=3600)
     room_ttl_seconds: int = Field(default=3600, ge=60, le=86400)
     queue_ttl_seconds: int = Field(default=120, ge=30, le=600)
@@ -58,6 +68,12 @@ class Settings(BaseSettings):
     ai_voice_daily_calls: int = Field(default=100, ge=0, le=5000)
     voice_concurrency: int = Field(default=2, ge=1, le=8)
 
+    @field_validator("admin_totp_key", mode="before")
+    @classmethod
+    def unset_when_blank(cls, value: object) -> object:
+        # Compose passes optional keys as "" when unset; that means "not set".
+        return None if isinstance(value, str) and not value.strip() else value
+
     @model_validator(mode="after")
     def online_settings(self) -> Settings:
         online = (self.postgres_dsn, self.redis_dsn, self.auth_secret)
@@ -69,10 +85,15 @@ class Settings(BaseSettings):
             )
         if self.postgres_dsn and self.postgres_dsn.scheme != "postgresql+asyncpg":
             raise ValueError("PostgreSQL requires the postgresql+asyncpg scheme")
-        if self.auth_secret and len(self.auth_secret.get_secret_value().encode()) < 32:
+        # `is not None`, not truthiness: SecretStr("") is falsy, which used to
+        # let an empty signing secret skip this check.
+        if (
+            self.auth_secret is not None
+            and len(self.auth_secret.get_secret_value().encode()) < 32
+        ):
             raise ValueError("The auth secret must contain at least 32 bytes")
         if (
-            self.admin_totp_key
+            self.admin_totp_key is not None
             and len(self.admin_totp_key.get_secret_value().encode()) < 32
         ):
             raise ValueError("The admin TOTP key must contain at least 32 bytes")
