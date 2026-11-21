@@ -16,7 +16,7 @@ from sqlalchemy.orm import DeclarativeBase
 from app.core.config import Settings
 from app.core.errors import AppError
 
-SCHEMA_HEAD = "20261120_ai"
+SCHEMA_HEAD = "20261121_progression_plus"
 
 
 class Base(DeclarativeBase):
@@ -42,11 +42,14 @@ class Platform:
                     503, "schema_unavailable", "Online storage has not been initialized"
                 )
             if versions != {SCHEMA_HEAD}:
-                raise AppError(
-                    503,
-                    "schema_mismatch",
-                    "Online storage needs the application migration",
-                )
+                from app.core.schema import has_required_schema
+
+                if not await connection.run_sync(has_required_schema):
+                    raise AppError(
+                        503,
+                        "schema_mismatch",
+                        "Online storage needs the application migration",
+                    )
         await self.redis.ping()
 
 

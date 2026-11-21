@@ -53,6 +53,16 @@ jobs:
           TEST_POSTGRES_DSN: postgresql+asyncpg://postgres:synthetic@127.0.0.1:55432/postgres
           TEST_REDIS_DSN: redis://127.0.0.1:56379/0
         run: uv run pytest -q
+  podman-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.9"
+      - name: Install the Rust toolchain
+        run: rustup toolchain install 1.96.0 --profile minimal
       - name: Install the Podman Compose provider
         run: |
           uv tool install podman-compose==1.5.0
@@ -64,9 +74,11 @@ jobs:
           DONKE_DEMO_MODE: "true"
           DONKE_GEMINI_API_KEY: ""
           DONKE_ROOM_START_SECONDS: "0"
+          RUSTUP_TOOLCHAIN: "1.96.0"
         run: |
           bash scripts/podman-dev.sh config
-          bash scripts/podman-dev.sh up
+          export PODMAN_COMPOSE_PROVIDER="$(command -v podman-compose)"
+          podman compose --file compose.yml up -d
           bash scripts/podman-dev.sh smoke
       - name: Stop the Podman smoke stack
         if: always()

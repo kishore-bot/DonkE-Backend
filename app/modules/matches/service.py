@@ -1,7 +1,9 @@
 import json
+import logging
 from uuid import UUID, uuid4
 
 from donke_engine import OnlineGame
+from redis.exceptions import RedisError
 
 from app.core.errors import AppError
 from app.core.platform import Platform
@@ -15,6 +17,8 @@ from app.modules.matches.schemas import (
     MatchState,
     PublicMatch,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def unavailable() -> AppError:
@@ -46,13 +50,11 @@ class MatchService:
 
     async def start(self, room_id: UUID) -> UUID | None:
         room = await self.repo.room(room_id)
-        if room is None:
+        if room is None or room.game_id is not None:
             await self.platform.redis.zrem(
                 f"{self.repo.prefix}:lobby:rooms:ready", str(room_id)
             )
-            return None
-        if room.game_id:
-            return room.game_id
+            return room.game_id if room is not None else None
         if room.status != "ready":
             return None
         game = OnlineGame(len(room.seats))
@@ -252,14 +254,12 @@ class MatchService:
         return Acknowledgement.model_validate(result)
 
     async def settle(self, game_id: UUID) -> None:
-        state = await self.repo.get(game_id)
-        if state is None:
-            await self.platform.redis.zrem(
-                self.repo.game_key("index", "settlement"), str(game_id)
-            )
+        prepared = await self.repo.prepare_settlement(game_id)
+        if prepared is None:
             return
+        state, finished_at = prepared
         if state.outcome is None:
-            return
+            raise MatchConflict("outcome_missing")
         replay = MatchReplay(
             id=state.id,
             room_id=state.room_id,
@@ -268,19 +268,41 @@ class MatchService:
             outcome=state.outcome,
             events=await self.repo.events(game_id, 0, state.sequence),
         )
-        await settlement.persist(self.platform, replay)
+        await settlement.persist(self.platform, replay, finished_at=finished_at)
         await self.repo.execute(
             "settled", game_id, retention=self.platform.settings.match_archive_seconds
         )
 
     async def tick(self) -> None:
         for room_id in await self.repo.due("unused", lobby=True):
-            await self.start(room_id)
+            try:
+                await self.start(room_id)
+            except Exception as error:  # noqa: BLE001 - Keep processing other rooms.
+                await self.defer("room", room_id, error)
         for game_id in await self.repo.due("turns"):
             try:
                 await self.on_deadline(game_id)
             except MatchConflict as exc:
                 if exc.code not in {"turn_unclaimed", "game_finished", "stale_version"}:
-                    raise
+                    await self.defer("turn", game_id, exc)
+            except Exception as error:  # noqa: BLE001 - Keep processing other turns.
+                await self.defer("turn", game_id, error)
         for game_id in await self.repo.due("settlement"):
-            await self.settle(game_id)
+            try:
+                await self.settle(game_id)
+            except Exception as error:  # noqa: BLE001 - Keep processing other results.
+                await self.defer("settlement", game_id, error)
+
+    async def defer(self, work: str, identifier: UUID, error: Exception) -> None:
+        logger.warning(
+            "Failed to process %s %s (%s)", work, identifier, type(error).__name__
+        )
+        try:
+            await self.repo.execute(f"defer_{work}", identifier)
+        except (MatchConflict, RedisError) as retry_error:
+            logger.warning(
+                "Could not schedule retry for %s %s (%s)",
+                work,
+                identifier,
+                type(retry_error).__name__,
+            )

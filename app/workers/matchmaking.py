@@ -53,12 +53,18 @@ async def run(platform: Platform, stop: asyncio.Event) -> None:
         try:
             await match_once(lobby)
             await matches.tick()
-        except (RedisError, SQLAlchemyError, LobbyConflict, MatchConflict) as error:
+        except (
+            RedisError,
+            SQLAlchemyError,
+            OSError,
+            LobbyConflict,
+            MatchConflict,
+        ) as error:
             logger.warning("Matchmaking tick failed (%s)", type(error).__name__)
         if loop.time() >= next_prune:
             try:
                 await prune_sessions(platform)
-            except SQLAlchemyError as error:
+            except (SQLAlchemyError, OSError) as error:
                 logger.warning("Session cleanup failed (%s)", type(error).__name__)
                 next_prune = loop.time() + 60
             else:

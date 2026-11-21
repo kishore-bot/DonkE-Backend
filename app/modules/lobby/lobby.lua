@@ -37,8 +37,11 @@ end
 
 local function live_room(id)
     local room = read('room', id)
-    if room and room.status == 'playing' and type(room.game_id) == 'string'
-        and redis.call('EXISTS', KEYS[2] .. room.game_id) == 0 then
+    if not room or type(room.game_id) ~= 'string' then return room end
+    local game = KEYS[2]
+    local orphaned = room.status == 'playing'
+        and redis.call('EXISTS', game .. ':state:' .. room.game_id) == 0
+    if orphaned or room.status == 'waiting' or room.status == 'ready' then
         for _, seat in ipairs(room.seats) do
             if seat.player_id then
                 local reservation = read('member', seat.player_id)
@@ -48,6 +51,12 @@ local function live_room(id)
             end
         end
         remove('room', id)
+        redis.call('ZREM', key('rooms', 'ready'), id)
+        if orphaned then
+            for _, index in ipairs({'turns', 'settlement', 'deferred_finishes'}) do
+                redis.call('ZREM', game .. ':index:' .. index, room.game_id)
+            end
+        end
         return nil
     end
     return room
@@ -311,7 +320,9 @@ local owns_seat = seat and matching_id(member, 'room', room.id)
 
 if op == 'join_room' then
     if owns_seat then return cjson.encode(room) end
-    if room.mode or room.status == 'playing' then return failure('room_not_found') end
+    if room.mode or room.game_id or room.status == 'playing' or room.status == 'finished' then
+        return failure('room_not_found')
+    end
     if member then return failure('player_busy') end
     if #room.seats >= room.capacity then return failure('room_full') end
     table.insert(room.seats, new_seat(input.player, input.name, false, false))

@@ -93,14 +93,28 @@ async def seed(platform: Platform) -> list[Profile]:
             player.display_name = name
             player.language = language
             players.append(Profile.model_validate(player))
-        if await db.scalar(select(Season.id).limit(1)) is None:
-            now = datetime.now(UTC)
+        now = datetime.now(UTC)
+        active = await db.scalar(
+            select(Season.id)
+            .where(Season.starts_at <= now, Season.ends_at > now)
+            .limit(1)
+        )
+        if active is None:
+            upcoming = await db.scalar(
+                select(Season.starts_at)
+                .where(Season.starts_at > now)
+                .order_by(Season.starts_at)
+                .limit(1)
+            )
+            ends = now + timedelta(days=28)
             db.add(
                 Season(
-                    id=DEMO_SEASON,
+                    id=DEMO_SEASON
+                    if await db.get(Season, DEMO_SEASON) is None
+                    else None,
                     theme="Monsoon Demo",
-                    starts_at=now - timedelta(days=1),
-                    ends_at=now + timedelta(days=27),
+                    starts_at=now,
+                    ends_at=min(upcoming, ends) if upcoming is not None else ends,
                 )
             )
 

@@ -128,6 +128,9 @@ class IdentityService:
             player_id, session_id = UUID(claims["sub"]), UUID(claims["sid"])
         except (jwt.InvalidTokenError, ValueError, TypeError, AttributeError) as exc:
             raise unauthorized() from exc
+        return await self.active_session(player_id, session_id)
+
+    async def active_session(self, player_id: UUID, session_id: UUID) -> Principal:
         async with self.platform.sessions() as db:
             player = await repository.active_player(
                 db, player_id, session_id, datetime.now(UTC)

@@ -12,7 +12,7 @@ bash scripts/podman-dev.sh up
 bash scripts/podman-dev.sh smoke
 ```
 
-The script selects the Podman Compose provider even when another provider is present. It starts PostgreSQL and Redis, runs the migration to completion, and starts Granian and the workers. Podman pulls base images by their explicit registry names. The smoke command writes short-lived player tokens to Linux temporary files and removes those files when it exits. Demo seeding is an operator CLI guarded by `DONKE_DEMO_MODE`. No alternate player-login route is added.
+The script selects the Podman Compose provider even when another provider is present. It starts PostgreSQL and Redis, runs the migration to completion, and starts Granian and the workers. A plain `podman compose up` also starts the migration, and the API and workers wait for the database schema and Redis. The smoke command writes short-lived player tokens to Linux temporary files and removes those files when it exits. Demo seeding is an operator CLI guarded by `DONKE_DEMO_MODE`.
 
 Run `bash scripts/podman-dev.sh ps` or `bash scripts/podman-dev.sh logs` to inspect the stack. The `down` command preserves database volumes.
 
@@ -29,7 +29,7 @@ rm -- "$sessions_dir/demo-sessions.json"
 rmdir -- "$sessions_dir"
 ```
 
-Seeding creates two recognizable profiles, an accepted friendship, six deterministic archived games, and earned-coin balances. It creates a sample season if the seasons table is empty. Reruns reuse the profiles and archive IDs and leave credited rewards unchanged. Live demo games create their own room and match IDs.
+Seeding creates two recognizable profiles, an accepted friendship, six deterministic archived games, and earned-coin balances. It creates a sample season when none is active and ends it before the next scheduled season. Reruns reuse the profiles and archive IDs and leave credited rewards unchanged. A failed smoke run releases waiting-room seats or hands active seats to bots. A subsequent run waits for the previous match to settle before creating a new room.
 
 ## Architecture
 
@@ -47,7 +47,7 @@ flowchart LR
     API -->|optional coaching and commentary| Gemini
 ```
 
-A move and its acknowledgements, events, and next deadline share one Redis commit. A worker settles the finished game once in PostgreSQL. The stream and private snapshots support reconnect, and the participant-only replay is read from PostgreSQL after settlement. If Redis loses a live match state, the next lobby access releases that room's seat reservations so players can requeue. Readiness checks that PostgreSQL has the expected migration head and that Redis is reachable.
+A move and its acknowledgements, events, and next deadline share one Redis commit. A worker settles the finished game once in PostgreSQL. The stream and private snapshots support reconnect, and the participant-only replay is read from PostgreSQL after settlement. If Redis loses a live match state, the next lobby access releases that room's seat reservations and clears its worker indexes. Readiness accepts the expected migration head or a schema with all the tables and column types this release requires.
 
 ## Release evidence
 

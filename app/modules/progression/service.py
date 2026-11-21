@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
@@ -9,38 +8,55 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import AppError
 from app.core.platform import Platform
 from app.modules.identity.repository import profiles, reset_ratings
+from app.modules.matches.repository import MatchRepository
 from app.modules.matches.schemas import MatchReplay
+from app.modules.progression.analytics import (
+    MatchAnalytics,
+    SeatStats,
+    finishing_ranks,
+    match_analytics,
+)
+from app.modules.progression.catalog import (
+    ACHIEVEMENTS,
+    BONUS_TRACK,
+    CATALOG,
+    PERKS,
+    STREAK_DAYS,
+    TIER_POINTS,
+    TIERS,
+    active_perks,
+    bank_share,
+    boosted_coins,
+    in_window,
+    window_end,
+)
 from app.modules.progression.models import (
+    Achievement,
     CoinLedger,
     Cosmetic,
+    PlayerSkill,
+    PlayerStats,
     Season,
+    SeasonDay,
     SeasonPlayer,
     Wallet,
     WeeklyPlayer,
 )
 from app.modules.progression.schemas import (
+    AchievementsView,
+    AchievementView,
+    BonusView,
     CatalogItem,
     ChallengeView,
     MySeason,
+    PerkView,
     SeasonCreate,
     SeasonInfo,
     Standing,
     TierView,
 )
+from app.modules.progression.skill import Rating, rate
 
-
-@dataclass(frozen=True, slots=True)
-class CatalogProduct:
-    label: str
-    slot: str
-    price: int
-
-
-CATALOG = {
-    "monsoon_back": CatalogProduct("Monsoon card back", "card_back", 60),
-    "poorayil_frame": CatalogProduct("Poorayil festival frame", "frame", 90),
-    "kettuvallam_title": CatalogProduct("Kettuvallam Captain", "title", 75),
-}
 CHALLENGES = {
     "play_three": ("Play three matches", "games", 3, 20),
     "play_seven": ("Play seven matches", "games", 7, 40),
@@ -63,17 +79,23 @@ async def wallet_lock(db: AsyncSession, player: UUID) -> Wallet:
 
 
 async def credit(
-    db: AsyncSession, wallet: Wallet, reference: str, kind: str, amount: int
+    db: AsyncSession,
+    wallet: Wallet,
+    reference: str,
+    kind: str,
+    amount: int,
+    *,
+    earned_at: datetime | None = None,
 ) -> bool:
-    query = (
-        insert(CoinLedger)
-        .values(
-            reference=reference, player_id=wallet.player_id, kind=kind, amount=amount
-        )
-        .on_conflict_do_nothing()
-        .returning(CoinLedger.reference)
+    query = insert(CoinLedger).values(
+        reference=reference, player_id=wallet.player_id, kind=kind, amount=amount
     )
-    if await db.scalar(query) is None:
+    if earned_at is not None:
+        query = query.values(created_at=earned_at)
+    if (
+        await db.scalar(query.on_conflict_do_nothing().returning(CoinLedger.reference))
+        is None
+    ):
         return False
     wallet.coins += amount
     return True
@@ -119,7 +141,9 @@ async def own(db: AsyncSession, player: UUID, sku: str) -> None:
     )
 
 
-async def close_season(db: AsyncSession, season_id: UUID, now: datetime) -> SeasonInfo:
+async def close_season(
+    db: AsyncSession, matches: MatchRepository, season_id: UUID, now: datetime
+) -> SeasonInfo:
     await db.execute(text("SELECT pg_advisory_xact_lock(470053)"))
     season = await db.get(Season, season_id, with_for_update=True)
     if season is None:
@@ -128,6 +152,17 @@ async def close_season(db: AsyncSession, season_id: UUID, now: datetime) -> Seas
         return SeasonInfo.model_validate(season)
     if now < season.ends_at:
         raise AppError(409, "season_active", "The season has not ended")
+    settlement_status = await matches.season_settlement_status(
+        season.starts_at, season.ends_at
+    )
+    if settlement_status == "active":
+        raise AppError(409, "season_active", "The season has not ended")
+    if settlement_status == "pending":
+        raise AppError(
+            409,
+            "season_settlement_pending",
+            "Wait for the season's match results to settle",
+        )
     rows = await db.scalars(
         select(SeasonPlayer)
         .where(SeasonPlayer.season_id == season.id)
@@ -162,6 +197,112 @@ async def close_season(db: AsyncSession, season_id: UUID, now: datetime) -> Seas
     return SeasonInfo.model_validate(season)
 
 
+TIER_REWARDS = {10: "card_back", 20: "title", 25: "emote", 30: "frame"}
+
+
+async def streak_stars(db: AsyncSession, season_id: UUID, player: UUID) -> int:
+    """Weeks in the season with at least STREAK_DAYS distinct play days."""
+    week = func.date_trunc("week", SeasonDay.day)
+    weeks = (
+        select(week)
+        .where(SeasonDay.season_id == season_id, SeasonDay.player_id == player)
+        .group_by(week)
+        .having(func.count() >= STREAK_DAYS)
+        .subquery()
+    )
+    return await db.scalar(select(func.count()).select_from(weeks)) or 0
+
+
+async def record_stats(
+    db: AsyncSession,
+    wallet: Wallet,
+    player: UUID,
+    seat: SeatStats,
+    now: datetime,
+    *,
+    decided: bool,
+) -> None:
+    """Update lifetime counters and pay out newly unlocked achievements.
+
+    Only matches that reached a result (a Donkey or everyone safe) move the
+    safe streak; time-limited or abandoned matches leave it unchanged."""
+    await db.execute(
+        insert(PlayerStats).values(player_id=player).on_conflict_do_nothing()
+    )
+    row = await db.get(PlayerStats, player, with_for_update=True)
+    assert row is not None
+    row.games += 1
+    row.escapes += int(seat.place is not None)
+    row.firsts += int(seat.place == 1)
+    row.donkeys += int(seat.donkey)
+    row.cuts_given += seat.cuts_given
+    row.cards_picked += seat.cards_picked
+    if decided:
+        row.safe_streak = 0 if seat.donkey else row.safe_streak + 1
+    row.best_safe_streak = max(row.best_safe_streak, row.safe_streak)
+    for key, spec in ACHIEVEMENTS.items():
+        if getattr(row, spec.stat) < spec.target:
+            continue
+        unlocked = await db.scalar(
+            insert(Achievement)
+            .values(player_id=player, key=key, unlocked_at=now)
+            .on_conflict_do_nothing()
+            .returning(Achievement.key)
+        )
+        if unlocked is not None:
+            await credit(
+                db,
+                wallet,
+                f"achievement:{key}:{player}",
+                "achievement",
+                spec.coins,
+                earned_at=now,
+            )
+
+
+async def update_skills(db: AsyncSession, analytics: MatchAnalytics) -> None:
+    """Rate every human at the table against each other; bots are ignored."""
+    humans = [
+        (seat.seat, seat.player_id)
+        for seat in analytics.seats
+        if seat.player_id is not None and not seat.bot
+    ]
+    if len(humans) < 2:
+        return
+    ids = sorted(player for _, player in humans)
+    for player in ids:
+        await db.execute(
+            insert(PlayerSkill).values(player_id=player).on_conflict_do_nothing()
+        )
+    rows = {
+        row.player_id: row
+        for row in await db.scalars(
+            select(PlayerSkill)
+            .where(PlayerSkill.player_id.in_(ids))
+            .order_by(PlayerSkill.player_id)
+            .with_for_update()
+        )
+    }
+    ranks = finishing_ranks(analytics)
+    after = rate(
+        [Rating(rows[player].mu, rows[player].sigma) for _, player in humans],
+        [ranks[seat] for seat, _ in humans],
+    )
+    for (_, player), rating in zip(humans, after, strict=True):
+        rows[player].mu = rating.mu
+        rows[player].sigma = rating.sigma
+        rows[player].matches += 1
+
+
+async def hidden_skills(db: AsyncSession, players: list[UUID]) -> dict[UUID, Rating]:
+    """Matchmaking skill per player; unrated players get the default."""
+    rows = await db.scalars(
+        select(PlayerSkill).where(PlayerSkill.player_id.in_(players))
+    )
+    found = {row.player_id: Rating(row.mu, row.sigma) for row in rows}
+    return {player: found.get(player, Rating()) for player in players}
+
+
 async def on_match(
     db: AsyncSession, replay: MatchReplay, season: Season | None, now: datetime
 ) -> None:
@@ -175,36 +316,50 @@ async def on_match(
     # Match ratings already changed in this transaction.
     entrants = await profiles(db, [player for player, _ in eligible]) if season else {}
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    played = [event for batch in replay.events for event in batch.events]
+    next_midnight = midnight + timedelta(days=1)
+    analytics = match_analytics(replay)
+    decided = replay.outcome.get("reason") in {"donkey", "all_safe"}
     for player, index in eligible:
         wallet = await wallet_lock(db, player)
-        escaped = int(
-            any(
-                event["event"] == "player_escaped" and event["seat"] == index
-                for event in played
-            )
+        seat = analytics.seats[index]
+        escaped = int(seat.place is not None)
+        cuts = seat.cuts_given
+        progress = (
+            await db.get(SeasonPlayer, (season.id, player), with_for_update=True)
+            if season is not None and player in entrants
+            else None
         )
-        cuts = sum(
-            event["event"] == "vettu" and event["cutter"] == index for event in played
-        )
+        perks = active_perks(progress.points) if progress else set()
         awarded = await db.scalar(
             select(func.coalesce(func.sum(CoinLedger.amount), 0)).where(
                 CoinLedger.player_id == player,
                 CoinLedger.kind == "match",
                 CoinLedger.created_at >= midnight,
+                CoinLedger.created_at < next_midnight,
             )
         )
-        amount = min(10 + 5 * escaped, max(0, 100 - (awarded or 0)))
+        amount = min(
+            boosted_coins(10 + 5 * escaped, perks), max(0, 100 - (awarded or 0))
+        )
         if amount:
-            await credit(db, wallet, f"match:{replay.id}:{player}", "match", amount)
+            await credit(
+                db,
+                wallet,
+                f"match:{replay.id}:{player}",
+                "match",
+                amount,
+                earned_at=now,
+            )
+        await record_stats(db, wallet, player, seat, now, decided=decided)
         if season is None or player not in entrants:
             continue
         points = 5 + 3 * escaped + 2 * cuts
+        bank = bank_share(amount, perks)
         row = insert(SeasonPlayer).values(
             season_id=season.id,
             player_id=player,
             points=points,
-            bank=amount // 5,
+            bank=bank,
             peak_mmr=entrants[player].mmr,
         )
         await db.execute(
@@ -212,7 +367,7 @@ async def on_match(
                 index_elements=[SeasonPlayer.season_id, SeasonPlayer.player_id],
                 set_={
                     "points": SeasonPlayer.points + points,
-                    "bank": SeasonPlayer.bank + amount // 5,
+                    "bank": SeasonPlayer.bank + bank,
                     "peak_mmr": func.greatest(
                         SeasonPlayer.peak_mmr, entrants[player].mmr
                     ),
@@ -241,6 +396,12 @@ async def on_match(
                 },
             )
         )
+        await db.execute(
+            insert(SeasonDay)
+            .values(season_id=season.id, player_id=player, day=now.date())
+            .on_conflict_do_nothing()
+        )
+    await update_skills(db, analytics)
 
 
 class ProgressionService:
@@ -270,6 +431,7 @@ class ProgressionService:
                     select(Cosmetic).where(Cosmetic.player_id == player)
                 )
             }
+        today = datetime.now(UTC).date()
         return [
             CatalogItem(
                 sku=sku,
@@ -278,6 +440,9 @@ class ProgressionService:
                 price=item.price,
                 owned=sku in owned,
                 equipped=sku in owned and owned[sku].equipped,
+                festival=item.festival,
+                available=in_window(item.window, today),
+                available_until=window_end(item.window, today),
             )
             for sku, item in CATALOG.items()
         ]
@@ -290,6 +455,12 @@ class ProgressionService:
             wallet = await wallet_lock(db, player)
             if await db.get(Cosmetic, (player, sku)) is not None:
                 return wallet.coins
+            if not in_window(product.window, datetime.now(UTC).date()):
+                raise AppError(
+                    409,
+                    "cosmetic_unavailable",
+                    f"{product.label} returns for {product.festival}",
+                )
             if wallet.coins < product.price:
                 raise AppError(
                     409, "insufficient_coins", "Earn more coins to buy this cosmetic"
@@ -330,23 +501,56 @@ class ProgressionService:
                 await db.scalars(
                     select(CoinLedger.reference).where(
                         CoinLedger.player_id == player,
-                        CoinLedger.kind.in_(["tier", "challenge"]),
+                        CoinLedger.kind.in_(["tier", "challenge", "bonus"]),
                     )
                 )
             )
+            points = progress.points if progress else 0
+            perks = active_perks(points)
+            days = await db.scalar(
+                select(func.count()).where(
+                    SeasonDay.season_id == season.id,
+                    SeasonDay.player_id == player,
+                    SeasonDay.day >= week,
+                    SeasonDay.day < week + timedelta(days=7),
+                )
+            )
+            stars = await streak_stars(db, season.id, player)
             return MySeason(
                 season=SeasonInfo.model_validate(season),
-                points=progress.points if progress else 0,
+                points=points,
                 bank=progress.bank if progress else 0,
                 peak_mmr=progress.peak_mmr if progress else 0,
                 tiers=[
                     TierView(
                         tier=i,
-                        points=10 * i,
+                        points=TIER_POINTS * i,
                         coins=5 + i,
+                        reward=TIER_REWARDS.get(i),
                         claimed=f"tier:{season.id}:{player}:{i}" in refs,
                     )
-                    for i in range(1, 31)
+                    for i in range(1, TIERS + 1)
+                ],
+                perks=[
+                    PerkView(
+                        key=perk.key,
+                        title=perk.title,
+                        tier=perk.tier,
+                        active=perk.key in perks,
+                    )
+                    for perk in PERKS
+                ],
+                streak_days=days or 0,
+                streak_target=STREAK_DAYS,
+                stars=stars,
+                bonus=[
+                    BonusView(
+                        tier=tier,
+                        stars=needed,
+                        reward=slot,
+                        claimed=f"bonus:{season.id}:{player}:{tier}" in refs,
+                    )
+                    for tier, (needed, slot) in BONUS_TRACK.items()
                 ],
                 weekly=[
                     ChallengeView(
@@ -368,6 +572,7 @@ class ProgressionService:
         *,
         tier: int | None = None,
         challenge: str | None = None,
+        bonus: int | None = None,
     ) -> bool:
         now = datetime.now(UTC)
         async with self.platform.sessions.begin() as db:
@@ -382,9 +587,25 @@ class ProgressionService:
                 credited = await credit(
                     db, wallet, f"tier:{season_id}:{player}:{tier}", "tier", 5 + tier
                 )
-                if credited and tier in {10, 20, 30}:
-                    slot = {10: "card_back", 20: "title", 30: "frame"}[tier]
+                if credited and tier in TIER_REWARDS:
+                    slot = TIER_REWARDS[tier]
                     await own(db, player, f"tier:{season_id}:{tier}:{slot}")
+                return credited
+            if bonus is not None:
+                if bonus not in BONUS_TRACK:
+                    raise AppError(404, "bonus_not_found", "Bonus tier not found")
+                needed, slot = BONUS_TRACK[bonus]
+                if await streak_stars(db, season.id, player) < needed:
+                    raise AppError(
+                        409,
+                        "bonus_locked",
+                        f"Play {STREAK_DAYS} days in a week to earn streak stars",
+                    )
+                credited = await credit(
+                    db, wallet, f"bonus:{season_id}:{player}:{bonus}", "bonus", 0
+                )
+                if credited:
+                    await own(db, player, f"bonus:{season_id}:{bonus}:{slot}")
                 return credited
             if challenge not in CHALLENGES:
                 raise AppError(404, "challenge_not_found", "Challenge not found")
@@ -426,3 +647,41 @@ class ProgressionService:
                 )
                 for row in rows
             ]
+
+    async def achievements(self, player: UUID) -> AchievementsView:
+        async with self.platform.sessions() as db:
+            stats = await db.get(PlayerStats, player)
+            unlocked = {
+                row.key: row.unlocked_at
+                for row in await db.scalars(
+                    select(Achievement).where(Achievement.player_id == player)
+                )
+            }
+        counters = {
+            name: (getattr(stats, name) if stats else 0)
+            for name in (
+                "games",
+                "escapes",
+                "firsts",
+                "donkeys",
+                "cuts_given",
+                "cards_picked",
+                "safe_streak",
+                "best_safe_streak",
+            )
+        }
+        return AchievementsView(
+            stats=counters,
+            achievements=[
+                AchievementView(
+                    key=key,
+                    title=spec.title,
+                    description=spec.description,
+                    progress=min(counters[spec.stat], spec.target),
+                    target=spec.target,
+                    coins=spec.coins,
+                    unlocked_at=unlocked.get(key),
+                )
+                for key, spec in ACHIEVEMENTS.items()
+            ],
+        )

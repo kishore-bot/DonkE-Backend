@@ -1,4 +1,6 @@
 import json
+import math
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 from uuid import UUID
@@ -32,14 +34,40 @@ class MatchRepository:
     async def execute(
         self, operation: str, game_id: UUID, **args: str | int | bool
     ) -> dict:
+        return await self._execute(operation, {"game_id": str(game_id), **args})
+
+    async def _execute(self, operation: str, args: dict[str, str | int | bool]) -> dict:
         value = await self.script(
             keys=[self.prefix],
-            args=[operation, json.dumps({"game_id": str(game_id), **args})],
+            args=[operation, json.dumps(args)],
         )
         result = json.loads(value)
         if "error" in result:
             raise MatchConflict(result["error"])
         return result
+
+    async def prepare_settlement(
+        self, game_id: UUID
+    ) -> tuple[MatchState, datetime] | None:
+        result = await self.execute("prepare_settlement", game_id)
+        if "state" not in result:
+            return None
+        return (
+            MatchState.model_validate(result["state"]),
+            datetime.fromtimestamp(result["finished_ms"] / 1000, UTC),
+        )
+
+    async def season_settlement_status(
+        self, starts_at: datetime, ends_at: datetime
+    ) -> str:
+        result = await self._execute(
+            "season_settlement_status",
+            {
+                "starts_ms": math.ceil(starts_at.timestamp() * 1000),
+                "ends_ms": math.ceil(ends_at.timestamp() * 1000),
+            },
+        )
+        return result["status"]
 
     async def room(self, room_id: UUID) -> Room | None:
         raw = await self.redis.get(f"{self.prefix}:lobby:room:{room_id}")

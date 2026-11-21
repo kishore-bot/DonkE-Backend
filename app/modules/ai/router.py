@@ -12,6 +12,7 @@ from app.modules.admin.service import admin_write
 from app.modules.ai.commentary import line
 from app.modules.ai.gateway import Gateway
 from app.modules.ai.index import ranked_rules, reindex
+from app.modules.ai.knowledge import NO_MATCH
 from app.modules.ai.schemas import (
     CoachReply,
     CoachRequest,
@@ -40,9 +41,10 @@ VoiceId = Literal["kore", "puck", "leda", "aoede"]
 async def commentary(
     game_id: UUID, sequence: Sequence, player: CurrentPlayer, gateway: AI
 ) -> Commentary:
-    return await line(
+    result, _ = await line(
         gateway, game_id, player.profile.id, sequence, player.profile.language
     )
+    return result
 
 
 @router.get(
@@ -61,11 +63,13 @@ async def voice(
     gateway: AI,
     voice_id: VoiceId = "kore",
 ) -> Response | VoiceStatus:
-    result = await line(
+    result, finalized = await line(
         gateway, game_id, player.profile.id, sequence, player.profile.language
     )
     if gateway.provider is None:
         return VoiceStatus(status="disabled")
+    if not finalized:
+        return VoiceStatus(status="pending")
     voice = Voice(gateway)
     if audio := await voice.clip(result.text, result.language, voice_id):
         return Response(
@@ -83,14 +87,9 @@ async def voice(
 async def ask(body: CoachRequest, player: CurrentPlayer, gateway: AI) -> CoachReply:
     await limit(gateway.platform, "coach", str(player.profile.id), 20, 60)
     results = await ranked_rules(gateway, body.question)
-    ml = player.profile.language == "ml"
+    language = player.profile.language
     if not results:
-        answer = (
-            "ഈ ചോദ്യത്തിന് കളിനിയമങ്ങളിൽ ഉത്തരം കണ്ടില്ല."
-            if ml
-            else "I could not find that in the Kazhutha rules."
-        )
-        return CoachReply(answer=answer, source="no_match")
+        return CoachReply(answer=NO_MATCH[language], source="no_match")
     candidates = "\n".join(f"{rule.source}: {rule.en}" for rule in results)
     chosen = await gateway.select(
         "coach",
@@ -99,7 +98,7 @@ async def ask(body: CoachRequest, player: CurrentPlayer, gateway: AI) -> CoachRe
     )
     rule = next((item for item in results if item.source == chosen), results[0])
     return CoachReply(
-        answer=rule.ml if ml else rule.en,
+        answer=rule.answer(language),
         citation=rule.source,
         source="gemini_selected" if chosen else "rules",
     )

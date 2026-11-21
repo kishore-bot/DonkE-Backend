@@ -12,10 +12,39 @@ local now = tonumber(clock[1]) * 1000 + math.floor(tonumber(clock[2]) / 1000)
 local ready = key('lobby', 'rooms', 'ready')
 local due = key('game', 'index', 'turns')
 local pending = key('game', 'index', 'settlement')
+local deferred_finishes = key('game', 'index', 'deferred_finishes')
+
+if operation == 'season_settlement_status' then
+    if now < input.ends_ms then return ok({status = 'active'}) end
+    local upper = '(' .. tostring(input.ends_ms)
+    if redis.call('ZCOUNT', deferred_finishes, input.starts_ms, upper) > 0 then
+        return ok({status = 'pending'})
+    end
+    -- The pending score is the completion time until the first retry.
+    for _, game_id in ipairs(redis.call('ZRANGEBYSCORE', pending, input.starts_ms, upper)) do
+        if not redis.call('ZSCORE', deferred_finishes, game_id) then
+            return ok({status = 'pending'})
+        end
+    end
+    return ok({status = 'clear'})
+end
+
 local id = input.game_id
 local state_key = key('game', 'state', id)
 local log = key('game', 'events', id)
 local requests = key('game', 'commands', id)
+
+if operation == 'defer_room' or operation == 'defer_turn' or operation == 'defer_settlement' then
+    local index = operation == 'defer_room' and ready or (operation == 'defer_turn' and due or pending)
+    local scheduled = redis.call('ZSCORE', index, id)
+    if scheduled and tonumber(scheduled) <= now then
+        if index == pending then
+            redis.call('ZADD', deferred_finishes, 'NX', scheduled, id)
+        end
+        redis.call('ZADD', index, now + 5000, id)
+    end
+    return ok()
+end
 
 local function append(sequence, events)
     redis.call('XADD', log, tostring(sequence) .. '-0', 'events', events)
@@ -55,11 +84,26 @@ if operation == 'start' then
 end
 
 local state = get(state_key)
+
+if operation == 'prepare_settlement' then
+    local scheduled = redis.call('ZSCORE', pending, id)
+    if not scheduled then return ok() end
+    if not state then
+        redis.call('ZREM', pending, id)
+        redis.call('ZREM', deferred_finishes, id)
+        return ok()
+    end
+    if state.status ~= 'finished' then return fail('game_active') end
+    local finished_ms = redis.call('ZSCORE', deferred_finishes, id) or scheduled
+    return ok({state = state, finished_ms = tonumber(finished_ms)})
+end
+
 if not state then return fail('game_missing') end
 
 if operation == 'settled' then
     if state.status ~= 'finished' then return fail('game_active') end
     if redis.call('ZREM', pending, id) == 0 then return ok() end
+    redis.call('ZREM', deferred_finishes, id)
     for _, seat in ipairs(state.seats) do
         if type(seat.player_id) == 'string' then
             local member_key = key('lobby', 'member', seat.player_id)

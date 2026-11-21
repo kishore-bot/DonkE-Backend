@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
@@ -15,6 +15,9 @@ class CatalogItem(BaseModel):
     price: int
     owned: bool
     equipped: bool
+    festival: str | None = None
+    available: bool = True
+    available_until: date | None = None
 
 
 class SeasonCreate(BaseModel):
@@ -52,6 +55,21 @@ class TierView(BaseModel):
     tier: int
     points: int
     coins: int
+    reward: str | None = None
+    claimed: bool
+
+
+class PerkView(BaseModel):
+    key: str
+    title: str
+    tier: int
+    active: bool
+
+
+class BonusView(BaseModel):
+    tier: int
+    stars: int
+    reward: str
     claimed: bool
 
 
@@ -71,9 +89,29 @@ class MySeason(BaseModel):
     peak_mmr: int
     tiers: list[TierView]
     weekly: list[ChallengeView]
+    perks: list[PerkView]
+    streak_days: int
+    streak_target: int
+    stars: int
+    bonus: list[BonusView]
 
 
 class Standing(BaseModel):
     player_id: UUID
     points: int
     peak_mmr: int
+
+
+class AchievementView(BaseModel):
+    key: str
+    title: str
+    description: str
+    progress: int
+    target: int
+    coins: int
+    unlocked_at: datetime | None
+
+
+class AchievementsView(BaseModel):
+    stats: dict[str, int]
+    achievements: list[AchievementView]

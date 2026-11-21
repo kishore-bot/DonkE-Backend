@@ -8,8 +8,12 @@ from app.modules.admin.router import Cookie, CsrfToken, RequestId
 from app.modules.admin.service import admin_write
 from app.modules.identity.router import CurrentPlayer, PlatformDep
 from app.modules.lobby.router import Writes
+from app.modules.matches.repository import MatchRepository
+from app.modules.matches.settlement import read_replay
 from app.modules.progression import service
+from app.modules.progression.analytics import MatchAnalytics, match_analytics
 from app.modules.progression.schemas import (
+    AchievementsView,
     CatalogItem,
     CloseSeason,
     MySeason,
@@ -89,6 +93,30 @@ async def claim_weekly(
     }
 
 
+@router.post("/seasons/{season_id}/bonus/{tier}/claim", dependencies=Writes)
+async def claim_bonus(
+    season_id: UUID,
+    tier: Annotated[int, Path(ge=1, le=4)],
+    player: CurrentPlayer,
+    progress: Progression,
+) -> dict[str, bool]:
+    return {"credited": await progress.claim(player.profile.id, season_id, bonus=tier)}
+
+
+@router.get("/achievements")
+async def achievements(
+    player: CurrentPlayer, progress: Progression
+) -> AchievementsView:
+    return await progress.achievements(player.profile.id)
+
+
+@router.get("/games/{game_id}/analytics")
+async def analytics(
+    game_id: UUID, player: CurrentPlayer, platform: PlatformDep
+) -> MatchAnalytics:
+    return match_analytics(await read_replay(platform, game_id, player.profile.id))
+
+
 @router.post("/admin/seasons", status_code=201)
 async def create_season(
     body: SeasonCreate,
@@ -115,4 +143,6 @@ async def close_season(
     async with admin_write(
         platform, cookie, csrf, request_id, "close_season", body.reason
     ) as db:
-        return await service.close_season(db, season_id, datetime.now(UTC))
+        return await service.close_season(
+            db, MatchRepository(platform), season_id, datetime.now(UTC)
+        )

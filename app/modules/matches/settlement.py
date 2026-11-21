@@ -36,10 +36,13 @@ def rated_changes(replay: MatchReplay) -> dict[UUID, int]:
     return changes
 
 
-async def persist(platform: Platform, replay: MatchReplay) -> bool:
+async def persist(
+    platform: Platform, replay: MatchReplay, *, finished_at: datetime | None = None
+) -> bool:
+    completed = (finished_at or datetime.now(UTC)).astimezone(UTC)
     async with platform.sessions.begin() as db:
         query = insert(MatchRecord).values(
-            id=replay.id, replay=replay.model_dump(mode="json")
+            id=replay.id, replay=replay.model_dump(mode="json"), finished_at=completed
         )
         applied = await db.scalar(
             query.on_conflict_do_nothing().returning(MatchRecord.id)
@@ -47,11 +50,10 @@ async def persist(platform: Platform, replay: MatchReplay) -> bool:
         if applied is None:
             return False
         await db.execute(text("SELECT pg_advisory_xact_lock_shared(470053)"))
-        now = datetime.now(UTC)
-        season = await active_season(db, now)
+        season = await active_season(db, completed)
         for player_id, delta in sorted(rated_changes(replay).items()):
             await apply_rating(db, player_id, delta)
-        await on_match(db, replay, season, now)
+        await on_match(db, replay, season, completed)
         return True
 
 

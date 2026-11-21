@@ -4,6 +4,8 @@ Join a ready room and poll its room endpoint for the game UUID. Connect with the
 
 Send play_card with the outer snapshot version, a card and a request UUID. An identical retry returns the recorded acknowledgement. Reconnect with after_sequence set to the last event batch the client applied. Apply the final private state_sync as authoritative. A newer socket for the same player supersedes earlier connections.
 
+Open or reconnect a socket with a valid access token. An established socket stays connected after the token expires while the underlying player session remains active. Logout, account deactivation, or session expiry closes it on the next session check.
+
 The worker advances bot turns and lives independently of the API process. Human turns default to 40 seconds. A timed-out seat auto-plays and a bot takes over after three consecutive or five total timeouts. Leaving an active seat also gives control to a bot. The Rust engine applies the 1,000-play cap and the worker applies the 45-minute cap. The room API releases reservations after the match result commits.
 
 ## Persistence and recovery

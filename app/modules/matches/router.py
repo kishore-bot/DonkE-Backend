@@ -12,7 +12,7 @@ from app.core.errors import AppError
 from app.core.platform import Platform
 from app.modules.game.schemas import PlayRequest
 from app.modules.identity.router import CurrentPlayer, PlatformDep
-from app.modules.identity.service import IdentityService
+from app.modules.identity.service import IdentityService, Principal
 from app.modules.matches import settlement
 from app.modules.matches.repository import MatchConflict
 from app.modules.matches.schemas import MatchReplay
@@ -53,12 +53,14 @@ async def send(socket: WebSocket, data: dict) -> None:
 async def socket_loop(
     socket: WebSocket,
     service: MatchService,
-    token: str,
-    player_id: UUID,
+    principal: Principal,
     game_id: UUID,
     owner: str,
     after: int,
 ) -> None:
+    player_id = principal.profile.id
+    identity = IdentityService(service.platform)
+
     async def sync(last: int) -> int:
         state = await service.load(game_id, player_id)
         if last > state.sequence:
@@ -81,7 +83,7 @@ async def socket_loop(
     try:
         while True:
             if monotonic() >= next_auth:
-                await IdentityService(service.platform).authenticate(token)
+                await identity.active_session(player_id, principal.session_id)
                 next_auth = monotonic() + 5
             await service.repo.execute(
                 "renew", game_id, player_id=str(player_id), owner=owner
@@ -92,7 +94,10 @@ async def socket_loop(
                 if frame["type"] == "websocket.disconnect":
                     return
                 text = frame.get("text")
-                if text is None or len(text.encode()) > 8192:
+                if text is None:
+                    await socket.close(code=1003)
+                    return
+                if len(text.encode()) > 8192:
                     await socket.close(code=1009)
                     return
                 try:
@@ -146,17 +151,18 @@ async def multiplayer(
         principal = await IdentityService(platform).authenticate(token)
         player_id = principal.profile.id
         service = MatchService(platform)
-        await service.load(game_id, player_id)
+        state = await service.load(game_id, player_id)
     except AppError as exc:
         await websocket.close(code=4401 if exc.status == 401 else 4404)
         return
-    owner = uuid4().hex
     await websocket.accept()
+    if after_sequence > state.sequence:
+        await websocket.close(code=4409, reason="invalid_sequence")
+        return
+    owner = uuid4().hex
     try:
         await service.repo.connect(game_id, player_id, owner)
-        await socket_loop(
-            websocket, service, token, player_id, game_id, owner, after_sequence
-        )
+        await socket_loop(websocket, service, principal, game_id, owner, after_sequence)
     except WebSocketDisconnect:
         pass
     except MatchConflict as exc:

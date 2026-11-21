@@ -8,13 +8,19 @@ from fastapi.testclient import TestClient
 from test_online import TestGoogle, headers, profile, sign_in
 from test_online import settings as settings  # noqa: PLC0414
 
+from app.core.errors import AppError
 from app.core.platform import open_platform
 from app.main import create_app
 from app.modules.admin.service import AdminService
+from app.modules.ai import commentary
 from app.modules.ai.gateway import Gateway
-from app.modules.ai.knowledge import sources
+from app.modules.ai.knowledge import NO_MATCH, sources
 from app.modules.ai.provider import Selected
+from app.modules.ai.router import voice as request_voice
+from app.modules.ai.schemas import VoiceStatus
 from app.modules.ai.voice import Voice
+from app.modules.identity.schemas import Profile
+from app.modules.identity.service import Principal
 from app.modules.matches.schemas import EventBatch, GameSeat, MatchReplay
 from app.modules.matches.settlement import persist
 
@@ -48,6 +54,112 @@ class FakeProvider:
 def test_curated_native_rule_retrieval():
     assert sources("വെട്ട്")[0].source == "vettu"
     assert sources("do tomatoes grow on trees") == []
+
+
+@pytest.mark.integration
+def test_commentary_quota_is_shared_with_voice_and_does_not_limit_other_players(
+    settings, monkeypatch
+):
+    async def public_events(*args):
+        return [{"event": "game_finished"}]
+
+    monkeypatch.setattr(commentary, "public_events", public_events)
+    config = settings.model_copy(update={"ai_text_daily_calls": 5})
+
+    async def check():
+        async with open_platform(config) as platform:
+            provider = FakeProvider()
+            gateway = Gateway(platform, provider)
+            player = Principal(
+                Profile(id=uuid4(), display_name="Player", language="en", mmr=1200),
+                uuid4(),
+            )
+            first, second = uuid4(), uuid4()
+            await commentary.line(gateway, first, player.profile.id, 1, "en")
+            assert await request_voice(first, 1, player, gateway) == VoiceStatus(
+                status="pending"
+            )
+            with pytest.raises(AppError) as caught:
+                await request_voice(second, 1, player, gateway)
+            assert caught.value.status == 429
+            await commentary.line(gateway, second, uuid4(), 1, "en")
+            assert provider.choices == ["commentary", "commentary"]
+
+    asyncio.run(check())
+
+
+@pytest.mark.integration
+def test_coach_uses_localized_rules_and_no_match_messages(settings):
+    with TestClient(create_app(settings, TestGoogle())) as client:
+        player = headers(sign_in(client))
+        for language, query in [
+            ("ta", "வெட்டு"),
+            ("hi", "वेट्टू"),
+            ("kn", "ವೆಟ್ಟು"),
+            ("te", "వెట్టు"),
+        ]:
+            assert (
+                client.patch(
+                    "/api/v1/auth/me", headers=player, json={"language": language}
+                ).status_code
+                == 200
+            )
+            response = client.post(
+                "/api/v1/coach/ask", headers=player, json={"question": query}
+            )
+            assert response.json()["citation"] == "vettu"
+            assert response.json()["answer"] == sources(query)[0].translations[language]
+            missing = client.post(
+                "/api/v1/coach/ask", headers=player, json={"question": "tomatoes"}
+            )
+            assert missing.json()["answer"] == NO_MATCH[language]
+
+
+@pytest.mark.integration
+def test_voice_waits_for_final_commentary_before_queueing(settings, monkeypatch):
+    async def public_events(*args):
+        return [{"event": "game_finished"}]
+
+    monkeypatch.setattr(commentary, "public_events", public_events)
+
+    async def concurrent_requests():
+        started = asyncio.Event()
+        release = asyncio.Event()
+
+        class SlowProvider(FakeProvider):
+            async def select(self, task, prompt):
+                started.set()
+                await release.wait()
+                return Selected("bright")
+
+        provider = SlowProvider()
+        principal = Principal(
+            Profile(id=uuid4(), display_name="Player", language="en", mmr=1200),
+            uuid4(),
+        )
+        game = uuid4()
+        async with open_platform(settings) as platform:
+            gateway = Gateway(platform, provider)
+            first = asyncio.create_task(request_voice(game, 1, principal, gateway))
+            try:
+                await asyncio.wait_for(started.wait(), timeout=2)
+                waiting = await request_voice(game, 1, principal, gateway)
+                assert waiting == VoiceStatus(status="pending")
+                queue = gateway.key("media:voice:queue")
+                assert await platform.redis.zcard(queue) == 0
+            finally:
+                release.set()
+                result = await first
+            assert result == VoiceStatus(status="pending")
+            assert await platform.redis.zcard(queue) == 1
+            worker = Voice(gateway)
+            assert await worker.tick()
+            assert not await worker.tick()
+            response = await request_voice(game, 1, principal, gateway)
+            assert response.headers["content-type"] == "audio/wav"
+            assert provider.voice_calls == 1
+
+    asyncio.run(concurrent_requests())
 
 
 @pytest.mark.integration

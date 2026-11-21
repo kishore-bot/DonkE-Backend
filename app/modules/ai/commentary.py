@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from hashlib import sha256
 from typing import Any
 from uuid import UUID
@@ -9,6 +10,14 @@ from app.modules.identity.schemas import Language
 from app.modules.matches import settlement
 from app.modules.matches.repository import MatchRepository
 from app.modules.matches.service import position
+
+RESERVE_REACTION = """
+if redis.call('EXISTS', KEYS[1], KEYS[2]) > 0 then return 0 end
+if tonumber(redis.call('GET', KEYS[3]) or '0') >= tonumber(ARGV[1]) then return -1 end
+redis.call('SET', KEYS[2], '1', 'EX', 10)
+if redis.call('INCR', KEYS[3]) == 1 then redis.call('EXPIRE', KEYS[3], 172800) end
+return 1
+"""
 
 # Templates carry all game facts. Gemini may only choose a reaction from a fixed list.
 MOMENTS = {
@@ -88,7 +97,7 @@ def moment(events: list[dict[str, Any]], language: Language) -> tuple[str, str]:
 
 async def line(
     gateway: Gateway, game_id: UUID, player_id: UUID, sequence: int, language: Language
-) -> Commentary:
+) -> tuple[Commentary, bool]:
     events = await public_events(gateway, game_id, player_id, sequence)
     kind, facts = moment(events, language)
     model = gateway.platform.settings.gemini_text_model
@@ -96,12 +105,28 @@ async def line(
     key = gateway.key(f"commentary:{digest}")
     redis = gateway.platform.redis
     if stored := await redis.get(key):
-        return Commentary.model_validate_json(stored)
+        return Commentary.model_validate_json(stored), True
     plain = Commentary(language=language, text=facts, source="script")
-    if gateway.provider is None:
-        return plain
-    if not await redis.set(key + ":lease", "1", nx=True, ex=10):
-        return plain
+    shared_budget = gateway.platform.settings.ai_text_daily_calls
+    if gateway.provider is None or shared_budget == 0:
+        return plain, True
+    player_budget = max(1, min(30, shared_budget // 5))
+    today = datetime.now(UTC).date()
+    reservation = await redis.execute_command(
+        "EVAL",
+        RESERVE_REACTION,
+        3,
+        key,
+        key + ":lease",
+        gateway.key(f"commentary-quota:{today}:{player_id}"),
+        player_budget,
+    )
+    if reservation == -1:
+        raise AppError(429, "rate_limited", "Today's commentary limit has been reached")
+    if not reservation:
+        if stored := await redis.get(key):
+            return Commentary.model_validate_json(stored), True
+        return plain, False
     reaction = await gateway.select(
         "commentary",
         f"Choose bright or calm as a family-friendly reaction to this Kazhutha moment: {kind}.",
@@ -116,5 +141,8 @@ async def line(
         if reaction
         else plain
     )
-    await redis.set(key, result.model_dump_json(), ex=86400)
-    return result
+    if await redis.set(key, result.model_dump_json(), ex=86400, nx=True):
+        return result, True
+    if stored := await redis.get(key):
+        return Commentary.model_validate_json(stored), True
+    return plain, False

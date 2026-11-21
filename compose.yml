@@ -57,21 +57,35 @@ services:
       retries: 20
   migrate:
     <<: *backend
-    command: ["alembic", "upgrade", "head"]
-    profiles: ["tools"]
+    command: ["python", "-m", "scripts.wait_for_storage", "--migrate", "alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
   app:
     <<: *backend
+    build:
+      context: .
+      dockerfile: Containerfile
+    entrypoint: ["python", "-m", "scripts.wait_for_storage"]
+    command: ["granian", "--interface", "asgi", "--host", "0.0.0.0", "app.main:app"]
     ports:
       - "127.0.0.1:8000:8000"
-    depends_on: [postgres, redis]
+    depends_on: &online-dependencies
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
   matchmaking:
     <<: *backend
+    entrypoint: ["python", "-m", "scripts.wait_for_storage"]
     command: ["python", "-m", "app.workers.matchmaking"]
-    depends_on: [postgres, redis]
+    depends_on: *online-dependencies
+    restart: unless-stopped
   voice:
     <<: *backend
+    entrypoint: ["python", "-m", "scripts.wait_for_storage"]
     command: ["python", "-m", "app.workers.voice"]
-    depends_on: [postgres, redis]
+    depends_on: *online-dependencies
 volumes:
   postgres-data:
   redis-data:

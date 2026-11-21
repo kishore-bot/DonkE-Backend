@@ -18,7 +18,7 @@ class LobbyRepository:
     def __init__(self, redis: Redis, settings: Settings):
         self.script = redis.register_script(SCRIPT)
         self.prefix = f"{settings.redis_prefix}:lobby"
-        self.match_state_prefix = f"{settings.redis_prefix}:game:state:"
+        self.game_prefix = f"{settings.redis_prefix}:game"
         self.parameters = {
             "room_ttl": settings.room_ttl_seconds,
             "start_delay_ms": round(settings.room_start_seconds * 1000),
@@ -29,7 +29,7 @@ class LobbyRepository:
 
     async def execute(self, operation: str, **fields: str | int | bool) -> dict:
         raw = await self.script(
-            keys=[self.prefix, self.match_state_prefix],
+            keys=[self.prefix, self.game_prefix],
             args=[operation, json.dumps({**self.parameters, **fields})],
         )
         result = json.loads(raw)

@@ -12,9 +12,10 @@ from app.modules.admin.service import AdminService
 from app.modules.identity.repository import apply_rating
 from app.modules.lobby.repository import LobbyRepository
 from app.modules.lobby.service import LobbyService
+from app.modules.matches.models import MatchRecord
 from app.modules.matches.schemas import EventBatch, GameSeat, MatchReplay
 from app.modules.matches.settlement import persist
-from app.modules.progression.models import Season
+from app.modules.progression.models import Season, SeasonPlayer, Wallet, WeeklyPlayer
 from app.workers.matchmaking import match_once
 
 pytestmark = pytest.mark.integration
@@ -44,6 +45,17 @@ def test_friends_and_parties_queue_as_a_unit(client, settings):
     ]
     path = f"/api/v1/parties/{party['id']}/join"
     assert client.post(path, headers=players[2]).status_code == 404
+    assert (
+        client.post("/api/v1/matchmaking/join", headers=players[1], json={}).status_code
+        == 200
+    )
+    blocked = client.post(path, headers=players[1])
+    assert (
+        blocked.status_code == 409 and blocked.json()["error"]["code"] == "player_busy"
+    )
+    assert (
+        client.post("/api/v1/matchmaking/cancel", headers=players[1]).status_code == 200
+    )
     assert len(client.post(path, headers=players[1]).json()["members"]) == 2
     assert client.post("/api/v1/parties/queue", headers=players[1]).status_code == 403
     assert (
@@ -143,10 +155,11 @@ def test_season_ledger_store_and_close_are_idempotent(client, settings):
                 assert not await persist(platform, replay)
 
     asyncio.run(settle_matches())
-    assert client.get("/api/v1/store/wallet", headers=user).json() == {"coins": 100}
+    # 100 capped match coins + First Escape (20) + First Crown (25).
+    assert client.get("/api/v1/store/wallet", headers=user).json() == {"coins": 145}
     buy = "/api/v1/store/monsoon_back/buy"
-    assert client.post(buy, headers=user).json() == {"coins": 40}
-    assert client.post(buy, headers=user).json() == {"coins": 40}
+    assert client.post(buy, headers=user).json() == {"coins": 85}
+    assert client.post(buy, headers=user).json() == {"coins": 85}
     assert (
         client.put("/api/v1/store/monsoon_back/equip", headers=user).status_code == 204
     )
@@ -179,10 +192,67 @@ def test_season_ledger_store_and_close_are_idempotent(client, settings):
         == closed.json()
     )
     assert profile(client, token)["mmr"] == 1330
-    assert client.get("/api/v1/store/wallet", headers=user).json() == {"coins": 166}
+    assert client.get("/api/v1/store/wallet", headers=user).json() == {"coins": 211}
     assert (
         client.get(f"/api/v1/seasons/{season_id}/board", headers=user).json()[0][
             "peak_mmr"
         ]
         == 1460
     )
+
+
+def test_delayed_matches_use_their_finish_time_for_progression(client, settings):
+    player = UUID(profile(client, sign_in(client))["id"])
+    monday = datetime(2020, 1, 6, tzinfo=UTC)
+    sunday = monday - timedelta(seconds=1)
+
+    async def replay_rollover():
+        async with open_platform(settings) as platform:
+            async with platform.sessions.begin() as db:
+                previous = Season(
+                    theme="Previous",
+                    starts_at=monday - timedelta(days=7),
+                    ends_at=monday,
+                )
+                following = Season(
+                    theme="Following",
+                    starts_at=monday,
+                    ends_at=monday + timedelta(days=7),
+                )
+                db.add_all([previous, following])
+
+            for time, count in [(monday, 10), (sunday, 11)]:
+                for _ in range(count):
+                    replay = MatchReplay(
+                        id=uuid4(),
+                        room_id=uuid4(),
+                        mode=None,
+                        seats=[
+                            GameSeat(
+                                player_id=player,
+                                display_name="Player",
+                                ready=True,
+                                bot=False,
+                            )
+                        ],
+                        outcome={"reason": "time_limit"},
+                        events=[],
+                    )
+                    assert await persist(platform, replay, finished_at=time)
+
+            async with platform.sessions() as db:
+                archived = await db.get(MatchRecord, replay.id)
+                assert archived is not None and archived.finished_at == sunday
+                wallet = await db.get(Wallet, player)
+                # 200 capped match coins plus the 30-coin "Regular" achievement.
+                assert wallet is not None and wallet.coins == 230
+                for season, week, games in [
+                    (previous, previous.starts_at.date(), 11),
+                    (following, monday.date(), 10),
+                ]:
+                    progress = await db.get(SeasonPlayer, (season.id, player))
+                    weekly = await db.get(WeeklyPlayer, (season.id, player, week))
+                    assert progress is not None and progress.points == games * 5
+                    assert weekly is not None and weekly.games == games
+
+    asyncio.run(replay_rollover())

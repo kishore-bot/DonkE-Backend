@@ -189,13 +189,21 @@ class SocialService:
                 raise missing("invite_not_found")
             if len(roster) >= 4:
                 raise conflict("party_full", "The party has four players")
-            leader = (await profiles(db, [party.leader_id])).get(party.leader_id)
+            active = await profiles(db, [party.leader_id, player_id])
+            leader, invitee = active.get(party.leader_id), active.get(player_id)
             if (
                 leader is None
                 or (await self.lobby.queue_status(leader)).status != "idle"
             ):
                 raise conflict(
                     "party_busy", "Leave the queue or room before changing your party"
+                )
+            if (
+                invitee is None
+                or (await self.lobby.queue_status(invitee)).status != "idle"
+            ):
+                raise conflict(
+                    "player_busy", "Leave the queue or room before joining a party"
                 )
             result = await db.scalar(
                 insert(PartyMember)

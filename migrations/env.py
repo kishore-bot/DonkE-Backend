@@ -6,42 +6,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import Settings
-from app.core.platform import Base
-from app.modules.admin.models import AdminAudit, AdminSession, AdminUser
-from app.modules.ai.index import RuleEmbedding
-from app.modules.identity.models import Player, PlayerSession, RefreshToken
-from app.modules.matches.models import MatchRecord
-from app.modules.progression.models import (
-    CoinLedger,
-    Cosmetic,
-    Season,
-    SeasonPlayer,
-    Wallet,
-    WeeklyPlayer,
-)
-from app.modules.social.models import Friendship, Party, PartyInvite, PartyMember
-
-# Import the metadata owners so migration drift checks see all tables.
-MAPPED_MODELS = (
-    AdminAudit,
-    AdminSession,
-    AdminUser,
-    Player,
-    PlayerSession,
-    RefreshToken,
-    MatchRecord,
-    CoinLedger,
-    Cosmetic,
-    Season,
-    SeasonPlayer,
-    Wallet,
-    WeeklyPlayer,
-    Friendship,
-    Party,
-    PartyInvite,
-    PartyMember,
-    RuleEmbedding,
-)
+from app.core.schema import Base
 
 
 def migrate(connection: Connection) -> None:

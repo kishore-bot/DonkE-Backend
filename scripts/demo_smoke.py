@@ -5,7 +5,7 @@ import asyncio
 import json
 import random
 from collections.abc import Awaitable, Callable
-from contextlib import AsyncExitStack
+from contextlib import AsyncExitStack, suppress
 from pathlib import Path
 from time import monotonic
 from typing import Any
@@ -137,15 +137,10 @@ async def open_peer(
 
 
 async def prepare_room(
-    http: AsyncClient, players: tuple[DemoSession, DemoSession]
+    http: AsyncClient, room_id: UUID, players: tuple[DemoSession, DemoSession]
 ) -> UUID:
     host, guest = (headers(player) for player in players)
-    room = Room.model_validate(
-        (await http.post("/api/v1/rooms", headers=host, json={"capacity": 2}))
-        .raise_for_status()
-        .json()
-    )
-    path = f"/api/v1/rooms/{room.id}"
+    path = f"/api/v1/rooms/{room_id}"
     (await http.post(f"{path}/join", headers=guest)).raise_for_status()
     for auth in host, guest:
         (
@@ -159,6 +154,61 @@ async def prepare_room(
     return await until(started)
 
 
+async def wait_for_idle(
+    http: AsyncClient, players: tuple[DemoSession, DemoSession]
+) -> None:
+    async def idle() -> bool | None:
+        for player in players:
+            response = await http.get(
+                "/api/v1/matchmaking/status", headers=headers(player)
+            )
+            if response.raise_for_status().json()["status"] != "idle":
+                return None
+        return True
+
+    await until(idle)
+
+
+async def cleanup_room(
+    http: AsyncClient,
+    base: str,
+    room_id: UUID,
+    players: tuple[DemoSession, DemoSession],
+) -> None:
+    path = f"/api/v1/rooms/{room_id}"
+
+    async def leave(player: DemoSession) -> None:
+        auth = headers(player)
+        response = await http.post(f"{path}/leave", headers=auth)
+        if response.status_code != 409:
+            return
+        response = await http.get(path, headers=auth)
+        if response.status_code == 404:
+            return
+        room = Room.model_validate(response.raise_for_status().json())
+        if room.game_id is None:
+            return
+        async with AsyncExitStack() as stack:
+            peer = await open_peer(stack, base, room.game_id, player, 0)
+            while True:
+                await peer.socket.send('{"action":"leave"}')
+                while True:
+                    message = json.loads(await peer.socket.recv())
+                    if message["type"] == "left":
+                        return
+                    if message["type"] == "error":
+                        if message["code"] != "stale_version":
+                            return
+                        break
+
+    with suppress(TimeoutError):
+        async with asyncio.timeout(10):
+            # Both seats get a chance to leave even if one socket or HTTP request fails.
+            await asyncio.gather(
+                *(leave(player) for player in players), return_exceptions=True
+            )
+
+
 async def play_match(
     base: str, game_id: UUID, players: tuple[DemoSession, DemoSession]
 ) -> int:
@@ -166,15 +216,21 @@ async def play_match(
     async with AsyncExitStack() as stack:
         peers = [await open_peer(stack, base, game_id, player) for player in players]
         snapshots = await asyncio.gather(*(peer.snapshot() for peer in peers))
+        seats = {player.player_id: i for i, player in enumerate(players)}
+        roster = [seat.player_id for seat in snapshots[0].seats]
+        if len(roster) != len(seats) or set(roster) != set(seats):
+            raise SmokeFailure("The match seats do not match the demo players")
+        by_seat = [seats[seat] for seat in roster if seat is not None]
         opening = snapshots[0].view.turn
         if opening is None or snapshots[0].version != 0:
             raise SmokeFailure("The demo did not receive the opening turn")
-        acting = peers[opening]
-        opponent = 1 - opening
+        actor = by_seat[opening]
+        acting = peers[actor]
+        opponent = 1 - actor
         before = peers[opponent].cursor
         await peers[opponent].socket.close()
 
-        cards = snapshots[opening].view.legal_moves
+        cards = snapshots[actor].view.legal_moves
         check(
             len(cards) == 1 and cards[0].rank == "Ace" and cards[0].suit == "Spades",
             "The opening move was not the Ace of Spades",
@@ -203,13 +259,14 @@ async def play_match(
             turn = snapshots[0].view.turn
             if turn is None:
                 raise SmokeFailure("An active game is missing its turn seat")
-            state = snapshots[turn]
+            actor = by_seat[turn]
+            state = snapshots[actor]
             check(bool(state.view.legal_moves), "The acting player has no legal move")
             check(
                 len(state.view.hand) == state.view.card_counts[turn],
                 "The private hand has an unexpected card count",
             )
-            ack = await peers[turn].play(
+            ack = await peers[actor].play(
                 state.version, rng.choice(state.view.legal_moves), uuid4()
             )
             snapshots = await asyncio.gather(
@@ -222,7 +279,6 @@ async def smoke(base: str, data: DemoSessions, timeout: float) -> dict[str, Any]
     ws_url = websocket_base(base)
     start = monotonic()
     async with (
-        asyncio.timeout(timeout),
         AsyncClient(base_url=base, trust_env=False, timeout=5) as http,
     ):
 
@@ -233,36 +289,56 @@ async def smoke(base: str, data: DemoSessions, timeout: float) -> dict[str, Any]
                 return None
             return True if response.status_code == 200 else None
 
-        await until(ready)
-        auth = headers(data.players[0])
-        sample = await http.get(f"/api/v1/games/{data.replay_id}/replay", headers=auth)
-        check(
-            sample.status_code == 200,
-            "The seeded replay is missing or the demo token has expired",
-        )
-        game = await prepare_room(http, data.players)
-        last = await play_match(ws_url, game, data.players)
+        room: Room | None = None
+        try:
+            async with asyncio.timeout(timeout):
+                await until(ready)
+                auth = headers(data.players[0])
+                sample = await http.get(
+                    f"/api/v1/games/{data.replay_id}/replay", headers=auth
+                )
+                check(
+                    sample.status_code == 200,
+                    "The seeded replay is missing or the demo token has expired",
+                )
+                await wait_for_idle(http, data.players)
+                response = await http.post(
+                    "/api/v1/rooms", headers=auth, json={"capacity": 2}
+                )
+                room = Room.model_validate(response.raise_for_status().json())
+                game = await prepare_room(http, room.id, data.players)
+                last = await play_match(ws_url, game, data.players)
 
-        async def archived() -> Response | None:
-            response = await http.get(f"/api/v1/games/{game}/replay", headers=auth)
-            return None if response.status_code == 404 else response.raise_for_status()
+                async def archived() -> Response | None:
+                    response = await http.get(
+                        f"/api/v1/games/{game}/replay", headers=auth
+                    )
+                    return (
+                        None
+                        if response.status_code == 404
+                        else response.raise_for_status()
+                    )
 
-        archive = MatchReplay.model_validate((await until(archived)).json())
-        check(
-            archive.events[-1].sequence == last,
-            "The archived replay ends at the wrong sequence",
-        )
-        finish = archive.events[-1].events[-1]
-        check(
-            finish.get("event") == "game_finished"
-            and finish.get("outcome") == archive.outcome,
-            "The archived result does not match its terminal event",
-        )
-        ids = {str(seat.player_id) for seat in archive.seats}
-        check(
-            ids == {str(player.player_id) for player in data.players},
-            "The archived seats do not match the demo players",
-        )
+                archive = MatchReplay.model_validate((await until(archived)).json())
+                check(
+                    archive.events[-1].sequence == last,
+                    "The archived replay ends at the wrong sequence",
+                )
+                finish = archive.events[-1].events[-1]
+                check(
+                    finish.get("event") == "game_finished"
+                    and finish.get("outcome") == archive.outcome,
+                    "The archived result does not match its terminal event",
+                )
+                ids = {seat.player_id for seat in archive.seats}
+                check(
+                    ids == {player.player_id for player in data.players},
+                    "The archived seats do not match the demo players",
+                )
+        except BaseException:
+            if room is not None:
+                await cleanup_room(http, ws_url, room.id, data.players)
+            raise
     return {
         "game_id": str(game),
         "outcome": archive.outcome["reason"],
