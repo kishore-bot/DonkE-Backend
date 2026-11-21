@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from uuid import UUID, uuid4
@@ -20,6 +21,7 @@ from app.modules.matches.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+TURN_CONCURRENCY = 4
 
 
 def unavailable() -> AppError:
@@ -246,8 +248,15 @@ class MatchService:
                 if event.get("event") == "card_played":
                     event["auto"] = True  # Not a decision; analysis skips it.
         else:
-            card = bots.choose(
-                game, seat, state.seats[seat], bots.stable(state.id, state.version)
+            # Search is CPU work: run it in a thread so the worker's event loop
+            # keeps serving claims, starts and other deadlines meanwhile. The
+            # engine releases the GIL while it searches.
+            card = await asyncio.to_thread(
+                bots.choose,
+                game,
+                seat,
+                state.seats[seat],
+                bots.stable(state.id, state.version),
             )
             played = json.loads(game.play(seat, card))
             if state.seats[seat].player_id is not None:
@@ -327,14 +336,26 @@ class MatchService:
                 await self.start(room_id)
             except Exception as error:
                 await self.defer("room", room_id, error)
-        for game_id in await self.repo.due("turns"):
-            try:
-                await self.on_deadline(game_id)
-            except MatchConflict as exc:
-                if exc.code not in {"turn_unclaimed", "game_finished", "stale_version"}:
-                    await self.defer("turn", game_id, exc)
-            except Exception as error:
-                await self.defer("turn", game_id, error)
+        # Due turns run a few at a time: each game has its own turn lease, so
+        # they are independent, and one slow bot search no longer delays the
+        # deadlines of every other table.
+        limit = asyncio.Semaphore(TURN_CONCURRENCY)
+
+        async def turn(game_id: UUID) -> None:
+            async with limit:
+                try:
+                    await self.on_deadline(game_id)
+                except MatchConflict as exc:
+                    if exc.code not in {
+                        "turn_unclaimed",
+                        "game_finished",
+                        "stale_version",
+                    }:
+                        await self.defer("turn", game_id, exc)
+                except Exception as error:
+                    await self.defer("turn", game_id, error)
+
+        await asyncio.gather(*(turn(game) for game in await self.repo.due("turns")))
         for game_id in await self.repo.due("settlement"):
             try:
                 await self.settle(game_id)

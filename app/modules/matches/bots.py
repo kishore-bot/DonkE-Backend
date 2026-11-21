@@ -90,8 +90,16 @@ def choose(game: OnlineGame, seat: int, bot: GameSeat, seed: int) -> str:
         assert card is not None, "the bot seat is to act"
         return card
     scores: list[dict[str, Any]] = json.loads(game.evaluate(seat, bot.iterations, seed))
+    # scores[0] is the engine's choice (most visited). A persona may pick any
+    # move about as safe, but only among well-sampled ones: a move with a few
+    # lucky playouts is not "near best", it is unknown.
     top = scores[0]["safe_rate"]
-    near = [score for score in scores if score["safe_rate"] >= top - NEAR_BEST]
+    trusted = max(2, scores[0]["visits"] // 4)
+    near = [
+        score
+        for score in scores
+        if score["safe_rate"] >= top - NEAR_BEST and score["visits"] >= trusted
+    ] or scores[:1]
     if bot.persona == "thug":
         # Loud and fearless: dumps the biggest card it safely can.
         pick = max(near, key=lambda score: RANK_ORDER.index(score["card"]["rank"]))

@@ -110,32 +110,92 @@ pub fn select_table(candidates: &[Candidate], config: &TableConfig) -> Option<Ve
         gap(*left).total_cmp(&gap(*right)).then(left.cmp(right))
     });
 
+    // Exhaustive (bounded) search instead of greedy: taking the closest unit
+    // first can block a valid full table (an avoided pair, a party that no
+    // longer fits). Best = most seats, then the smallest total skill gap.
+    let pool: Vec<usize> = others
+        .into_iter()
+        .filter(|&index| (units[index].skill - anchor.skill).abs() <= window)
+        .collect();
+    let mut search = Search {
+        units: &units,
+        pool: &pool,
+        anchor: anchor.skill,
+        max_seats: config.max_seats,
+        avoided: &avoided,
+        budget: SEARCH_BUDGET,
+        best: (Vec::new(), anchor.members.len(), 0.0),
+    };
     let mut seated: Vec<&Candidate> = anchor.members.clone();
-    let mut unit_count = 1;
-    for index in others {
-        let unit = &units[index];
-        if seated.len() + unit.members.len() > config.max_seats
-            || (unit.skill - anchor.skill).abs() > window
-        {
-            continue;
-        }
-        let clash = unit
+    search.explore(0, &mut Vec::new(), &mut seated, 0.0);
+    let (chosen, count, _) = search.best;
+
+    let enough = count >= config.min_humans.max(1);
+    let lone_party = chosen.is_empty() && anchor.members.len() > 1;
+    (enough && !lone_party).then(|| {
+        anchor
             .members
             .iter()
-            .any(|member| seated.iter().any(|sat| avoided(&member.id, &sat.id)));
-        if clash {
-            continue;
+            .chain(chosen.iter().flat_map(|&index| units[index].members.iter()))
+            .map(|member| member.id.clone())
+            .collect()
+    })
+}
+
+/// Table search nodes allowed per call; the queue head is small, so this is
+/// a safety cap, not a tuning knob.
+const SEARCH_BUDGET: usize = 20_000;
+
+struct Search<'a, F: Fn(&str, &str) -> bool> {
+    units: &'a [Unit<'a>],
+    pool: &'a [usize],
+    anchor: f64,
+    max_seats: usize,
+    avoided: &'a F,
+    budget: usize,
+    /// (chosen unit indexes, seats filled, total skill gap)
+    best: (Vec<usize>, usize, f64),
+}
+
+impl<'a, F: Fn(&str, &str) -> bool> Search<'a, F> {
+    fn explore(
+        &mut self,
+        from: usize,
+        chosen: &mut Vec<usize>,
+        seated: &mut Vec<&'a Candidate>,
+        gap: f64,
+    ) {
+        let (_, best_seats, best_gap) = self.best;
+        if seated.len() > best_seats || (seated.len() == best_seats && gap < best_gap) {
+            self.best = (chosen.clone(), seated.len(), gap);
         }
-        seated.extend(unit.members.iter().copied());
-        unit_count += 1;
-        if seated.len() == config.max_seats {
-            break;
+        if seated.len() == self.max_seats {
+            return;
+        }
+        for position in from..self.pool.len() {
+            if self.budget == 0 {
+                return;
+            }
+            self.budget -= 1;
+            let unit = &self.units[self.pool[position]];
+            if seated.len() + unit.members.len() > self.max_seats {
+                continue;
+            }
+            let clash = unit
+                .members
+                .iter()
+                .any(|member| seated.iter().any(|sat| (self.avoided)(&member.id, &sat.id)));
+            if clash {
+                continue;
+            }
+            chosen.push(self.pool[position]);
+            seated.extend(unit.members.iter().copied());
+            let extra = (unit.skill - self.anchor).abs();
+            self.explore(position + 1, chosen, seated, gap + extra);
+            seated.truncate(seated.len() - unit.members.len());
+            chosen.pop();
         }
     }
-
-    let enough = seated.len() >= config.min_humans.max(1);
-    let lone_party = unit_count == 1 && anchor.members.len() > 1;
-    (enough && !lone_party).then(|| seated.into_iter().map(|member| member.id.clone()).collect())
 }
 
 #[cfg(test)]
@@ -208,6 +268,26 @@ mod tests {
         };
         assert_eq!(select_table(&queue, &config).unwrap(), ["p1", "p2", "solo"]);
         assert_eq!(select_table(&queue[..2], &config), None);
+    }
+
+    #[test]
+    fn finds_a_full_table_that_closest_first_would_miss() {
+        // "b" is closest to the anchor but may not sit with "c" or "d";
+        // taking it first leaves 2 seats. Skipping it seats 4.
+        let queue = [
+            player("a", 20.0, 25.0),
+            player("b", 1.0, 25.1),
+            player("c", 1.0, 26.0),
+            player("d", 1.0, 26.5),
+            player("e", 1.0, 27.0),
+        ];
+        let config = TableConfig {
+            max_seats: 4,
+            avoid: vec![("b".into(), "c".into()), ("b".into(), "d".into())],
+            ..TableConfig::default()
+        };
+        let table = select_table(&queue, &config).unwrap();
+        assert_eq!(table, ["a", "c", "d", "e"]);
     }
 
     #[test]

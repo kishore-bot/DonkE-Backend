@@ -12,10 +12,7 @@ use rand::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    Card, Game, Outcome,
-    game::{PlayedCard, suit_bit},
-};
+use crate::{Card, Game, Outcome, game::PlayedCard};
 
 /// Playout steps before an unfinished game counts as a draw.
 const PLAYOUT_STEPS: usize = 600;
@@ -123,44 +120,113 @@ pub(crate) fn determinize(game: &Game, observer: Option<usize>, rng: &mut impl R
             seen[card_index(*card)] = true;
         }
     }
-    let mut pool: Vec<Card> = Card::deck()
+    let unseen: Vec<Card> = Card::deck()
         .into_iter()
         .filter(|card| !seen[card_index(*card)])
         .collect();
-    pool.shuffle(rng);
-
-    // Seats with the most shown voids are the hardest to fill; deal them first.
-    let mut order = hidden;
-    order.sort_by_key(|seat| std::cmp::Reverse(world.voids[*seat].count_ones()));
-    for seat in order {
-        let needed = world.hands[seat]
-            .len()
-            .saturating_sub(world.known[seat].len());
-        let voids = world.voids[seat];
-        let mut drawn = Vec::with_capacity(needed);
-        let mut index = 0;
-        while drawn.len() < needed && index < pool.len() {
-            if voids & suit_bit(pool[index].suit) == 0 {
-                drawn.push(pool.swap_remove(index));
-            } else {
-                index += 1;
-            }
-        }
-        // Facts can conflict after pickups; fall back to any unseen card.
-        while drawn.len() < needed {
-            match pool.pop() {
-                Some(card) => drawn.push(card),
-                None => break,
-            }
-        }
-        if drawn.len() < needed {
-            continue; // Not enough unseen cards: keep the real hand.
-        }
+    let needs: Vec<usize> = hidden
+        .iter()
+        .map(|&seat| {
+            world.hands[seat]
+                .len()
+                .saturating_sub(world.known[seat].len())
+        })
+        .collect();
+    let mut supply = [0usize; 4];
+    for card in &unseen {
+        supply[card.suit as usize] += 1;
+    }
+    let voids: Vec<u8> = hidden.iter().map(|&seat| world.voids[seat]).collect();
+    // Exact first; only snapshots with inconsistent tracking need the relaxed
+    // pass, since the real hands always satisfy the shown voids.
+    let Some(counts) = allocate(&needs, &voids, supply, rng)
+        .or_else(|| allocate(&needs, &vec![0; voids.len()], supply, rng))
+    else {
+        return world; // Not enough unseen cards: keep the real hands.
+    };
+    let mut by_suit: [Vec<Card>; 4] = Default::default();
+    for card in unseen {
+        by_suit[card.suit as usize].push(card);
+    }
+    for cards in &mut by_suit {
+        cards.shuffle(rng);
+    }
+    for (slot, &seat) in hidden.iter().enumerate() {
         let mut hand = world.known[seat].clone();
-        hand.extend(drawn);
+        for (suit, cards) in by_suit.iter_mut().enumerate() {
+            let take = counts[slot][suit];
+            hand.extend(cards.drain(cards.len() - take..));
+        }
         world.hands[seat] = hand;
     }
     world
+}
+
+/// How many cards of each suit each hidden seat receives: every seat gets
+/// exactly `needs[i]` cards, never of a suit in its void mask, and no suit
+/// gives more than it has. Solved unit by unit with augmenting paths over a
+/// seats x suits graph (at most 5 x 4), so it never fails when an assignment
+/// exists, unlike a greedy deal. Random visit order spreads the solutions.
+fn allocate(
+    needs: &[usize],
+    voids: &[u8],
+    supply: [usize; 4],
+    rng: &mut impl Rng,
+) -> Option<Vec<[usize; 4]>> {
+    let seats = needs.len();
+    let mut counts = vec![[0usize; 4]; seats];
+    let mut spare = supply;
+    let mut units: Vec<usize> = needs
+        .iter()
+        .enumerate()
+        .flat_map(|(seat, &need)| std::iter::repeat_n(seat, need))
+        .collect();
+    units.shuffle(rng);
+    for start in units {
+        // BFS: seat -> a suit it may hold; full suit -> a seat holding it,
+        // which may swap to another suit, and so on.
+        let mut took_from: [Option<usize>; 4] = [None; 4]; // suit -> seat
+        let mut released: Vec<Option<usize>> = vec![None; seats]; // seat -> suit
+        let mut visited_seat = vec![false; seats];
+        let mut queue = std::collections::VecDeque::from([start]);
+        visited_seat[start] = true;
+        let mut found = None;
+        'search: while let Some(seat) = queue.pop_front() {
+            let mut suits = [0usize, 1, 2, 3];
+            suits.shuffle(rng);
+            for suit in suits {
+                if voids[seat] & (1 << suit) != 0 || took_from[suit].is_some() {
+                    continue;
+                }
+                took_from[suit] = Some(seat);
+                if spare[suit] > 0 {
+                    found = Some(suit);
+                    break 'search;
+                }
+                for other in 0..seats {
+                    if !visited_seat[other] && counts[other][suit] > 0 {
+                        visited_seat[other] = true;
+                        released[other] = Some(suit);
+                        queue.push_back(other);
+                    }
+                }
+            }
+        }
+        let mut suit = found?;
+        spare[suit] -= 1;
+        loop {
+            let seat = took_from[suit].expect("every reached suit has a taker");
+            counts[seat][suit] += 1;
+            match released[seat] {
+                Some(given_up) if seat != start => {
+                    counts[seat][given_up] -= 1;
+                    suit = given_up;
+                }
+                _ => break,
+            }
+        }
+    }
+    Some(counts)
 }
 
 fn playout(world: &mut Game, rng: &mut impl Rng) -> Option<Outcome> {
@@ -226,11 +292,14 @@ pub fn evaluate(game: &Game, seat: usize, iterations: u32, rng: &mut impl Rng) -
             visits: visits[index],
         })
         .collect();
+    // Robust child: UCB1 sends visits to the moves that keep looking good,
+    // so the most visited move is the reliable best. Sorting by raw safe rate
+    // would let a move with two lucky playouts beat one tried 150 times.
     scores.sort_by(|left, right| {
         right
-            .safe_rate
-            .total_cmp(&left.safe_rate)
-            .then(right.visits.cmp(&left.visits))
+            .visits
+            .cmp(&left.visits)
+            .then(right.safe_rate.total_cmp(&left.safe_rate))
     });
     scores
 }
@@ -288,6 +357,7 @@ pub fn win_chances(game: &Game, iterations: u32, rng: &mut impl Rng) -> Vec<f64>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::game::suit_bit;
     use crate::{Rank, Suit};
     use rand::{SeedableRng, rngs::StdRng};
 
@@ -339,6 +409,50 @@ mod tests {
     }
 
     #[test]
+    fn determinized_worlds_never_break_voids_even_when_greedy_would() {
+        // Three hidden seats with conflicting voids where a greedy deal can
+        // strand spades: seat 2 must take every spade.
+        let card = |suit, rank| Card { suit, rank };
+        use Rank::*;
+        use Suit::*;
+        let mut game = Game::deal(4, &mut StdRng::seed_from_u64(0)).unwrap();
+        let hands = vec![
+            vec![card(Diamonds, Two), card(Diamonds, Three)],
+            vec![card(Hearts, Two), card(Hearts, Three), card(Clubs, Two)],
+            vec![
+                card(Spades, Two),
+                card(Spades, Three),
+                card(Spades, Four),
+                card(Spades, Five),
+            ],
+            vec![card(Hearts, Four), card(Hearts, Five), card(Clubs, Three)],
+        ];
+        let held: Vec<Card> = hands.iter().flatten().copied().collect();
+        game.discarded = Card::deck()
+            .into_iter()
+            .filter(|c| !held.contains(c))
+            .collect();
+        game.hands = hands;
+        game.voids = vec![0, suit_bit(Spades), suit_bit(Hearts), suit_bit(Spades)];
+        game.known = vec![Vec::new(); 4];
+        game.version = 30;
+        game.turn = 0;
+        for seed in 0..500 {
+            let world = determinize(&game, Some(0), &mut StdRng::seed_from_u64(seed));
+            for seat in 1..4 {
+                assert_eq!(world.hands[seat].len(), game.hands[seat].len());
+                for held in &world.hands[seat] {
+                    assert_eq!(
+                        game.voids[seat] & suit_bit(held.suit),
+                        0,
+                        "seed {seed}: seat {seat} got {held:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn evaluate_scores_every_legal_move_and_is_reproducible() {
         let mut rng = StdRng::seed_from_u64(21);
         let mut game = Game::deal(4, &mut rng).unwrap();
@@ -352,8 +466,19 @@ mod tests {
         assert!(
             first
                 .windows(2)
-                .all(|pair| pair[0].safe_rate >= pair[1].safe_rate)
+                .all(|pair| pair[0].visits >= pair[1].visits)
         );
+    }
+
+    #[test]
+    fn best_move_is_the_most_visited_not_the_luckiest() {
+        let mut rng = StdRng::seed_from_u64(21);
+        let mut game = Game::deal(4, &mut rng).unwrap();
+        advance(&mut game, 9);
+        let seat = game.turn().unwrap();
+        let scores = evaluate(&game, seat, 300, &mut StdRng::seed_from_u64(2));
+        let most = scores.iter().map(|score| score.visits).max().unwrap();
+        assert_eq!(scores[0].visits, most);
     }
 
     #[test]

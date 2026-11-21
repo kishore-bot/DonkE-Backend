@@ -156,10 +156,34 @@ if op == 'recover' then
     return cjson.encode({count = #due})
 end
 
+if op == 'peek' then
+    -- Read-only view of the queue head for table selection in the worker.
+    local queue = key('queue', input.queue)
+    local entries = {}
+    for _, player in ipairs(redis.call('ZRANGE', queue, 0, 31)) do
+        local member = membership(player)
+        if matching_id(member, 'queued', input.queue) then
+            table.insert(entries, {
+                player_id = player, since = member.enqueued_ms, party = member.party,
+            })
+        end
+    end
+    return cjson.encode({entries = entries, now = now_ms()})
+end
+
 if op == 'claim' then
     local queue = key('queue', input.queue)
     local entries, taken = {}, {}
-    for _, player in ipairs(redis.call('ZRANGE', queue, 0, 31)) do
+    -- `only`: the exact players the worker selected, anchor first. Every
+    -- check below still runs here, atomically, so a stale choice fails safe.
+    local candidates = redis.call('ZRANGE', queue, 0, 31)
+    if input.only then
+        candidates = {}
+        for player in string.gmatch(input.only, '[^,]+') do
+            table.insert(candidates, player)
+        end
+    end
+    for _, player in ipairs(candidates) do
         local member = membership(player)
         if not matching_id(member, 'queued', input.queue) then
             redis.call('ZREM', queue, player)

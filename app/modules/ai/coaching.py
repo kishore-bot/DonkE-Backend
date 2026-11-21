@@ -169,7 +169,8 @@ def analyse(replay: MatchReplay, seat: int, iterations: int = ITERATIONS) -> Ana
                             Sample(
                                 think_ms=event.get("think_ms"),
                                 legal=len(view["legal_moves"]),
-                                top=chosen["safe_rate"] >= best["safe_rate"] - 1e-9,
+                                # The engine's choice is its most visited move.
+                                top=chosen["card"] == best["card"],
                             )
                         )
                         decisions.append(

@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 from app.core.errors import AppError
 from app.modules.identity.schemas import Profile
+from app.modules.lobby.selection import TableFacts, choose
 from app.modules.lobby.repository import LobbyConflict, LobbyRepository
 from app.modules.lobby.schemas import Mode, QueueStatus, Room
 
@@ -47,8 +48,11 @@ class Claim:
 
 
 class LobbyService:
-    def __init__(self, repository: LobbyRepository):
+    def __init__(self, repository: LobbyRepository, facts: TableFacts | None = None):
         self.repository = repository
+        # The matchmaking worker passes facts to enable skill-aware tables;
+        # without them, claims take the queue head in order.
+        self.facts = facts
 
     async def _command(self, operation: str, **fields: str | int | bool) -> dict:
         try:
@@ -114,6 +118,26 @@ class LobbyService:
 
     async def claim(self, mode: Mode, queue: str) -> Claim | None:
         claim = Claim(uuid4(), uuid4())
+        fields: dict[str, str | int | bool] = {}
+        if self.facts is not None:
+            head = await self.repository.execute("peek", queue=queue)
+            entries = head.get("entries") or []  # cjson encodes [] as {}
+            if not entries:
+                return None
+            skills, avoid = await self.facts.load(
+                [UUID(entry["player_id"]) for entry in entries]
+            )
+            chosen = choose(
+                entries,
+                head["now"],
+                skills,
+                avoid,
+                MATCH_SEATS,
+                self.repository.parameters["bot_wait_ms"] / 1000,
+            )
+            if chosen is None:
+                return None
+            fields["only"] = ",".join(chosen)
         result = await self.repository.execute(
             "claim",
             mode=mode,
@@ -121,6 +145,7 @@ class LobbyService:
             owner=str(claim.owner),
             claim_id=str(claim.id),
             seats=MATCH_SEATS,
+            **fields,
         )
         return claim if "claim_id" in result else None
 
