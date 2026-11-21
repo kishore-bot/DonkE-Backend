@@ -17,6 +17,7 @@ WORKDIR /app
 COPY --from=build /app/.venv .venv
 COPY app/ app/
 COPY migrations/ migrations/
+COPY scripts/seed_demo.py scripts/seed_demo.py
 COPY alembic.ini ./
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 USER 10001:10001

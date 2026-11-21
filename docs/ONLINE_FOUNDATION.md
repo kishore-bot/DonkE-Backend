@@ -41,7 +41,7 @@ Classic uses one queue. Ranked uses MMR bands ending at 1599, 2799 and 3999, plu
 Create a separate admin account from an interactive terminal. The supported roles are viewer, moderator and admin.
 
 ```sh
-podman compose exec app python -m app.cli create-admin --username your-name --role admin
+bash scripts/podman-dev.sh exec app python -m app.cli create-admin --username your-name --role admin
 ```
 
 The login endpoint is `POST /api/v1/admin/auth/login`. It returns a CSRF token and establishes a short session using a Secure, HttpOnly, SameSite=Strict cookie. Use HTTPS for browser admin sessions. Send `X-CSRF-Token` when calling `POST /api/v1/admin/auth/logout`. The admin role can read recent audit entries at `GET /api/v1/admin/audit`. Passwords use Argon2id. Failed logins are bounded by per-host and per-account limits. Bootstrap, sign-in and sign-out write audit entries with a request UUID.

@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     redis_dsn: RedisDsn | None = None
     auth_secret: SecretStr | None = None
     google_client_id: str | None = None
+    demo_mode: bool = False
     redis_prefix: str = Field(default="donke", pattern=r"^[a-zA-Z0-9_-]{1,64}$")
     access_seconds: int = Field(default=1800, ge=60, le=3600)
     refresh_seconds: int = Field(default=604800, ge=3600, le=2592000)

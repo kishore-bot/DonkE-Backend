@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["httpx2", "pyright[nodejs]>=1.1,<2", "pytest>=9,<10", "ruff>=0.9,<1"]
+dev = ["httpx2", "pyright[nodejs]>=1.1,<2", "pytest>=9,<10", "ruff>=0.9,<1", "websockets>=17,<18"]
 
 [tool.uv]
 package = false

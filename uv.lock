@@ -368,6 +368,7 @@ dev = [
     { name = "pyright", extra = ["nodejs"] },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "websockets" },
 ]
 
 [package.metadata]
@@ -397,6 +398,7 @@ dev = [
     { name = "pyright", extras = ["nodejs"], specifier = ">=1.1,<2" },
     { name = "pytest", specifier = ">=9,<10" },
     { name = "ruff", specifier = ">=0.9,<1" },
+    { name = "websockets", specifier = ">=17,<18" },
 ]
 
 [[package]]

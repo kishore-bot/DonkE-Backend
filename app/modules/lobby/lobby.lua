@@ -35,9 +35,27 @@ local function now_ms()
     return tonumber(clock[1]) * 1000 + math.floor(tonumber(clock[2]) / 1000)
 end
 
+local function live_room(id)
+    local room = read('room', id)
+    if room and room.status == 'playing' and type(room.game_id) == 'string'
+        and redis.call('EXISTS', KEYS[2] .. room.game_id) == 0 then
+        for _, seat in ipairs(room.seats) do
+            if seat.player_id then
+                local reservation = read('member', seat.player_id)
+                if reservation and reservation.kind == 'room' and reservation.id == id then
+                    remove('member', seat.player_id)
+                end
+            end
+        end
+        remove('room', id)
+        return nil
+    end
+    return room
+end
+
 local function membership(id)
     local member = read('member', id)
-    if member and member.kind == 'room' and not read('room', member.id) then
+    if member and member.kind == 'room' and not live_room(member.id) then
         remove('member', id)
         return nil
     end
@@ -286,7 +304,7 @@ if op == 'leave_room' and not matching_id(member, 'room', input.room_id) then
     return cjson.encode({})
 end
 
-local room = read('room', input.room_id)
+local room = live_room(input.room_id)
 if not room then return failure('room_not_found') end
 local seat = room_seat(room, input.player)
 local owns_seat = seat and matching_id(member, 'room', room.id)

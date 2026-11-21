@@ -29,6 +29,7 @@ jobs:
           uv run pyright
           uv run python -m scripts.export_openapi --check
           uv run python -m scripts.export_asyncapi --check
+          uv run python -m scripts.evaluate --check
           cargo fmt --all --manifest-path engine/Cargo.toml -- --check
           cargo test --locked --manifest-path engine/Cargo.toml
           cargo clippy --locked --manifest-path engine/Cargo.toml --workspace --all-targets -- -D warnings
@@ -52,3 +53,27 @@ jobs:
           TEST_POSTGRES_DSN: postgresql+asyncpg://postgres:synthetic@127.0.0.1:55432/postgres
           TEST_REDIS_DSN: redis://127.0.0.1:56379/0
         run: uv run pytest -q
+      - name: Install the Podman Compose provider
+        run: |
+          uv tool install podman-compose==1.5.0
+          uv tool dir --bin >> "$GITHUB_PATH"
+      - name: Build and smoke-test the Podman stack
+        env:
+          DONKE_POSTGRES_PASSWORD: synthetic-showcase-only
+          DONKE_AUTH_SECRET: synthetic-showcase-key-with-at-least-32-bytes
+          DONKE_DEMO_MODE: "true"
+          DONKE_GEMINI_API_KEY: ""
+          DONKE_ROOM_START_SECONDS: "0"
+        run: |
+          bash scripts/podman-dev.sh config
+          bash scripts/podman-dev.sh up
+          bash scripts/podman-dev.sh smoke
+      - name: Stop the Podman smoke stack
+        if: always()
+        env:
+          DONKE_POSTGRES_PASSWORD: synthetic-showcase-only
+          DONKE_AUTH_SECRET: synthetic-showcase-key-with-at-least-32-bytes
+        run: |
+          if command -v podman-compose >/dev/null; then
+            bash scripts/podman-dev.sh down
+          fi

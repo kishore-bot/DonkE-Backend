@@ -3,6 +3,7 @@ use pyo3::{
     exceptions::{PyRuntimeError, PyValueError},
     prelude::*,
 };
+use rand::{SeedableRng, rngs::StdRng};
 
 #[pyclass]
 pub(crate) struct OnlineGame {
@@ -14,6 +15,14 @@ impl OnlineGame {
     #[new]
     fn new(seats: usize) -> PyResult<Self> {
         let game = Game::deal(seats, &mut rand::rng())
+            .map_err(|error| PyValueError::new_err(super::code(error)))?;
+        Ok(Self { game })
+    }
+
+    /// A reproducible offline deal for evaluations and demo replays.
+    #[staticmethod]
+    fn seeded(seats: usize, seed: u64) -> PyResult<Self> {
+        let game = Game::deal(seats, &mut StdRng::seed_from_u64(seed))
             .map_err(|error| PyValueError::new_err(super::code(error)))?;
         Ok(Self { game })
     }

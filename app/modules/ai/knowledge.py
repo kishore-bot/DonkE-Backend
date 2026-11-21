@@ -14,7 +14,7 @@ class Rule:
 RULES = (
     Rule(
         "opening",
-        "ace spades start opening lead first deal cards deck ഏസ് തുടക്കം",
+        "ace spades start opening opens opener lead first deal cards deck ഏസ് തുടക്കം",
         "The Ace of Spades opens the first trick. The whole 52-card deck is dealt.",
         "ആദ്യ കളി സ്പേഡിലെ ഏസ് കൊണ്ടുതന്നെ തുടങ്ങണം. 52 ചീട്ടുകളും വീതിക്കും.",
     ),

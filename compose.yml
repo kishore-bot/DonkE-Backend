@@ -5,6 +5,7 @@ x-backend: &backend
     DONKE_POSTGRES_DSN: postgresql+asyncpg://donke:${DONKE_POSTGRES_PASSWORD:?Set DONKE_POSTGRES_PASSWORD}@postgres:5432/donke
     DONKE_REDIS_DSN: redis://redis:6379/0
     DONKE_AUTH_SECRET: ${DONKE_AUTH_SECRET:?Set DONKE_AUTH_SECRET}
+    DONKE_DEMO_MODE: ${DONKE_DEMO_MODE:-false}
     DONKE_GOOGLE_CLIENT_ID: ${DONKE_GOOGLE_CLIENT_ID:-}
     DONKE_BOT_FILL_SECONDS: ${DONKE_BOT_FILL_SECONDS:-10}
     DONKE_PRACTICE_SESSION_TTL_SECONDS: ${DONKE_PRACTICE_SESSION_TTL_SECONDS:-3600}
@@ -57,34 +58,20 @@ services:
   migrate:
     <<: *backend
     command: ["alembic", "upgrade", "head"]
-    depends_on:
-      postgres:
-        condition: service_healthy
+    profiles: ["tools"]
   app:
     <<: *backend
     ports:
       - "127.0.0.1:8000:8000"
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
+    depends_on: [postgres, redis]
   matchmaking:
     <<: *backend
     command: ["python", "-m", "app.workers.matchmaking"]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
+    depends_on: [postgres, redis]
   voice:
     <<: *backend
     command: ["python", "-m", "app.workers.voice"]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
+    depends_on: [postgres, redis]
 volumes:
   postgres-data:
   redis-data:

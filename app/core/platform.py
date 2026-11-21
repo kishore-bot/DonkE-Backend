@@ -16,6 +16,8 @@ from sqlalchemy.orm import DeclarativeBase
 from app.core.config import Settings
 from app.core.errors import AppError
 
+SCHEMA_HEAD = "20261120_ai"
+
 
 class Base(DeclarativeBase):
     pass
@@ -30,12 +32,20 @@ class Platform:
 
     async def ready(self) -> None:
         async with self.engine.connect() as connection:
-            version = await connection.scalar(
-                text("SELECT version_num FROM alembic_version LIMIT 1")
+            versions = set(
+                await connection.scalars(
+                    text("SELECT version_num FROM alembic_version")
+                )
             )
-            if version is None:
+            if not versions:
                 raise AppError(
                     503, "schema_unavailable", "Online storage has not been initialized"
+                )
+            if versions != {SCHEMA_HEAD}:
+                raise AppError(
+                    503,
+                    "schema_mismatch",
+                    "Online storage needs the application migration",
                 )
         await self.redis.ping()
 

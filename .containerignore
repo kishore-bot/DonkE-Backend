@@ -6,3 +6,4 @@
 .pytest_cache
 engine/target
 **/__pycache__
+demo-sessions*.json

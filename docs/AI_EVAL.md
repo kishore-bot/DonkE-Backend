@@ -1,0 +1,58 @@
+# Offline evaluation scorecard
+
+Run `uv run python -m scripts.evaluate --check` to reproduce this report. The fixtures use curated rules and deterministic native deals. The commentary check verifies seat and pile numbers in six localized templates.
+
+| Evaluation | Passed | Total |
+| --- | ---: | ---: |
+| Coach source selection and abstention | 12 | 12 |
+| Vettu commentary facts | 6 | 6 |
+| Native game completion and card conservation | 16 | 16 |
+
+## Coach source selection and abstention
+
+| Fixture | Expected | Actual |
+| --- | --- | --- |
+| Which card opens the first trick? | opening | opening |
+| Do we deal the whole deck? | opening | opening |
+| മലയാളത്തിൽ ഏസ് തുടക്കം? | opening | opening |
+| Must I follow the led suit? | follow_suit | follow_suit |
+| What is Vettu? | vettu | vettu |
+| വെട്ട് എടുക്കുക? | vettu | vettu |
+| What happens to a clean trick? | clean | clean |
+| How do I escape with an empty hand? | escape | escape |
+| അവസാനത്തെ കഴുത ആരാണ്? | escape | escape |
+| How many seconds does a turn take? | timeout | timeout |
+| What is the capital of Norway? | no match | no match |
+| Recommend an avocado recipe | no match | no match |
+
+## Vettu commentary facts
+
+| Fixture | Expected | Actual |
+| --- | --- | --- |
+| ml | vettu · 2, 4, 5 | vettu · 2, 4, 5 |
+| ta | vettu · 2, 4, 5 | vettu · 2, 4, 5 |
+| hi | vettu · 2, 4, 5 | vettu · 2, 4, 5 |
+| kn | vettu · 2, 4, 5 | vettu · 2, 4, 5 |
+| te | vettu · 2, 4, 5 | vettu · 2, 4, 5 |
+| en | vettu · 2, 4, 5 | vettu · 2, 4, 5 |
+
+## Native game completion and card conservation
+
+| Fixture | Expected | Actual |
+| --- | --- | --- |
+| 2 seats, seed 119 | finished | finished |
+| 2 seats, seed 2026 | finished | finished |
+| 2 seats, seed 8128 | finished | finished |
+| 2 seats, seed 65537 | finished | finished |
+| 3 seats, seed 119 | finished | finished |
+| 3 seats, seed 2026 | finished | finished |
+| 3 seats, seed 8128 | finished | finished |
+| 3 seats, seed 65537 | finished | finished |
+| 4 seats, seed 119 | finished | finished |
+| 4 seats, seed 2026 | finished | finished |
+| 4 seats, seed 8128 | finished | finished |
+| 4 seats, seed 65537 | finished | finished |
+| 5 seats, seed 119 | finished | finished |
+| 5 seats, seed 2026 | finished | finished |
+| 5 seats, seed 8128 | finished | finished |
+| 5 seats, seed 65537 | finished | finished |
