@@ -11,6 +11,11 @@ class GameSeat(Seat):
     consecutive_timeouts: int = 0
     timeouts: int = 0
     forfeited: bool = False
+    # Bot seats only: engine level, search depth, persona and rival owner.
+    level: Literal["easy", "medium", "hard"] | None = None
+    iterations: int = 200
+    persona: Literal["thug", "professor", "aunty"] | None = None
+    rival_of: UUID | None = None
 
 
 class MatchState(BaseModel):

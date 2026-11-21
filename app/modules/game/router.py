@@ -9,6 +9,7 @@ from app.modules.game.schemas import (
     GameUpdate,
     PlayRequest,
     PracticeCreated,
+    PracticeHint,
     PracticeRequest,
 )
 from app.modules.game.service import PracticeService
@@ -48,7 +49,7 @@ def create_practice(
     body: PracticeRequest, response: Response, service: Service
 ) -> PracticeCreated:
     response.headers["Cache-Control"] = "no-store"
-    return service.create(body.seats)
+    return service.create(body.seats, body.level)
 
 
 @router.get("/{game_id}", responses=AUTH_ERRORS)
@@ -57,6 +58,15 @@ def get_practice(
 ) -> GameUpdate:
     response.headers["Cache-Control"] = "no-store"
     return service.snapshot(game_id, token)
+
+
+@router.get("/{game_id}/hint", responses=AUTH_ERRORS)
+def hint(
+    game_id: UUID, response: Response, token: AccessToken, service: Service
+) -> PracticeHint:
+    """The engine's view of your current choices. Practice only."""
+    response.headers["Cache-Control"] = "no-store"
+    return service.hint(game_id, token)
 
 
 @router.post(

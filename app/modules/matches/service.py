@@ -8,7 +8,8 @@ from redis.exceptions import RedisError
 from app.core.errors import AppError
 from app.core.platform import Platform
 from app.modules.game.schemas import PlayerView, PlayRequest
-from app.modules.matches import settlement
+from app.modules.identity.repository import profiles
+from app.modules.matches import bots, settlement
 from app.modules.matches.repository import MatchConflict, MatchRepository
 from app.modules.matches.schemas import (
     Acknowledgement,
@@ -59,11 +60,30 @@ class MatchService:
             return None
         game = OnlineGame(len(room.seats))
         now = await self.repo.now_ms()
+        game_id = uuid4()
+        seats = [GameSeat(**seat.model_dump()) for seat in room.seats]
+        humans = [seat.player_id for seat in seats if seat.player_id and not seat.bot]
+        async with self.platform.sessions() as db:
+            mmrs = {
+                player: profile.mmr
+                for player, profile in (await profiles(db, humans)).items()
+            }
+        rival = bots.assign(seats, mmrs, game_id)
+        opening_events: list[dict] = [{"event": "game_started", "turn": game.turn}]
+        if rival is not None:
+            opening_events.append(
+                {
+                    "event": "rival_joined",
+                    "seat": rival,
+                    "persona": seats[rival].persona,
+                    "player_id": str(seats[rival].rival_of),
+                }
+            )
         state = MatchState(
-            id=uuid4(),
+            id=game_id,
             room_id=room.id,
             mode=room.mode,
-            seats=[GameSeat(**seat.model_dump()) for seat in room.seats],
+            seats=seats,
             native=game.snapshot(),
             opening=game.snapshot(),
             started_ms=now,
@@ -79,7 +99,7 @@ class MatchService:
                 room_id=str(room.id),
                 room_revision=room.revision,
                 state=state.model_dump_json(),
-                events=json.dumps([{"event": "game_started", "turn": state.turn}]),
+                events=json.dumps(opening_events),
             )
         except MatchConflict as exc:
             if exc.code in {"room_changed", "room_missing"}:
@@ -143,6 +163,14 @@ class MatchService:
             events = json.loads(game.play(seat, command.card.model_dump_json()))
         except ValueError as exc:
             raise MatchConflict(str(exc)) from exc
+        # Think time feeds fair-play review: how long the turn was open.
+        turn_opened = state.deadline_ms - round(
+            self.platform.settings.turn_seconds * 1000
+        )
+        think_ms = max(0, await self.repo.now_ms() - turn_opened)
+        for event in events:
+            if event.get("event") == "card_played":
+                event["think_ms"] = think_ms
         state.seats[seat].consecutive_timeouts = 0
         return await self.commit_play(
             state,
@@ -199,7 +227,8 @@ class MatchService:
             return
         seat = state.turn
         events = []
-        if not state.seats[seat].bot:
+        human = not state.seats[seat].bot
+        if human:
             player = state.seats[seat]
             player.timeouts += 1
             player.consecutive_timeouts += 1
@@ -211,7 +240,18 @@ class MatchService:
                     {"event": "seat_taken_over", "seat": seat, "reason": "timeouts"}
                 )
         game = OnlineGame.restore(state.native)
-        events.extend(json.loads(game.play(seat)))
+        if human:
+            played = json.loads(game.play(seat))
+            for event in played:
+                if event.get("event") == "card_played":
+                    event["auto"] = True  # Not a decision; analysis skips it.
+        else:
+            card = bots.choose(
+                game, seat, state.seats[seat], bots.stable(state.id, state.version)
+            )
+            played = json.loads(game.play(seat, card))
+            played.extend(bots.persona_events(seat, state.seats[seat], played))
+        events.extend(played)
         await self.commit_play(state, game, events, owner)
 
     async def commit_play(

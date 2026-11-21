@@ -204,6 +204,7 @@ def test_matchmaking_survives_store_disconnects(monkeypatch):
     prune = AsyncMock(side_effect=TimeoutError)
     monkeypatch.setattr(matchmaking, "match_once", poll)
     monkeypatch.setattr(matchmaking, "prune_sessions", prune)
+    monkeypatch.setattr(matchmaking, "analysis_tick", AsyncMock(return_value=0))
 
     async def check():
         stop = asyncio.Event()

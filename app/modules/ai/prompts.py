@@ -69,12 +69,24 @@ _ROAST = (
     'name "{name}" and every number exactly. No insults about real traits.\n'
     "Line: {fact}"
 )
+_RIVAL = (
+    "You are {name}, a cheeky Kazhutha card-game rival bot. Rewrite this taunt "
+    "in {language}, playful and family-friendly, in at most {words} words. Keep "
+    'the name "{name}" and every number exactly. Add no new facts.\nTaunt: {fact}'
+)
+_TRANSLATE = (
+    "Translate this playful line from a Kazhutha card-game bot into natural, "
+    "family-friendly {language}, in at most {words} words. Output only the "
+    "line.\nLine: {fact}"
+)
 
 PROMPTS = {
     prompt.id: prompt
     for prompt in (
         Prompt("tip", 1, "4de03b21ca98", _TIP),
         Prompt("insight", 1, "d3a3a55f1865", _INSIGHT),
+        Prompt("rival", 1, "36dcf1836d64", _RIVAL),
+        Prompt("translate", 1, "3ed921917cdc", _TRANSLATE),
         Prompt("roast", 1, "cf64f92a6394", _ROAST),
     )
 }

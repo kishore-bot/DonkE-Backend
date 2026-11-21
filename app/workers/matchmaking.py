@@ -7,8 +7,10 @@ from redis.exceptions import RedisError
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import Settings
+from app.core.errors import AppError
 from app.core.platform import Platform, open_platform
 from app.modules.admin.repository import prune_expired as prune_admin_sessions
+from app.modules.ai.fair_play import analysis_tick
 from app.modules.identity.repository import prune_expired as prune_player_sessions
 from app.modules.lobby.repository import LobbyConflict, LobbyRepository
 from app.modules.lobby.service import QUEUES, LobbyService
@@ -61,6 +63,10 @@ async def run(platform: Platform, stop: asyncio.Event) -> None:
             MatchConflict,
         ) as error:
             logger.warning("Matchmaking tick failed (%s)", type(error).__name__)
+        try:
+            await analysis_tick(platform)
+        except (RedisError, SQLAlchemyError, OSError, AppError) as error:
+            logger.warning("Analysis tick failed (%s)", type(error).__name__)
         if loop.time() >= next_prune:
             try:
                 await prune_sessions(platform)

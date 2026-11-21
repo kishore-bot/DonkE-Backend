@@ -11,10 +11,12 @@ from app.modules.admin.router import Admin, Cookie, CsrfToken, RequestId
 from app.modules.admin.service import admin_write
 from app.modules.ai.coaching import Coaching, coaching
 from app.modules.ai.commentary import line
+from app.modules.ai.fair_play import CaseView, Resolve, cases, resolve
 from app.modules.ai.gateway import Gateway
 from app.modules.ai.index import ranked_rules, reindex
 from app.modules.ai.insights import Insights, Roast, insights, roast
 from app.modules.ai.knowledge import NO_MATCH
+from app.modules.ai.rivals import PersonaLines, RivalView, persona_lines, rival
 from app.modules.ai.schemas import (
     CoachReply,
     CoachRequest,
@@ -126,6 +128,53 @@ async def donkey_roast(game_id: UUID, player: CurrentPlayer, gateway: AI) -> Roa
     await limit(gateway.platform, "roast", str(player.profile.id), 20, 60)
     replay = await read_replay(gateway.platform, game_id, player.profile.id)
     return await roast(gateway, replay, player.profile.language)
+
+
+@router.get("/rival")
+async def my_rival(player: CurrentPlayer, gateway: AI) -> RivalView:
+    """Your persistent rival bot, its record against you, and a taunt."""
+    return await rival(gateway, player.profile.id, player.profile.language)
+
+
+@router.get("/personas/lines")
+async def lines(player: CurrentPlayer, gateway: AI) -> PersonaLines:
+    """Text for `persona_line` match events in your language."""
+    return await persona_lines(gateway, player.profile.language)
+
+
+@router.get("/admin/fair-play")
+async def fair_play_cases(
+    admin: Admin,
+    cookie: Cookie,
+    platform: PlatformDep,
+    status: Literal["open", "dismissed", "confirmed"] = "open",
+) -> list[CaseView]:
+    identity = await admin.current(cookie)
+    if identity.admin.role not in {"moderator", "admin"}:
+        raise AppError(403, "moderator_required", "Moderator role required")
+    return await cases(platform, status)
+
+
+@router.post("/admin/fair-play/{case_id}/resolve")
+async def resolve_case(
+    case_id: UUID,
+    body: Resolve,
+    platform: PlatformDep,
+    cookie: Cookie,
+    csrf: CsrfToken = None,
+    request_id: RequestId = None,
+) -> CaseView:
+    """A moderator decides; the engine only flags."""
+    async with admin_write(
+        platform,
+        cookie,
+        csrf,
+        request_id,
+        f"fair_play_{body.decision}",
+        body.reason,
+        roles=("moderator", "admin"),
+    ) as db:
+        return await resolve(db, case_id, body)
 
 
 @router.get("/admin/ai/usage")

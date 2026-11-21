@@ -92,6 +92,13 @@ impl PracticeGame {
         Self::serialize(&self.game, &[])
     }
 
+    /// Score the human's legal moves (seat 0), best first, as JSON.
+    #[pyo3(signature = (iterations=200, seed=None))]
+    fn hint(&self, py: Python<'_>, iterations: u32, seed: Option<u64>) -> PyResult<String> {
+        let scores = py.detach(|| donke_core::evaluate(&self.game, 0, iterations, &mut rng(seed)));
+        to_json(&scores)
+    }
+
     fn play(&self, py: Python<'_>, card_json: &str) -> PyResult<(Self, String)> {
         let card: Card =
             serde_json::from_str(card_json).map_err(|_| PyValueError::new_err("invalid_card"))?;

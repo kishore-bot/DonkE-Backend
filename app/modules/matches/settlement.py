@@ -6,10 +6,15 @@ from sqlalchemy.dialects.postgresql import insert
 
 from app.core.errors import AppError
 from app.core.platform import Platform
+from app.modules.ai import rivals
 from app.modules.identity.repository import apply_rating
 from app.modules.matches.models import MatchRecord
 from app.modules.matches.schemas import MatchReplay
 from app.modules.progression.service import active_season, on_match
+
+
+def pending_analysis_key(platform: Platform) -> str:
+    return f"{platform.settings.redis_prefix}:ai:analysis:pending"
 
 
 def rated_changes(replay: MatchReplay) -> dict[UUID, int]:
@@ -54,7 +59,19 @@ async def persist(
         for player_id, delta in sorted(rated_changes(replay).items()):
             await apply_rating(db, player_id, delta)
         await on_match(db, replay, season, completed)
-        return True
+        await rivals.record(db, replay)
+    if replay.mode == "ranked" and replay.opening is not None:
+        # Fair-play review runs in the worker; settlement stays fast.
+        await platform.redis.zadd(
+            pending_analysis_key(platform), {str(replay.id): completed.timestamp()}
+        )
+    return True
+
+
+async def load_replay(platform: Platform, game_id: UUID) -> MatchReplay | None:
+    async with platform.sessions() as db:
+        record = await db.get(MatchRecord, game_id)
+    return MatchReplay.model_validate(record.replay) if record else None
 
 
 async def read_replay(

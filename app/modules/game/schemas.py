@@ -108,6 +108,19 @@ class PracticeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     seats: int = Field(default=4, ge=2, le=5, strict=True)
+    level: Literal["easy", "medium", "hard"] = "medium"
+
+
+class MoveScore(BaseModel):
+    card: Card
+    safe_rate: float
+
+
+class PracticeHint(BaseModel):
+    """Engine scores for the human's legal moves, best first."""
+
+    best: Card | None
+    options: list[MoveScore]
 
 
 class PracticeCreated(GameUpdate):

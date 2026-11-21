@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.errors import AppError
-from app.core.platform import Base
+from app.core.platform import Base, Platform
 from app.modules.ai.gateway import Gateway
 from app.modules.ai.prompts import PROMPTS, Source, reword
 from app.modules.identity.schemas import Language
@@ -82,6 +82,14 @@ class Decision(BaseModel):
         return self.best_rate - self.played_rate
 
 
+class Sample(BaseModel):
+    """One real decision, kept for fair-play review."""
+
+    think_ms: int | None
+    legal: int
+    top: bool
+
+
 class SituationStats(BaseModel):
     decisions: int = 0
     mistakes: int = 0
@@ -92,6 +100,7 @@ class Analysis(BaseModel):
     accuracy: float
     mistakes: list[Decision]
     situations: dict[Situation, SituationStats]
+    samples: list[Sample] = []
 
 
 class Tip(BaseModel):
@@ -139,6 +148,7 @@ def analyse(replay: MatchReplay, seat: int, iterations: int = ITERATIONS) -> Ana
         )
     game = OnlineGame.restore(replay.opening)
     decisions: list[Decision] = []
+    samples: list[Sample] = []
     move = 0
     for batch in replay.events:
         for event in batch.events:
@@ -146,7 +156,7 @@ def analyse(replay: MatchReplay, seat: int, iterations: int = ITERATIONS) -> Ana
                 continue
             move += 1
             card = event["card"]
-            if event["seat"] == seat:
+            if event["seat"] == seat and not event.get("auto"):
                 view = json.loads(game.view(seat))
                 if len(view["legal_moves"]) >= 2:
                     scores = json.loads(game.evaluate(seat, iterations, seed=move))
@@ -155,6 +165,13 @@ def analyse(replay: MatchReplay, seat: int, iterations: int = ITERATIONS) -> Ana
                         (score for score in scores if score["card"] == card), None
                     )
                     if chosen is not None:
+                        samples.append(
+                            Sample(
+                                think_ms=event.get("think_ms"),
+                                legal=len(view["legal_moves"]),
+                                top=chosen["safe_rate"] >= best["safe_rate"] - 1e-9,
+                            )
+                        )
                         decisions.append(
                             Decision(
                                 move=move,
@@ -188,6 +205,7 @@ def analyse(replay: MatchReplay, seat: int, iterations: int = ITERATIONS) -> Ana
         accuracy=round(good / len(decisions), 3) if decisions else 1.0,
         mistakes=mistakes,
         situations=situations,
+        samples=samples,
     )
 
 
@@ -199,15 +217,15 @@ def seat_of(replay: MatchReplay, player: UUID) -> int:
 
 
 async def stored_analysis(
-    gateway: Gateway, replay: MatchReplay, player: UUID
+    platform: Platform, replay: MatchReplay, player: UUID
 ) -> Analysis:
-    async with gateway.platform.sessions() as db:
+    async with platform.sessions() as db:
         row = await db.get(MatchAnalysis, (replay.id, player))
     if row is not None:
         return Analysis.model_validate(row.payload)
     seat = seat_of(replay, player)
     result = await asyncio.to_thread(analyse, replay, seat)
-    async with gateway.platform.sessions.begin() as db:
+    async with platform.sessions.begin() as db:
         await db.execute(
             insert(MatchAnalysis)
             .values(
@@ -225,7 +243,7 @@ async def stored_analysis(
 async def coaching(
     gateway: Gateway, replay: MatchReplay, player: UUID, language: Language
 ) -> Coaching:
-    result = await stored_analysis(gateway, replay, player)
+    result = await stored_analysis(gateway.platform, replay, player)
     cache = gateway.key(f"tips:{PROMPTS['tip'].label}:{replay.id}:{player}:{language}")
     redis = gateway.platform.redis
     if cached := await redis.get(cache):
@@ -243,7 +261,9 @@ async def coaching(
             text, source = await reword(gateway, "tip", fact, language, words=40)
             tips.append(Tip(move=mistake.move, text=text, source=source))
         await redis.set(cache, json.dumps([tip.model_dump() for tip in tips]), ex=86400)
-    return Coaching(game_id=replay.id, tips=tips, **result.model_dump())
+    return Coaching(
+        game_id=replay.id, tips=tips, **result.model_dump(exclude={"samples"})
+    )
 
 
 async def recent_analyses(

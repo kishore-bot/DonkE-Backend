@@ -1,6 +1,8 @@
+import json
 from hashlib import sha256
 from secrets import compare_digest, token_urlsafe
 from time import monotonic
+from typing import Literal
 from uuid import UUID, uuid4
 
 from donke_engine import PracticeGame
@@ -12,7 +14,13 @@ from app.modules.game.repository import (
     PracticeSession,
     RecordedPlay,
 )
-from app.modules.game.schemas import GameUpdate, PlayRequest, PracticeCreated
+from app.modules.game.schemas import (
+    GameUpdate,
+    MoveScore,
+    PlayRequest,
+    PracticeCreated,
+    PracticeHint,
+)
 
 
 class PracticeService:
@@ -20,7 +28,9 @@ class PracticeService:
         self.repository = repository
         self.settings = settings
 
-    def create(self, seats: int) -> PracticeCreated:
+    def create(
+        self, seats: int, level: Literal["easy", "medium", "hard"] = "medium"
+    ) -> PracticeCreated:
         with self.repository.lock:
             now = monotonic()
             sessions = self.repository.sessions
@@ -31,7 +41,7 @@ class PracticeService:
             if len(sessions) >= self.settings.practice_max_sessions:
                 raise AppError(503, "practice_full", "Practice is at capacity")
 
-            game = PracticeGame(seats)
+            game = PracticeGame(seats, level, iterations=200)
             update = GameUpdate.model_validate_json(game.snapshot())
             game_id, token = uuid4(), token_urlsafe(32)
             sessions[game_id] = PracticeSession(
@@ -55,6 +65,15 @@ class PracticeService:
         ):
             raise AppError(404, "practice_not_found", "Practice match not found")
         return session
+
+    def hint(self, game_id: UUID, token: str) -> PracticeHint:
+        with self.repository.lock:
+            game = self._session(game_id, token).game
+        options = [
+            MoveScore.model_validate(score)
+            for score in json.loads(game.hint(self.settings.practice_hint_iterations))
+        ]
+        return PracticeHint(best=options[0].card if options else None, options=options)
 
     def snapshot(self, game_id: UUID, token: str) -> GameUpdate:
         with self.repository.lock:

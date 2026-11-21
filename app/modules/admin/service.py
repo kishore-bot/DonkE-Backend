@@ -167,6 +167,7 @@ async def admin_write(
     request_id: UUID | None,
     action: str,
     reason: str,
+    roles: tuple[str, ...] = ("admin",),
 ) -> AsyncIterator[AsyncSession]:
     async with platform.sessions.begin() as db:
         row = await repository.session_owner(
@@ -175,7 +176,7 @@ async def admin_write(
         if row is None:
             raise AppError(401, "invalid_admin_session", "Admin authentication failed")
         session, admin = row
-        if admin.role != "admin":
+        if admin.role not in roles:
             raise AppError(403, "admin_required", "Admin role required")
         if csrf is None or not compare_digest(
             csrf.encode(), session.csrf_token.encode()
