@@ -17,6 +17,9 @@
         "events": {
           "$ref": "#/components/messages/events"
         },
+        "feed": {
+          "$ref": "#/components/messages/feed"
+        },
         "left": {
           "$ref": "#/components/messages/left"
         },
@@ -68,6 +71,8 @@
         "payload": {
           "discriminator": {
             "mapping": {
+              "chat": "#/components/schemas/SocketChat",
+              "emote": "#/components/schemas/SocketEmote",
               "leave": "#/components/schemas/SocketLeave",
               "ping": "#/components/schemas/SocketPing",
               "play_card": "#/components/schemas/SocketPlay"
@@ -83,6 +88,12 @@
             },
             {
               "$ref": "#/components/schemas/SocketPing"
+            },
+            {
+              "$ref": "#/components/schemas/SocketEmote"
+            },
+            {
+              "$ref": "#/components/schemas/SocketChat"
             }
           ]
         }
@@ -131,6 +142,40 @@
             "type"
           ],
           "title": "EventBatch",
+          "type": "object"
+        }
+      },
+      "feed": {
+        "name": "feed",
+        "payload": {
+          "properties": {
+            "id": {
+              "description": "Feed cursor",
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "emote",
+                "chat"
+              ]
+            },
+            "seat": {
+              "type": "integer"
+            },
+            "type": {
+              "const": "feed"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "id",
+            "seat",
+            "kind",
+            "value"
+          ],
           "type": "object"
         }
       },
@@ -311,6 +356,45 @@
             "title": "Forfeited",
             "type": "boolean"
           },
+          "iterations": {
+            "default": 200,
+            "title": "Iterations",
+            "type": "integer"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "easy",
+                  "medium",
+                  "hard"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Level"
+          },
+          "persona": {
+            "anyOf": [
+              {
+                "enum": [
+                  "thug",
+                  "professor",
+                  "aunty"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Persona"
+          },
           "player_id": {
             "anyOf": [
               {
@@ -327,6 +411,19 @@
           "ready": {
             "title": "Ready",
             "type": "boolean"
+          },
+          "rival_of": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rival Of"
           },
           "timeouts": {
             "default": 0,
@@ -469,6 +566,48 @@
         ],
         "type": "string"
       },
+      "SocketChat": {
+        "properties": {
+          "action": {
+            "const": "chat",
+            "title": "Action",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 400,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "text"
+        ],
+        "title": "SocketChat",
+        "type": "object"
+      },
+      "SocketEmote": {
+        "properties": {
+          "action": {
+            "const": "emote",
+            "title": "Action",
+            "type": "string"
+          },
+          "emote": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Emote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "emote"
+        ],
+        "title": "SocketEmote",
+        "type": "object"
+      },
       "SocketLeave": {
         "properties": {
           "action": {
@@ -590,6 +729,9 @@
         },
         {
           "$ref": "#/channels/match/messages/error"
+        },
+        {
+          "$ref": "#/channels/match/messages/feed"
         },
         {
           "$ref": "#/channels/match/messages/pong"

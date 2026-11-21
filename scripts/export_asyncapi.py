@@ -30,6 +30,14 @@ def contract() -> dict[str, Any]:
             "request_id": {"type": "string", "format": "uuid"},
         },
         "error": {"code": {"type": "string"}},
+        # Emotes and table chat from the social side feed; never changes the
+        # game version. Hidden when the sender and viewer have a block.
+        "feed": {
+            "id": {"type": "string", "description": "Feed cursor"},
+            "seat": {"type": "integer"},
+            "kind": {"enum": ["emote", "chat"]},
+            "value": {"type": "string"},
+        },
         "pong": {},
         "left": {},
     }.items():

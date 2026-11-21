@@ -1,6 +1,120 @@
 {
   "components": {
     "schemas": {
+      "AchievementView": {
+        "properties": {
+          "coins": {
+            "title": "Coins",
+            "type": "integer"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "progress": {
+            "title": "Progress",
+            "type": "integer"
+          },
+          "target": {
+            "title": "Target",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unlocked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unlocked At"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "description",
+          "progress",
+          "target",
+          "coins",
+          "unlocked_at"
+        ],
+        "title": "AchievementView",
+        "type": "object"
+      },
+      "AchievementsView": {
+        "properties": {
+          "achievements": {
+            "items": {
+              "$ref": "#/components/schemas/AchievementView"
+            },
+            "title": "Achievements",
+            "type": "array"
+          },
+          "stats": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Stats",
+            "type": "object"
+          }
+        },
+        "required": [
+          "stats",
+          "achievements"
+        ],
+        "title": "AchievementsView",
+        "type": "object"
+      },
+      "AdminCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "maxLength": 256,
+            "minLength": 12,
+            "title": "Password",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "viewer",
+              "moderator",
+              "admin"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "username": {
+            "pattern": "^[a-z0-9_.-]{3,48}$",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "username",
+          "password",
+          "role"
+        ],
+        "title": "AdminCreate",
+        "type": "object"
+      },
       "AdminLogin": {
         "properties": {
           "admin": {
@@ -34,6 +148,11 @@
             "title": "Role",
             "type": "string"
           },
+          "totp_enabled": {
+            "default": false,
+            "title": "Totp Enabled",
+            "type": "boolean"
+          },
           "username": {
             "title": "Username",
             "type": "string"
@@ -45,6 +164,101 @@
           "role"
         ],
         "title": "AdminProfile",
+        "type": "object"
+      },
+      "AdminRow": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "role": {
+            "enum": [
+              "viewer",
+              "moderator",
+              "admin"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "totp_enabled": {
+            "title": "Totp Enabled",
+            "type": "boolean"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "role",
+          "active",
+          "totp_enabled",
+          "last_login_at"
+        ],
+        "title": "AdminRow",
+        "type": "object"
+      },
+      "AdminUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "reason": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "viewer",
+                  "moderator",
+                  "admin"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "AdminUpdate",
         "type": "object"
       },
       "AllSafeOutcome": {
@@ -97,6 +311,52 @@
         "title": "AuditEntry",
         "type": "object"
       },
+      "BiggestPile": {
+        "properties": {
+          "cards": {
+            "title": "Cards",
+            "type": "integer"
+          },
+          "receiver": {
+            "title": "Receiver",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "receiver",
+          "cards"
+        ],
+        "title": "BiggestPile",
+        "type": "object"
+      },
+      "BonusView": {
+        "properties": {
+          "claimed": {
+            "title": "Claimed",
+            "type": "boolean"
+          },
+          "reward": {
+            "title": "Reward",
+            "type": "string"
+          },
+          "stars": {
+            "title": "Stars",
+            "type": "integer"
+          },
+          "tier": {
+            "title": "Tier",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tier",
+          "stars",
+          "reward",
+          "claimed"
+        ],
+        "title": "BonusView",
+        "type": "object"
+      },
       "Card": {
         "additionalProperties": false,
         "properties": {
@@ -137,11 +397,106 @@
         "title": "CardPlayed",
         "type": "object"
       },
+      "CaseView": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "player_id": {
+            "format": "uuid",
+            "title": "Player Id",
+            "type": "string"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "score": {
+            "title": "Score",
+            "type": "integer"
+          },
+          "stats": {
+            "additionalProperties": true,
+            "title": "Stats",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "player_id",
+          "status",
+          "score",
+          "stats",
+          "note",
+          "created_at",
+          "resolved_at"
+        ],
+        "title": "CaseView",
+        "type": "object"
+      },
       "CatalogItem": {
         "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "available_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Until"
+          },
           "equipped": {
             "title": "Equipped",
             "type": "boolean"
+          },
+          "festival": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Festival"
           },
           "label": {
             "title": "Label",
@@ -213,6 +568,57 @@
         "title": "ChallengeView",
         "type": "object"
       },
+      "ChatMessage": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "player_id": {
+            "format": "uuid",
+            "title": "Player Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "player_id",
+          "name",
+          "text",
+          "at"
+        ],
+        "title": "ChatMessage",
+        "type": "object"
+      },
+      "ChatPost": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 400,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ChatPost",
+        "type": "object"
+      },
       "CloseSeason": {
         "additionalProperties": false,
         "properties": {
@@ -279,6 +685,85 @@
         "title": "CoachRequest",
         "type": "object"
       },
+      "Coaching": {
+        "properties": {
+          "accuracy": {
+            "title": "Accuracy",
+            "type": "number"
+          },
+          "decisions": {
+            "title": "Decisions",
+            "type": "integer"
+          },
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "mistakes": {
+            "items": {
+              "$ref": "#/components/schemas/Decision"
+            },
+            "title": "Mistakes",
+            "type": "array"
+          },
+          "situations": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SituationStats"
+            },
+            "propertyNames": {
+              "enum": [
+                "leading",
+                "following",
+                "cutting",
+                "near_escape"
+              ]
+            },
+            "title": "Situations",
+            "type": "object"
+          },
+          "tips": {
+            "items": {
+              "$ref": "#/components/schemas/Tip"
+            },
+            "title": "Tips",
+            "type": "array"
+          }
+        },
+        "required": [
+          "game_id",
+          "decisions",
+          "accuracy",
+          "mistakes",
+          "situations",
+          "tips"
+        ],
+        "title": "Coaching",
+        "type": "object"
+      },
+      "CoinGrant": {
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "maximum": 10000.0,
+            "minimum": -10000.0,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "amount"
+        ],
+        "title": "CoinGrant",
+        "type": "object"
+      },
       "Commentary": {
         "properties": {
           "language": {
@@ -312,6 +797,120 @@
           "source"
         ],
         "title": "Commentary",
+        "type": "object"
+      },
+      "CosmeticGrant": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "sku": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Sku",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "sku"
+        ],
+        "title": "CosmeticGrant",
+        "type": "object"
+      },
+      "Dashboard": {
+        "properties": {
+          "active_games": {
+            "title": "Active Games",
+            "type": "integer"
+          },
+          "ai_usage": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Ai Usage",
+            "type": "object"
+          },
+          "flags": {
+            "additionalProperties": true,
+            "title": "Flags",
+            "type": "object"
+          },
+          "matches_24h": {
+            "title": "Matches 24H",
+            "type": "integer"
+          },
+          "new_players_24h": {
+            "title": "New Players 24H",
+            "type": "integer"
+          },
+          "open_fair_play_cases": {
+            "title": "Open Fair Play Cases",
+            "type": "integer"
+          },
+          "players": {
+            "title": "Players",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "players",
+          "new_players_24h",
+          "matches_24h",
+          "active_games",
+          "open_fair_play_cases",
+          "ai_usage",
+          "flags"
+        ],
+        "title": "Dashboard",
+        "type": "object"
+      },
+      "Decision": {
+        "properties": {
+          "best": {
+            "title": "Best",
+            "type": "string"
+          },
+          "best_rate": {
+            "title": "Best Rate",
+            "type": "number"
+          },
+          "move": {
+            "title": "Move",
+            "type": "integer"
+          },
+          "played": {
+            "title": "Played",
+            "type": "string"
+          },
+          "played_rate": {
+            "title": "Played Rate",
+            "type": "number"
+          },
+          "situation": {
+            "enum": [
+              "leading",
+              "following",
+              "cutting",
+              "near_escape"
+            ],
+            "title": "Situation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "move",
+          "situation",
+          "played",
+          "best",
+          "played_rate",
+          "best_rate"
+        ],
+        "title": "Decision",
         "type": "object"
       },
       "DonkeyOutcome": {
@@ -385,8 +984,87 @@
         "title": "EventBatch",
         "type": "object"
       },
+      "FlagUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "reason",
+          "value"
+        ],
+        "title": "FlagUpdate",
+        "type": "object"
+      },
+      "FlagView": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "description"
+        ],
+        "title": "FlagView",
+        "type": "object"
+      },
       "FriendStatus": {
         "properties": {
+          "activity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "idle",
+                  "queued",
+                  "matching",
+                  "matched",
+                  "room"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity"
+          },
+          "online": {
+            "default": false,
+            "title": "Online",
+            "type": "boolean"
+          },
           "player": {
             "$ref": "#/components/schemas/Profile"
           },
@@ -464,6 +1142,43 @@
             "title": "Forfeited",
             "type": "boolean"
           },
+          "iterations": {
+            "default": 200,
+            "title": "Iterations",
+            "type": "integer"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "easy",
+                  "medium",
+                  "hard"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "persona": {
+            "anyOf": [
+              {
+                "enum": [
+                  "thug",
+                  "professor",
+                  "aunty"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persona"
+          },
           "player_id": {
             "anyOf": [
               {
@@ -479,6 +1194,18 @@
           "ready": {
             "title": "Ready",
             "type": "boolean"
+          },
+          "rival_of": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rival Of"
           },
           "timeouts": {
             "default": 0,
@@ -556,6 +1283,130 @@
         "title": "GoogleSignIn",
         "type": "object"
       },
+      "Insights": {
+        "properties": {
+          "accuracy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accuracy"
+          },
+          "decisions": {
+            "title": "Decisions",
+            "type": "integer"
+          },
+          "focus": {
+            "anyOf": [
+              {
+                "enum": [
+                  "leading",
+                  "following",
+                  "cutting",
+                  "near_escape"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus"
+          },
+          "matches": {
+            "title": "Matches",
+            "type": "integer"
+          },
+          "mistake_rates": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "enum": [
+                "leading",
+                "following",
+                "cutting",
+                "near_escape"
+              ]
+            },
+            "title": "Mistake Rates",
+            "type": "object"
+          },
+          "source": {
+            "enum": [
+              "gemini",
+              "template"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "strongest": {
+            "anyOf": [
+              {
+                "enum": [
+                  "leading",
+                  "following",
+                  "cutting",
+                  "near_escape"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strongest"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "matches",
+          "decisions",
+          "accuracy",
+          "strongest",
+          "focus",
+          "mistake_rates",
+          "summary",
+          "source"
+        ],
+        "title": "Insights",
+        "type": "object"
+      },
+      "InviteLink": {
+        "properties": {
+          "app_link": {
+            "title": "App Link",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "url",
+          "app_link",
+          "expires_in"
+        ],
+        "title": "InviteLink",
+        "type": "object"
+      },
       "Login": {
         "additionalProperties": false,
         "properties": {
@@ -564,6 +1415,18 @@
             "minLength": 1,
             "title": "Password",
             "type": "string"
+          },
+          "totp": {
+            "anyOf": [
+              {
+                "pattern": "^\\d{6}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Totp"
           },
           "username": {
             "pattern": "^[a-z0-9_.-]{3,48}$",
@@ -576,6 +1439,67 @@
           "password"
         ],
         "title": "Login",
+        "type": "object"
+      },
+      "MatchAnalytics": {
+        "properties": {
+          "biggest_pile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BiggestPile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "outcome": {
+            "additionalProperties": true,
+            "title": "Outcome",
+            "type": "object"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/SeatStats"
+            },
+            "title": "Seats",
+            "type": "array"
+          },
+          "total_plays": {
+            "title": "Total Plays",
+            "type": "integer"
+          },
+          "total_vettus": {
+            "title": "Total Vettus",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "mode",
+          "outcome",
+          "total_plays",
+          "total_vettus",
+          "biggest_pile",
+          "seats"
+        ],
+        "title": "MatchAnalytics",
         "type": "object"
       },
       "MatchReplay": {
@@ -607,6 +1531,17 @@
             ],
             "title": "Mode"
           },
+          "opening": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opening"
+          },
           "outcome": {
             "additionalProperties": true,
             "title": "Outcome",
@@ -636,15 +1571,115 @@
         "title": "MatchReplay",
         "type": "object"
       },
+      "MatchRow": {
+        "properties": {
+          "finished_at": {
+            "format": "date-time",
+            "title": "Finished At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "outcome": {
+            "additionalProperties": true,
+            "title": "Outcome",
+            "type": "object"
+          },
+          "players": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Players",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "finished_at",
+          "mode",
+          "outcome",
+          "players"
+        ],
+        "title": "MatchRow",
+        "type": "object"
+      },
+      "MoveScore": {
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/Card"
+          },
+          "safe_rate": {
+            "title": "Safe Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "card",
+          "safe_rate"
+        ],
+        "title": "MoveScore",
+        "type": "object"
+      },
+      "MuteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "minutes": {
+            "maximum": 43200.0,
+            "minimum": 0.0,
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "minutes"
+        ],
+        "title": "MuteRequest",
+        "type": "object"
+      },
       "MySeason": {
         "properties": {
           "bank": {
             "title": "Bank",
             "type": "integer"
           },
+          "bonus": {
+            "items": {
+              "$ref": "#/components/schemas/BonusView"
+            },
+            "title": "Bonus",
+            "type": "array"
+          },
           "peak_mmr": {
             "title": "Peak Mmr",
             "type": "integer"
+          },
+          "perks": {
+            "items": {
+              "$ref": "#/components/schemas/PerkView"
+            },
+            "title": "Perks",
+            "type": "array"
           },
           "points": {
             "title": "Points",
@@ -652,6 +1687,18 @@
           },
           "season": {
             "$ref": "#/components/schemas/SeasonInfo"
+          },
+          "stars": {
+            "title": "Stars",
+            "type": "integer"
+          },
+          "streak_days": {
+            "title": "Streak Days",
+            "type": "integer"
+          },
+          "streak_target": {
+            "title": "Streak Target",
+            "type": "integer"
           },
           "tiers": {
             "items": {
@@ -674,7 +1721,12 @@
           "bank",
           "peak_mmr",
           "tiers",
-          "weekly"
+          "weekly",
+          "perks",
+          "streak_days",
+          "streak_target",
+          "stars",
+          "bonus"
         ],
         "title": "MySeason",
         "type": "object"
@@ -705,6 +1757,82 @@
           "members"
         ],
         "title": "PartyView",
+        "type": "object"
+      },
+      "PerkView": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "tier": {
+            "title": "Tier",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "tier",
+          "active"
+        ],
+        "title": "PerkView",
+        "type": "object"
+      },
+      "PersonaLines": {
+        "properties": {
+          "language": {
+            "enum": [
+              "ml",
+              "ta",
+              "hi",
+              "kn",
+              "te",
+              "en"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "personas": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "propertyNames": {
+              "enum": [
+                "thug",
+                "professor",
+                "aunty"
+              ]
+            },
+            "title": "Personas",
+            "type": "object"
+          },
+          "source": {
+            "enum": [
+              "gemini",
+              "template"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "language",
+          "personas",
+          "source"
+        ],
+        "title": "PersonaLines",
         "type": "object"
       },
       "PlayLimitOutcome": {
@@ -746,6 +1874,85 @@
         "title": "PlayRequest",
         "type": "object"
       },
+      "PlayerDetail": {
+        "properties": {
+          "coins": {
+            "title": "Coins",
+            "type": "integer"
+          },
+          "cosmetics": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cosmetics",
+            "type": "array"
+          },
+          "muted_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muted Until"
+          },
+          "open_cases": {
+            "title": "Open Cases",
+            "type": "integer"
+          },
+          "open_reports": {
+            "title": "Open Reports",
+            "type": "integer"
+          },
+          "player": {
+            "$ref": "#/components/schemas/PlayerRow"
+          },
+          "recent_matches": {
+            "items": {
+              "$ref": "#/components/schemas/MatchRow"
+            },
+            "title": "Recent Matches",
+            "type": "array"
+          },
+          "skill": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skill"
+          },
+          "stats": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Stats",
+            "type": "object"
+          }
+        },
+        "required": [
+          "player",
+          "coins",
+          "stats",
+          "skill",
+          "cosmetics",
+          "recent_matches",
+          "open_cases",
+          "open_reports",
+          "muted_until"
+        ],
+        "title": "PlayerDetail",
+        "type": "object"
+      },
       "PlayerEscaped": {
         "properties": {
           "event": {
@@ -768,6 +1975,46 @@
           "place"
         ],
         "title": "PlayerEscaped",
+        "type": "object"
+      },
+      "PlayerRow": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "mmr": {
+            "title": "Mmr",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "language",
+          "mmr",
+          "active",
+          "created_at"
+        ],
+        "title": "PlayerRow",
         "type": "object"
       },
       "PlayerView": {
@@ -922,9 +2169,47 @@
         "title": "PracticeCreated",
         "type": "object"
       },
+      "PracticeHint": {
+        "description": "Engine scores for the human's legal moves, best first.",
+        "properties": {
+          "best": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Card"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/MoveScore"
+            },
+            "title": "Options",
+            "type": "array"
+          }
+        },
+        "required": [
+          "best",
+          "options"
+        ],
+        "title": "PracticeHint",
+        "type": "object"
+      },
       "PracticeRequest": {
         "additionalProperties": false,
         "properties": {
+          "level": {
+            "default": "medium",
+            "enum": [
+              "easy",
+              "medium",
+              "hard"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
           "seats": {
             "default": 4,
             "maximum": 5.0,
@@ -962,6 +2247,23 @@
           "mmr": {
             "title": "Mmr",
             "type": "integer"
+          },
+          "voice": {
+            "anyOf": [
+              {
+                "enum": [
+                  "kore",
+                  "puck",
+                  "leda",
+                  "aoede"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice"
           }
         },
         "required": [
@@ -977,21 +2279,42 @@
         "additionalProperties": false,
         "properties": {
           "language": {
-            "enum": [
-              "ml",
-              "ta",
-              "hi",
-              "kn",
-              "te",
-              "en"
+            "anyOf": [
+              {
+                "enum": [
+                  "ml",
+                  "ta",
+                  "hi",
+                  "kn",
+                  "te",
+                  "en"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "Language",
-            "type": "string"
+            "title": "Language"
+          },
+          "voice": {
+            "anyOf": [
+              {
+                "enum": [
+                  "kore",
+                  "puck",
+                  "leda",
+                  "aoede"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice"
           }
         },
-        "required": [
-          "language"
-        ],
         "title": "ProfileUpdate",
         "type": "object"
       },
@@ -1101,6 +2424,22 @@
         "title": "ReadyRequest",
         "type": "object"
       },
+      "Reason": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "Reason",
+        "type": "object"
+      },
       "RefreshRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1131,6 +2470,270 @@
           "reason"
         ],
         "title": "ReindexRequest",
+        "type": "object"
+      },
+      "ReportCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "game_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Id"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "player_id": {
+            "format": "uuid",
+            "title": "Player Id",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "abuse",
+              "cheating",
+              "afk",
+              "name",
+              "other"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "player_id",
+          "reason"
+        ],
+        "title": "ReportCreate",
+        "type": "object"
+      },
+      "ReportResolve": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "dismissed",
+              "actioned"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "decision"
+        ],
+        "title": "ReportResolve",
+        "type": "object"
+      },
+      "ReportView": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "game_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "reporter_id": {
+            "format": "uuid",
+            "title": "Reporter Id",
+            "type": "string"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "target_id": {
+            "format": "uuid",
+            "title": "Target Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reporter_id",
+          "target_id",
+          "reason",
+          "game_id",
+          "note",
+          "status",
+          "resolution",
+          "created_at"
+        ],
+        "title": "ReportView",
+        "type": "object"
+      },
+      "Resolve": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "dismissed",
+              "confirmed"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "reason"
+        ],
+        "title": "Resolve",
+        "type": "object"
+      },
+      "RivalView": {
+        "properties": {
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "losses": {
+            "title": "Losses",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "persona": {
+            "enum": [
+              "thug",
+              "professor",
+              "aunty"
+            ],
+            "title": "Persona",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "gemini",
+              "template"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "taunt": {
+            "title": "Taunt",
+            "type": "string"
+          },
+          "wins": {
+            "title": "Wins",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "persona",
+          "name",
+          "games",
+          "wins",
+          "losses",
+          "taunt",
+          "source"
+        ],
+        "title": "RivalView",
+        "type": "object"
+      },
+      "Roast": {
+        "properties": {
+          "donkey": {
+            "title": "Donkey",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "gemini",
+              "template"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "svg": {
+            "title": "Svg",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "donkey",
+          "text",
+          "source",
+          "svg"
+        ],
+        "title": "Roast",
         "type": "object"
       },
       "Room": {
@@ -1232,6 +2835,37 @@
           }
         },
         "title": "RoomCreate",
+        "type": "object"
+      },
+      "RoomInvite": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "from_id": {
+            "format": "uuid",
+            "title": "From Id",
+            "type": "string"
+          },
+          "from_name": {
+            "title": "From Name",
+            "type": "string"
+          },
+          "room_id": {
+            "format": "uuid",
+            "title": "Room Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "room_id",
+          "from_id",
+          "from_name",
+          "expires_at"
+        ],
+        "title": "RoomInvite",
         "type": "object"
       },
       "SeasonCreate": {
@@ -1348,6 +2982,86 @@
         "title": "Seat",
         "type": "object"
       },
+      "SeatStats": {
+        "properties": {
+          "badges": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Badges",
+            "type": "array"
+          },
+          "bot": {
+            "title": "Bot",
+            "type": "boolean"
+          },
+          "cards_picked": {
+            "default": 0,
+            "title": "Cards Picked",
+            "type": "integer"
+          },
+          "cuts_given": {
+            "default": 0,
+            "title": "Cuts Given",
+            "type": "integer"
+          },
+          "cuts_received": {
+            "default": 0,
+            "title": "Cuts Received",
+            "type": "integer"
+          },
+          "donkey": {
+            "default": false,
+            "title": "Donkey",
+            "type": "boolean"
+          },
+          "forfeited": {
+            "title": "Forfeited",
+            "type": "boolean"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place"
+          },
+          "player_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Player Id"
+          },
+          "plays": {
+            "default": 0,
+            "title": "Plays",
+            "type": "integer"
+          },
+          "seat": {
+            "title": "Seat",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seat",
+          "player_id",
+          "bot",
+          "forfeited"
+        ],
+        "title": "SeatStats",
+        "type": "object"
+      },
       "SessionTokens": {
         "properties": {
           "access_token": {
@@ -1377,6 +3091,22 @@
         "title": "SessionTokens",
         "type": "object"
       },
+      "SituationStats": {
+        "properties": {
+          "decisions": {
+            "default": 0,
+            "title": "Decisions",
+            "type": "integer"
+          },
+          "mistakes": {
+            "default": 0,
+            "title": "Mistakes",
+            "type": "integer"
+          }
+        },
+        "title": "SituationStats",
+        "type": "object"
+      },
       "Standing": {
         "properties": {
           "peak_mmr": {
@@ -1399,6 +3129,56 @@
           "peak_mmr"
         ],
         "title": "Standing",
+        "type": "object"
+      },
+      "StoreItem": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "festival": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Festival"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "owners": {
+            "title": "Owners",
+            "type": "integer"
+          },
+          "price": {
+            "title": "Price",
+            "type": "integer"
+          },
+          "sku": {
+            "title": "Sku",
+            "type": "string"
+          },
+          "slot": {
+            "title": "Slot",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sku",
+          "label",
+          "slot",
+          "price",
+          "festival",
+          "available",
+          "owners"
+        ],
+        "title": "StoreItem",
         "type": "object"
       },
       "Suit": {
@@ -1441,6 +3221,17 @@
             "title": "Points",
             "type": "integer"
           },
+          "reward": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reward"
+          },
           "tier": {
             "title": "Tier",
             "type": "integer"
@@ -1453,6 +3244,105 @@
           "claimed"
         ],
         "title": "TierView",
+        "type": "object"
+      },
+      "Tip": {
+        "properties": {
+          "move": {
+            "title": "Move",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "gemini",
+              "template"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "move",
+          "text",
+          "source"
+        ],
+        "title": "Tip",
+        "type": "object"
+      },
+      "Together": {
+        "description": "Head-to-head record across matches both players finished.",
+        "properties": {
+          "ahead": {
+            "title": "Ahead",
+            "type": "integer"
+          },
+          "behind": {
+            "title": "Behind",
+            "type": "integer"
+          },
+          "games": {
+            "title": "Games",
+            "type": "integer"
+          },
+          "my_donkeys": {
+            "title": "My Donkeys",
+            "type": "integer"
+          },
+          "their_donkeys": {
+            "title": "Their Donkeys",
+            "type": "integer"
+          },
+          "tied": {
+            "title": "Tied",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "games",
+          "ahead",
+          "behind",
+          "tied",
+          "my_donkeys",
+          "their_donkeys"
+        ],
+        "title": "Together",
+        "type": "object"
+      },
+      "TotpCode": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "pattern": "^\\d{6}$",
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "TotpCode",
+        "type": "object"
+      },
+      "TotpSetup": {
+        "properties": {
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          },
+          "uri": {
+            "title": "Uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret",
+          "uri"
+        ],
+        "title": "TotpSetup",
         "type": "object"
       },
       "TrickDiscarded": {
@@ -1514,6 +3404,56 @@
         "title": "Vettu",
         "type": "object"
       },
+      "VoiceOption": {
+        "properties": {
+          "default_for": {
+            "items": {
+              "enum": [
+                "ml",
+                "ta",
+                "hi",
+                "kn",
+                "te",
+                "en"
+              ],
+              "type": "string"
+            },
+            "title": "Default For",
+            "type": "array"
+          },
+          "id": {
+            "enum": [
+              "kore",
+              "puck",
+              "leda",
+              "aoede"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "boolean"
+          },
+          "style": {
+            "title": "Style",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "style",
+          "default_for",
+          "selected"
+        ],
+        "title": "VoiceOption",
+        "type": "object"
+      },
       "VoiceStatus": {
         "properties": {
           "status": {
@@ -1569,6 +3509,52 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/achievements": {
+      "get": {
+        "operationId": "achievements_api_v1_achievements_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AchievementsView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Achievements",
+        "tags": [
+          "Progression"
+        ]
+      }
+    },
     "/api/v1/admin/ai/reindex": {
       "post": {
         "operationId": "sync_index_api_v1_admin_ai_reindex_post",
@@ -1956,7 +3942,1512 @@
         ]
       }
     },
+    "/api/v1/admin/auth/totp/confirm": {
+      "post": {
+        "operationId": "totp_confirm_api_v1_admin_auth_totp_confirm_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpCode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProfile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Totp Confirm",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/auth/totp/setup": {
+      "post": {
+        "description": "Start two-factor setup; scan the URI, then confirm with a code.",
+        "operationId": "totp_setup_api_v1_admin_auth_totp_setup_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpSetup"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Totp Setup",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/dashboard": {
+      "get": {
+        "operationId": "dashboard_api_v1_admin_dashboard_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dashboard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Dashboard",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/fair-play": {
+      "get": {
+        "operationId": "fair_play_cases_api_v1_admin_fair_play_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "open",
+              "enum": [
+                "open",
+                "dismissed",
+                "confirmed"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CaseView"
+                  },
+                  "title": "Response Fair Play Cases Api V1 Admin Fair Play Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Fair Play Cases",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/admin/fair-play/{case_id}/resolve": {
+      "post": {
+        "description": "A moderator decides; the engine only flags.",
+        "operationId": "resolve_case_api_v1_admin_fair_play__case_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Resolve"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Resolve Case",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/admin/flags": {
+      "get": {
+        "operationId": "list_flags_api_v1_admin_flags_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FlagView"
+                  },
+                  "title": "Response List Flags Api V1 Admin Flags Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "List Flags",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/flags/{key}": {
+      "put": {
+        "operationId": "update_flag_api_v1_admin_flags__key__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlagUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Update Flag",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/matches": {
+      "get": {
+        "operationId": "matches_api_v1_admin_matches_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MatchRow"
+                  },
+                  "title": "Response Matches Api V1 Admin Matches Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Matches",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/matches/{game_id}": {
+      "get": {
+        "operationId": "match_detail_api_v1_admin_matches__game_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchAnalytics"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Match Detail",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/players": {
+      "get": {
+        "operationId": "players_api_v1_admin_players_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 60,
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlayerRow"
+                  },
+                  "title": "Response Players Api V1 Admin Players Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Players",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/players/{player_id}": {
+      "get": {
+        "operationId": "player_detail_api_v1_admin_players__player_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "player_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Player Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Player Detail",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/players/{player_id}/ban": {
+      "post": {
+        "operationId": "ban_api_v1_admin_players__player_id__ban_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "player_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Player Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Reason"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Ban",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/players/{player_id}/coins": {
+      "post": {
+        "operationId": "grant_coins_api_v1_admin_players__player_id__coins_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "player_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Player Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoinGrant"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Grant Coins Api V1 Admin Players  Player Id  Coins Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Grant Coins",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/players/{player_id}/cosmetics": {
+      "post": {
+        "operationId": "grant_cosmetic_api_v1_admin_players__player_id__cosmetics_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "player_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Player Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CosmeticGrant"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Grant Cosmetic",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/players/{player_id}/mute": {
+      "post": {
+        "description": "Chat mute; the player can still play. `minutes: 0` lifts it.",
+        "operationId": "mute_api_v1_admin_players__player_id__mute_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "player_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Player Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MuteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "format": "date-time",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "title": "Response Mute Api V1 Admin Players  Player Id  Mute Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Mute",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/players/{player_id}/unban": {
+      "post": {
+        "operationId": "unban_api_v1_admin_players__player_id__unban_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "player_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Player Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Reason"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Unban",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/reports": {
+      "get": {
+        "operationId": "reports_api_v1_admin_reports_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "open",
+              "enum": [
+                "open",
+                "dismissed",
+                "actioned"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReportView"
+                  },
+                  "title": "Response Reports Api V1 Admin Reports Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Reports",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/reports/{report_id}/resolve": {
+      "post": {
+        "operationId": "resolve_report_api_v1_admin_reports__report_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportResolve"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Resolve Report",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
     "/api/v1/admin/seasons": {
+      "get": {
+        "operationId": "seasons_api_v1_admin_seasons_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SeasonInfo"
+                  },
+                  "title": "Response Seasons Api V1 Admin Seasons Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Seasons",
+        "tags": [
+          "Admin console"
+        ]
+      },
       "post": {
         "operationId": "create_season_api_v1_admin_seasons_post",
         "parameters": [
@@ -2147,6 +5638,298 @@
         "summary": "Close Season",
         "tags": [
           "Progression"
+        ]
+      }
+    },
+    "/api/v1/admin/store": {
+      "get": {
+        "operationId": "store_api_v1_admin_store_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StoreItem"
+                  },
+                  "title": "Response Store Api V1 Admin Store Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Store",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "operationId": "admin_users_api_v1_admin_users_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminRow"
+                  },
+                  "title": "Response Admin Users Api V1 Admin Users Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Admin Users",
+        "tags": [
+          "Admin console"
+        ]
+      },
+      "post": {
+        "operationId": "create_admin_user_api_v1_admin_users_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProfile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Create Admin User",
+        "tags": [
+          "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{admin_id}": {
+      "put": {
+        "operationId": "update_admin_user_api_v1_admin_users__admin_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "admin_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Admin Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRow"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Update Admin User",
+        "tags": [
+          "Admin console"
         ]
       }
     },
@@ -2391,6 +6174,304 @@
         ]
       }
     },
+    "/api/v1/blocks": {
+      "get": {
+        "operationId": "blocks_api_v1_blocks_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "title": "Response Blocks Api V1 Blocks Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Blocks",
+        "tags": [
+          "Social"
+        ]
+      }
+    },
+    "/api/v1/blocks/{player_id}": {
+      "delete": {
+        "operationId": "unblock_api_v1_blocks__player_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "player_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Player Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Unblock",
+        "tags": [
+          "Social"
+        ]
+      },
+      "post": {
+        "description": "Blocking also removes the friendship and pending invites.",
+        "operationId": "block_api_v1_blocks__player_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "player_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Player Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Block",
+        "tags": [
+          "Social"
+        ]
+      }
+    },
+    "/api/v1/chat/{channel}": {
+      "get": {
+        "description": "Global or room chat, oldest first. Poll with `after` = last id.",
+        "operationId": "read_chat_api_v1_chat__channel__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel",
+            "required": true,
+            "schema": {
+              "pattern": "^(global|room:[0-9a-fA-F-]{36})$",
+              "title": "Channel",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^\\d+-\\d+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChatMessage"
+                  },
+                  "title": "Response Read Chat Api V1 Chat  Channel  Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Read Chat",
+        "tags": [
+          "Social"
+        ]
+      },
+      "post": {
+        "operationId": "post_chat_api_v1_chat__channel__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "channel",
+            "required": true,
+            "schema": {
+              "pattern": "^(global|room:[0-9a-fA-F-]{36})$",
+              "title": "Channel",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatPost"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Post Chat",
+        "tags": [
+          "Social"
+        ]
+      }
+    },
     "/api/v1/coach/ask": {
       "post": {
         "operationId": "ask_api_v1_coach_ask_post",
@@ -2442,6 +6523,52 @@
           }
         ],
         "summary": "Ask",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/coach/insights": {
+      "get": {
+        "operationId": "coach_insights_api_v1_coach_insights_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Insights"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Coach Insights",
         "tags": [
           "AI"
         ]
@@ -2646,6 +6773,181 @@
         ]
       }
     },
+    "/api/v1/friends/{player_id}/together": {
+      "get": {
+        "operationId": "together_api_v1_friends__player_id__together_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "player_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Player Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Together"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Together",
+        "tags": [
+          "Social"
+        ]
+      }
+    },
+    "/api/v1/games/{game_id}/analysis": {
+      "get": {
+        "description": "Engine review of your real choices in a finished match, with tips.",
+        "operationId": "analysis_api_v1_games__game_id__analysis_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Coaching"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Analysis",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/games/{game_id}/analytics": {
+      "get": {
+        "operationId": "analytics_api_v1_games__game_id__analytics_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchAnalytics"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Analytics",
+        "tags": [
+          "Progression"
+        ]
+      }
+    },
     "/api/v1/games/{game_id}/commentary/{sequence}": {
       "get": {
         "operationId": "commentary_api_v1_games__game_id__commentary__sequence__get",
@@ -2717,6 +7019,7 @@
     },
     "/api/v1/games/{game_id}/commentary/{sequence}/voice": {
       "get": {
+        "description": "Commentary audio in the player's language and saved voice.\n`voice_id` overrides the saved voice for this request.",
         "operationId": "voice_api_v1_games__game_id__commentary__sequence__voice_get",
         "parameters": [
           {
@@ -2745,15 +7048,21 @@
             "name": "voice_id",
             "required": false,
             "schema": {
-              "default": "kore",
-              "enum": [
-                "kore",
-                "puck",
-                "leda",
-                "aoede"
+              "anyOf": [
+                {
+                  "enum": [
+                    "kore",
+                    "puck",
+                    "leda",
+                    "aoede"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
               ],
-              "title": "Voice Id",
-              "type": "string"
+              "title": "Voice Id"
             }
           }
         ],
@@ -2861,6 +7170,173 @@
         "summary": "Replay",
         "tags": [
           "Multiplayer"
+        ]
+      }
+    },
+    "/api/v1/games/{game_id}/roast": {
+      "get": {
+        "description": "A playful share card for the match's Donkey.",
+        "operationId": "donkey_roast_api_v1_games__game_id__roast_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Roast"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Donkey Roast",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/invites/rooms": {
+      "get": {
+        "operationId": "room_invites_api_v1_invites_rooms_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RoomInvite"
+                  },
+                  "title": "Response Room Invites Api V1 Invites Rooms Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Room Invites",
+        "tags": [
+          "Social"
+        ]
+      }
+    },
+    "/api/v1/invites/{code}/join": {
+      "post": {
+        "operationId": "join_by_link_api_v1_invites__code__join_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{8}$",
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Room"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Join By Link",
+        "tags": [
+          "Social"
         ]
       }
     },
@@ -3009,6 +7485,52 @@
         "summary": "Queue Status",
         "tags": [
           "Matchmaking"
+        ]
+      }
+    },
+    "/api/v1/notice": {
+      "get": {
+        "description": "Maintenance banner text for the app; empty when there is none.",
+        "operationId": "notice_api_v1_notice_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Notice Api V1 Notice Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Notice",
+        "tags": [
+          "Platform"
         ]
       }
     },
@@ -3349,6 +7871,53 @@
         ]
       }
     },
+    "/api/v1/personas/lines": {
+      "get": {
+        "description": "Text for `persona_line` match events in your language.",
+        "operationId": "lines_api_v1_personas_lines_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaLines"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Lines",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
     "/api/v1/practice": {
       "post": {
         "operationId": "create_practice_api_v1_practice_post",
@@ -3478,6 +8047,85 @@
         ]
       }
     },
+    "/api/v1/practice/{game_id}/hint": {
+      "get": {
+        "description": "The engine's view of your current choices. Practice only.",
+        "operationId": "hint_api_v1_practice__game_id__hint_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PracticeHint"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Hint",
+        "tags": [
+          "Practice"
+        ]
+      }
+    },
     "/api/v1/practice/{game_id}/plays": {
       "post": {
         "operationId": "play_api_v1_practice__game_id__plays_post",
@@ -3573,6 +8221,109 @@
         "summary": "Play",
         "tags": [
           "Practice"
+        ]
+      }
+    },
+    "/api/v1/reports": {
+      "post": {
+        "operationId": "report_api_v1_reports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Report",
+        "tags": [
+          "Social"
+        ]
+      }
+    },
+    "/api/v1/rival": {
+      "get": {
+        "description": "Your persistent rival bot, its record against you, and a taunt.",
+        "operationId": "my_rival_api_v1_rival_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RivalView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "My Rival",
+        "tags": [
+          "AI"
         ]
       }
     },
@@ -3690,6 +8441,67 @@
         ]
       }
     },
+    "/api/v1/rooms/{room_id}/invites/{friend_id}": {
+      "post": {
+        "operationId": "invite_to_room_api_v1_rooms__room_id__invites__friend_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "room_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Room Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "friend_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Friend Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Invite To Room",
+        "tags": [
+          "Social"
+        ]
+      }
+    },
     "/api/v1/rooms/{room_id}/join": {
       "post": {
         "operationId": "join_room_api_v1_rooms__room_id__join_post",
@@ -3796,6 +8608,65 @@
         "summary": "Leave Room",
         "tags": [
           "Rooms"
+        ]
+      }
+    },
+    "/api/v1/rooms/{room_id}/link": {
+      "post": {
+        "description": "A shareable one-hour link (WhatsApp friendly) and app deep link.",
+        "operationId": "invite_link_api_v1_rooms__room_id__link_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "room_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Room Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteLink"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Invite Link",
+        "tags": [
+          "Social"
         ]
       }
     },
@@ -4046,6 +8917,79 @@
           }
         ],
         "summary": "Board",
+        "tags": [
+          "Progression"
+        ]
+      }
+    },
+    "/api/v1/seasons/{season_id}/bonus/{tier}/claim": {
+      "post": {
+        "operationId": "claim_bonus_api_v1_seasons__season_id__bonus__tier__claim_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "season_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Season Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tier",
+            "required": true,
+            "schema": {
+              "maximum": 4,
+              "minimum": 1,
+              "title": "Tier",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Claim Bonus Api V1 Seasons  Season Id  Bonus  Tier  Claim Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Claim Bonus",
         "tags": [
           "Progression"
         ]
@@ -4451,6 +9395,127 @@
         "summary": "Equip",
         "tags": [
           "Progression"
+        ]
+      }
+    },
+    "/api/v1/voices": {
+      "get": {
+        "description": "The curated commentary voices and which one is selected.",
+        "operationId": "voices_api_v1_voices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VoiceOption"
+                  },
+                  "title": "Response Voices Api V1 Voices Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Voices",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/api/v1/voices/{voice_id}/preview": {
+      "get": {
+        "description": "A short sample line in the player's language. Poll until `ready`.",
+        "operationId": "preview_api_v1_voices__voice_id__preview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "voice_id",
+            "required": true,
+            "schema": {
+              "enum": [
+                "kore",
+                "puck",
+                "leda",
+                "aoede"
+              ],
+              "title": "Voice Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceStatus"
+                }
+              },
+              "audio/wav": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Preview",
+        "tags": [
+          "AI"
         ]
       }
     },
