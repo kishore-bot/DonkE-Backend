@@ -6,7 +6,14 @@ from fastapi.security import APIKeyCookie
 
 from app.core.platform import Platform, get_platform
 from app.core.rate_limit import client_host, limit
-from app.modules.admin.schemas import AdminLogin, AuditEntry, Login
+from app.modules.admin.schemas import (
+    AdminLogin,
+    AdminProfile,
+    AuditEntry,
+    Login,
+    TotpCode,
+    TotpSetup,
+)
 from app.modules.admin.service import AdminService
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Admin"])
@@ -38,7 +45,7 @@ async def login(
     await limit(platform, "admin_login_ip", client_host(request), 10, 60)
     await limit(platform, "admin_login_name", body.username, 5, 900)
     result, cookie = await admin.sign_in(
-        body.username, body.password, request_id or uuid4()
+        body.username, body.password, request_id or uuid4(), body.totp
     )
     response.set_cookie(
         SESSION_COOKIE,
@@ -71,6 +78,26 @@ async def logout(
     response.delete_cookie(
         SESSION_COOKIE, secure=True, httponly=True, samesite="strict", path="/"
     )
+
+
+@router.post("/auth/totp/setup")
+async def totp_setup(
+    cookie: Cookie, response: Response, admin: Admin, csrf: CsrfToken = None
+) -> TotpSetup:
+    """Start two-factor setup; scan the URI, then confirm with a code."""
+    response.headers["Cache-Control"] = "no-store"
+    return await admin.totp_setup(cookie, csrf)
+
+
+@router.post("/auth/totp/confirm")
+async def totp_confirm(
+    body: TotpCode,
+    cookie: Cookie,
+    admin: Admin,
+    csrf: CsrfToken = None,
+    request_id: RequestId = None,
+) -> AdminProfile:
+    return await admin.totp_confirm(cookie, csrf, body.code, request_id or uuid4())
 
 
 @router.get("/audit")

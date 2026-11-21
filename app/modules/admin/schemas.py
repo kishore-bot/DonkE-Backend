@@ -13,6 +13,7 @@ class Login(BaseModel):
 
     username: str = Field(pattern=USERNAME)
     password: str = Field(min_length=1, max_length=256, repr=False)
+    totp: str | None = Field(default=None, pattern=r"^\d{6}$", repr=False)
 
 
 class AdminProfile(BaseModel):
@@ -21,11 +22,23 @@ class AdminProfile(BaseModel):
     id: UUID
     username: str
     role: Role
+    totp_enabled: bool = False
 
 
 class AdminLogin(BaseModel):
     admin: AdminProfile
     csrf_token: str = Field(repr=False)
+
+
+class TotpSetup(BaseModel):
+    secret: str = Field(repr=False)
+    uri: str = Field(repr=False)
+
+
+class TotpCode(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str = Field(pattern=r"^\d{6}$", repr=False)
 
 
 class AuditEntry(BaseModel):

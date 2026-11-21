@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>DonkE Admin</title>
+    <link rel="stylesheet" href="assets/css/admin.css" />
+    <script type="module" src="assets/js/app.js"></script>
+  </head>
+  <body>
+    <noscript>The admin panel needs JavaScript.</noscript>
+    <div id="app" aria-live="polite"></div>
+    <div id="toasts" class="toasts" role="status"></div>
+    <dialog id="dialog" class="dialog">
+      <form id="dialog-form" method="dialog">
+        <h2 id="dialog-title"></h2>
+        <div id="dialog-fields" class="fields"></div>
+        <p id="dialog-error" class="error" hidden></p>
+        <menu class="actions">
+          <button type="button" class="ghost" id="dialog-cancel">Cancel</button>
+          <button type="submit" class="primary" id="dialog-submit">Confirm</button>
+        </menu>
+      </form>
+    </dialog>
+  </body>
+</html>

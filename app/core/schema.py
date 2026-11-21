@@ -2,6 +2,7 @@ from sqlalchemy import inspect
 from sqlalchemy.engine import Connection
 
 from app.core.platform import Base
+from app.modules.admin.flags import RuntimeFlag
 from app.modules.admin.models import AdminAudit, AdminSession, AdminUser
 from app.modules.ai.coaching import MatchAnalysis
 from app.modules.ai.fair_play import FairPlayCase
@@ -45,6 +46,7 @@ MAPPED_MODELS = (
     MatchAnalysis,
     PlayerRival,
     FairPlayCase,
+    RuntimeFlag,
     Friendship,
     Party,
     PartyInvite,

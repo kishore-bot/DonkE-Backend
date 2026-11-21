@@ -21,6 +21,9 @@ class AdminUser(Base):
     role: Mapped[str] = mapped_column(String(16))
     active: Mapped[bool] = mapped_column(server_default="true")
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # TOTP second factor. The secret is set at setup and enabled on confirm.
+    totp_secret: Mapped[str | None] = mapped_column(String(64))
+    totp_enabled: Mapped[bool] = mapped_column(server_default="false")
 
 
 class AdminSession(Base):

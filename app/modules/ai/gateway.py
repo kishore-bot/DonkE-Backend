@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import cast
 
 from app.core.platform import Platform
+from app.modules.admin import flags
 from app.modules.ai.provider import AIProvider, Gemini, Selected, Written
 
 logger = logging.getLogger(__name__)
@@ -51,8 +52,10 @@ class Gateway:
         provider = self.provider
         if provider is None:
             return None
-        config = self.platform.settings
-        budget = config.ai_voice_daily_calls if voice else config.ai_text_daily_calls
+        live = await flags.current(self.platform)
+        if not live["ai_enabled"]:
+            return None
+        budget = live["ai_voice_daily_calls" if voice else "ai_text_daily_calls"]
         bucket = "voice" if voice else "text"
         usage = self.usage_key()
         breaker = self.key(f"breaker:{bucket}")

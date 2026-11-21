@@ -4,6 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from app.core.errors import AppError
+from app.modules.admin import flags
 from app.modules.ai.gateway import Gateway
 from app.modules.ai.schemas import Commentary
 from app.modules.identity.schemas import Language
@@ -107,8 +108,14 @@ async def line(
     if stored := await redis.get(key):
         return Commentary.model_validate_json(stored), True
     plain = Commentary(language=language, text=facts, source="script")
-    shared_budget = gateway.platform.settings.ai_text_daily_calls
-    if gateway.provider is None or shared_budget == 0:
+    live = await flags.current(gateway.platform)
+    shared_budget = live["ai_text_daily_calls"]
+    if (
+        gateway.provider is None
+        or shared_budget == 0
+        or not live["ai_enabled"]
+        or not live["commentary_enabled"]
+    ):
         return plain, True
     player_budget = max(1, min(30, shared_budget // 5))
     today = datetime.now(UTC).date()

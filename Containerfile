@@ -16,6 +16,7 @@ FROM docker.io/library/python:3.14-slim-bookworm
 WORKDIR /app
 COPY --from=build /app/.venv .venv
 COPY app/ app/
+COPY admin-ui/ admin-ui/
 COPY migrations/ migrations/
 COPY scripts/seed_demo.py scripts/wait_for_storage.py scripts/
 COPY alembic.ini ./

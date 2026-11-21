@@ -16,8 +16,11 @@ from app.core.errors import (
     handle_validation_error,
 )
 from app.core.platform import Platform, open_platform
+from app.modules.admin import flags
+from app.modules.admin.console import router as console_router
 from app.modules.admin.router import router as admin_router
 from app.modules.admin.service import AdminService
+from app.modules.admin.ui import mount_admin_ui
 from app.modules.ai.gateway import open_gateway
 from app.modules.ai.provider import AIProvider
 from app.modules.ai.router import router as ai_router
@@ -89,12 +92,23 @@ def create_app(
         rooms,
         matchmaking,
         admin_router,
+        console_router,
         matches_router,
         progress_router,
         social_router,
         ai_router,
     ):
         app.include_router(router)
+
+    @app.get("/api/v1/notice", tags=["Platform"])
+    async def notice(request: Request) -> dict[str, str]:
+        """Maintenance banner text for the app; empty when there is none."""
+        platform: Platform | None = request.app.state.platform
+        if platform is None:
+            return {"message": ""}
+        return {"message": (await flags.current(platform))["maintenance_notice"]}
+
+    mount_admin_ui(app, config)
 
     @app.get("/healthz")
     def health() -> dict[str, str]:

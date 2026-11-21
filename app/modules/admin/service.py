@@ -14,9 +14,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import AppError
 from app.core.platform import Platform
 from app.core.tokens import new_token, token_digest
-from app.modules.admin import repository
+from app.modules.admin import repository, totp
 from app.modules.admin.models import AdminAudit, AdminSession, AdminUser
-from app.modules.admin.schemas import AdminLogin, AdminProfile, AuditEntry, Role
+from app.modules.admin.schemas import (
+    AdminLogin,
+    AdminProfile,
+    AuditEntry,
+    Role,
+    TotpSetup,
+)
 
 HASHER = PasswordHasher()
 # Verification cost for a missing username. This hash is never attached to an account.
@@ -66,8 +72,25 @@ class AdminService:
                 409, "admin_username_taken", "Admin username already exists"
             ) from exc
 
+    async def second_factor(self, user: AdminUser, code: str | None) -> None:
+        if not user.totp_enabled or user.totp_secret is None:
+            return
+        if code is None:
+            raise AppError(401, "totp_required", "Enter your authenticator code")
+        step = totp.matching_step(user.totp_secret, code, datetime.now(UTC).timestamp())
+        used = f"{self.platform.settings.redis_prefix}:admin:totp:{user.id}:{step}"
+        # Each code works once, even inside its 30-second window.
+        if step is None or not await self.platform.redis.set(
+            used, "1", nx=True, ex=120
+        ):
+            raise invalid_admin()
+
     async def sign_in(
-        self, username: str, password: str, request_id: UUID
+        self,
+        username: str,
+        password: str,
+        request_id: UUID,
+        code: str | None = None,
     ) -> tuple[AdminLogin, str]:
         async with self.platform.sessions() as db:
             candidate = await repository.by_username(db, username)
@@ -86,6 +109,7 @@ class AdminService:
             )
             if user is None or not user.active or user.password_hash != password_hash:
                 raise invalid_admin()
+            await self.second_factor(user, code)
             user.last_login_at = now
             db.add(
                 AdminSession(
@@ -147,6 +171,52 @@ class AdminService:
                     request_id=request_id,
                 )
             )
+
+    async def totp_setup(self, cookie: str | None, csrf: str | None) -> TotpSetup:
+        async with self.platform.sessions.begin() as db:
+            user = await self.writer(db, cookie, csrf)
+            if user.totp_enabled:
+                raise AppError(409, "totp_enabled", "Two-factor sign-in is already on")
+            secret = user.totp_secret = totp.new_secret()
+            return TotpSetup(
+                secret=secret, uri=totp.provisioning_uri(secret, user.username)
+            )
+
+    async def totp_confirm(
+        self, cookie: str | None, csrf: str | None, code: str, request_id: UUID
+    ) -> AdminProfile:
+        async with self.platform.sessions.begin() as db:
+            user = await self.writer(db, cookie, csrf)
+            secret = user.totp_secret
+            now = datetime.now(UTC).timestamp()
+            if secret is None or totp.matching_step(secret, code, now) is None:
+                raise AppError(422, "totp_invalid", "That code did not match")
+            user.totp_enabled = True
+            db.add(
+                AdminAudit(
+                    admin_id=user.id,
+                    action="enable_totp",
+                    reason="Two-factor sign-in enabled",
+                    request_id=request_id,
+                )
+            )
+            return AdminProfile.model_validate(user)
+
+    async def writer(
+        self, db: AsyncSession, cookie: str | None, csrf: str | None
+    ) -> AdminUser:
+        """The signed-in admin for a state-changing request (CSRF checked)."""
+        if not cookie or len(cookie) != 43:
+            raise invalid_admin()
+        row = await repository.session_owner(
+            db, token_digest(cookie), datetime.now(UTC), lock=True
+        )
+        if row is None:
+            raise invalid_admin()
+        session, user = row
+        if not csrf or not compare_digest(session.csrf_token.encode(), csrf.encode()):
+            raise AppError(403, "csrf_required", "Send a valid CSRF token")
+        return user
 
     async def audit(self, cookie: str | None) -> list[AuditEntry]:
         identity = await self.current(cookie)
