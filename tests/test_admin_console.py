@@ -176,6 +176,19 @@ def test_totp_setup_then_sign_in_needs_a_fresh_code(client, settings):
         and missing.json()["error"]["code"] == "totp_required"
     )
     fresh = totp.code_at(setup["secret"], int(datetime.now(UTC).timestamp() // 30))
+
+    async def stored_secret():
+        async with open_platform(settings) as platform, platform.sessions() as db:
+            from sqlalchemy import select
+
+            from app.modules.admin.models import AdminUser
+
+            return await db.scalar(
+                select(AdminUser.totp_secret).where(AdminUser.username == username)
+            )
+
+    stored = asyncio.run(stored_secret())
+    assert stored.startswith("v1:") and setup["secret"] not in stored
     signed = client.post("/api/v1/admin/auth/login", json={**body, "totp": fresh})
     assert signed.status_code == 200, signed.text
     assert (
@@ -184,3 +197,40 @@ def test_totp_setup_then_sign_in_needs_a_fresh_code(client, settings):
         ).status_code
         == 401
     )
+
+
+def test_totp_secrets_are_sealed_and_bound_to_their_account():
+    from uuid import uuid4 as fresh
+
+    from app.core.config import Settings
+    from app.modules.admin import vault
+
+    def online(**values):
+        return Settings(
+            _env_file=None,
+            postgres_dsn="postgresql+asyncpg://u:p@localhost/d",
+            redis_dsn="redis://localhost:6379/0",
+            **values,
+        )
+
+    settings = online(auth_secret="x" * 40)
+    owner, other = fresh(), fresh()
+    secret = totp.new_secret()
+    sealed = vault.seal(settings, owner, secret)
+    assert sealed.startswith("v1:") and secret not in sealed and len(sealed) <= 128
+    assert vault.seal(settings, owner, secret) != sealed  # fresh nonce each time
+    assert vault.unseal(settings, owner, sealed) == secret
+    for wrong in (
+        lambda: vault.unseal(settings, other, sealed),  # copied to another admin
+        lambda: vault.unseal(online(auth_secret="y" * 40), owner, sealed),
+        lambda: vault.unseal(settings, owner, secret),  # legacy plain text
+    ):
+        with pytest.raises(AppError) as error:
+            wrong()
+        assert error.value.code == "totp_unreadable"
+    dedicated = online(auth_secret="x" * 40, admin_totp_key="k" * 32)
+    assert (
+        vault.unseal(dedicated, owner, vault.seal(dedicated, owner, secret)) == secret
+    )
+    with pytest.raises(ValueError):
+        online(auth_secret="x" * 40, admin_totp_key="short")

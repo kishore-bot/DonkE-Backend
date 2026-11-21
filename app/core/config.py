@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     postgres_dsn: PostgresDsn | None = None
     redis_dsn: RedisDsn | None = None
     auth_secret: SecretStr | None = None
+    # Encrypts admin TOTP secrets at rest. Unset: derived from auth_secret.
+    admin_totp_key: SecretStr | None = None
     google_client_id: str | None = None
     demo_mode: bool = False
     redis_prefix: str = Field(default="donke", pattern=r"^[a-zA-Z0-9_-]{1,64}$")
@@ -64,6 +66,11 @@ class Settings(BaseSettings):
             raise ValueError("PostgreSQL requires the postgresql+asyncpg scheme")
         if self.auth_secret and len(self.auth_secret.get_secret_value().encode()) < 32:
             raise ValueError("The auth secret must contain at least 32 bytes")
+        if (
+            self.admin_totp_key
+            and len(self.admin_totp_key.get_secret_value().encode()) < 32
+        ):
+            raise ValueError("The admin TOTP key must contain at least 32 bytes")
         if self.queue_ttl_seconds <= self.bot_fill_seconds + self.claim_lease_seconds:
             raise ValueError("The queue TTL must exceed bot fill wait plus claim lease")
         return self

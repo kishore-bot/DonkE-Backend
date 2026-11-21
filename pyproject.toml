@@ -22,6 +22,7 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0,<3",
     "taskiq>=0.11",
     "taskiq-redis>=1.0",
+    "cryptography>=46,<51",
 ]
 
 [dependency-groups]

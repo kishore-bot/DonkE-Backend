@@ -55,6 +55,7 @@ click==8.5.0
     #   uvicorn
 cryptography==50.0.2
     # via
+    #   donke-backend
     #   google-auth
     #   pyjwt
 distro==1.9.0

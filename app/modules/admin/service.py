@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import AppError
 from app.core.platform import Platform
 from app.core.tokens import new_token, token_digest
-from app.modules.admin import repository, totp
+from app.modules.admin import repository, totp, vault
 from app.modules.admin.models import AdminAudit, AdminSession, AdminUser
 from app.modules.admin.schemas import (
     AdminLogin,
@@ -77,7 +77,8 @@ class AdminService:
             return
         if code is None:
             raise AppError(401, "totp_required", "Enter your authenticator code")
-        step = totp.matching_step(user.totp_secret, code, datetime.now(UTC).timestamp())
+        secret = vault.unseal(self.platform.settings, user.id, user.totp_secret)
+        step = totp.matching_step(secret, code, datetime.now(UTC).timestamp())
         used = f"{self.platform.settings.redis_prefix}:admin:totp:{user.id}:{step}"
         # Each code works once, even inside its 30-second window.
         if step is None or not await self.platform.redis.set(
@@ -177,7 +178,9 @@ class AdminService:
             user = await self.writer(db, cookie, csrf)
             if user.totp_enabled:
                 raise AppError(409, "totp_enabled", "Two-factor sign-in is already on")
-            secret = user.totp_secret = totp.new_secret()
+            secret = totp.new_secret()
+            # Stored sealed; the plain secret is shown once, to this admin.
+            user.totp_secret = vault.seal(self.platform.settings, user.id, secret)
             return TotpSetup(
                 secret=secret, uri=totp.provisioning_uri(secret, user.username)
             )
@@ -187,7 +190,12 @@ class AdminService:
     ) -> AdminProfile:
         async with self.platform.sessions.begin() as db:
             user = await self.writer(db, cookie, csrf)
-            secret = user.totp_secret
+            sealed = user.totp_secret
+            secret = (
+                vault.unseal(self.platform.settings, user.id, sealed)
+                if sealed
+                else None
+            )
             now = datetime.now(UTC).timestamp()
             if secret is None or totp.matching_step(secret, code, now) is None:
                 raise AppError(422, "totp_invalid", "That code did not match")
