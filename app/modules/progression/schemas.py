@@ -49,6 +49,9 @@ class SeasonInfo(BaseModel):
     starts_at: datetime
     ends_at: datetime
     closed_at: datetime | None
+    # False when a later season had already started at close, so ratings
+    # were left alone. None until the season is closed.
+    ratings_reset: bool | None = None
 
 
 class TierView(BaseModel):

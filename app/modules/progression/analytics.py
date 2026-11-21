@@ -113,9 +113,11 @@ def match_analytics(replay: MatchReplay) -> MatchAnalytics:
 
 def finishing_ranks(analytics: MatchAnalytics) -> dict[int, int]:
     """Rank per seat, 1 is best. Escapes rank by place, then seats still
-    holding cards tie, then the Donkey, then players who left."""
+    holding cards tie, then the Donkey, then players who left. A player who
+    left ranks last even if the bot that took their seat later escaped:
+    the bot's result is not theirs."""
     seats = analytics.seats
-    escaped = [seat for seat in seats if seat.place is not None]
+    escaped = [seat for seat in seats if seat.place is not None and not seat.forfeited]
     ranks = {seat.seat: seat.place for seat in escaped if seat.place is not None}
     holding = len(escaped) + 1
     for seat in seats:

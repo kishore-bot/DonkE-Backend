@@ -2945,6 +2945,17 @@
             "title": "Id",
             "type": "string"
           },
+          "ratings_reset": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ratings Reset"
+          },
           "starts_at": {
             "format": "date-time",
             "title": "Starts At",

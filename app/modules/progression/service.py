@@ -192,8 +192,22 @@ async def close_season(
         if row.peak_mmr >= 2200:
             await own(db, row.player_id, f"season:{season.id}:title")
             await own(db, row.player_id, f"season:{season.id}:frame")
-    await reset_ratings(db)
+    # The soft reset belongs at the season boundary. If a later season is
+    # already running, resetting now would rewrite ratings players earned in
+    # it, so the rewards are paid but the reset is skipped.
+    next_started = await db.scalar(
+        select(Season.id)
+        .where(
+            Season.id != season.id,
+            Season.starts_at >= season.ends_at,
+            Season.starts_at <= now,
+        )
+        .limit(1)
+    )
+    if next_started is None:
+        await reset_ratings(db)
     season.closed_at = now
+    season.ratings_reset = next_started is None
     return SeasonInfo.model_validate(season)
 
 
@@ -265,7 +279,9 @@ async def update_skills(db: AsyncSession, analytics: MatchAnalytics) -> None:
     humans = [
         (seat.seat, seat.player_id)
         for seat in analytics.seats
-        if seat.player_id is not None and not seat.bot
+        # Players who left (now bot seats) are rated too, ranked last:
+        # leaving must not protect a falling rating.
+        if seat.player_id is not None
     ]
     if len(humans) < 2:
         return

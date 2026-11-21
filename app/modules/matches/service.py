@@ -250,6 +250,12 @@ class MatchService:
                 game, seat, state.seats[seat], bots.stable(state.id, state.version)
             )
             played = json.loads(game.play(seat, card))
+            if state.seats[seat].player_id is not None:
+                # A bot playing a human's seat after a leave or timeouts: never
+                # count these engine moves as that human's decisions.
+                for event in played:
+                    if event.get("event") == "card_played":
+                        event["auto"] = True
             played.extend(bots.persona_events(seat, state.seats[seat], played))
         events.extend(played)
         await self.commit_play(state, game, events, owner)

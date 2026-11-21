@@ -211,7 +211,7 @@ def analyse(replay: MatchReplay, seat: int, iterations: int = ITERATIONS) -> Ana
 
 def seat_of(replay: MatchReplay, player: UUID) -> int:
     for index, seat in enumerate(replay.seats):
-        if seat.player_id == player and not seat.bot:
+        if seat.player_id == player:
             return index
     raise AppError(404, "game_not_found", "Match replay not found")
 

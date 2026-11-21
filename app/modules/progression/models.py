@@ -39,6 +39,9 @@ class Season(Base):
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Recorded at close: False when a later season had already started, so
+    # the soft MMR reset was skipped. Stored so repeat closes answer the same.
+    ratings_reset: Mapped[bool | None]
 
 
 class SeasonPlayer(Base):

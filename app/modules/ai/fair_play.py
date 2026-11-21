@@ -122,7 +122,11 @@ async def analyse_ranked(platform: Platform, game_id: UUID) -> int:
     if replay is None:
         return 0
     humans = [
-        seat.player_id for seat in replay.seats if seat.player_id and not seat.bot
+        # Includes players a bot replaced: their own earlier moves still count.
+        # The bot's moves are flagged `auto` and skipped by the analysis.
+        seat.player_id
+        for seat in replay.seats
+        if seat.player_id
     ]
     opened = 0
     for player in humans:
