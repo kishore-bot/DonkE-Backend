@@ -1,9 +1,11 @@
-use donke_core::{Card, Game};
+use donke_core::{Card, Game, HouseRules, Play};
 use pyo3::{
     exceptions::{PyRuntimeError, PyValueError},
     prelude::*,
 };
 use rand::{SeedableRng, rngs::StdRng};
+
+use super::{code, rng, to_json};
 
 #[pyclass]
 pub(crate) struct OnlineGame {
@@ -13,17 +15,23 @@ pub(crate) struct OnlineGame {
 #[pymethods]
 impl OnlineGame {
     #[new]
-    fn new(seats: usize) -> PyResult<Self> {
-        let game = Game::deal(seats, &mut rand::rng())
-            .map_err(|error| PyValueError::new_err(super::code(error)))?;
+    #[pyo3(signature = (seats, ace_low=false))]
+    fn new(seats: usize, ace_low: bool) -> PyResult<Self> {
+        let game = Game::deal_with(seats, HouseRules { ace_low }, &mut rand::rng())
+            .map_err(|error| PyValueError::new_err(code(error)))?;
         Ok(Self { game })
     }
 
     /// A reproducible offline deal for evaluations and demo replays.
     #[staticmethod]
-    fn seeded(seats: usize, seed: u64) -> PyResult<Self> {
-        let game = Game::deal(seats, &mut StdRng::seed_from_u64(seed))
-            .map_err(|error| PyValueError::new_err(super::code(error)))?;
+    #[pyo3(signature = (seats, seed, ace_low=false))]
+    fn seeded(seats: usize, seed: u64, ace_low: bool) -> PyResult<Self> {
+        let game = Game::deal_with(
+            seats,
+            HouseRules { ace_low },
+            &mut StdRng::seed_from_u64(seed),
+        )
+        .map_err(|error| PyValueError::new_err(code(error)))?;
         Ok(Self { game })
     }
 
@@ -51,6 +59,7 @@ impl OnlineGame {
         serde_json::to_string(&view).map_err(|_| PyRuntimeError::new_err("invalid_view"))
     }
 
+    /// Play a card. Without a card, play the timeout auto-move (lowest card).
     #[pyo3(signature = (seat, card_json=None))]
     fn play(&mut self, py: Python<'_>, seat: usize, card_json: Option<&str>) -> PyResult<String> {
         let card = match card_json {
@@ -60,12 +69,63 @@ impl OnlineGame {
                 .game
                 .legal_moves(seat)
                 .into_iter()
-                .min_by_key(|card| card.rank)
+                .min_by_key(|card| self.game.rules().strength(card.rank))
                 .ok_or_else(|| PyValueError::new_err("out_of_turn"))?,
         };
         let events = py
             .detach(|| self.game.play(seat, card))
-            .map_err(|error| PyValueError::new_err(super::code(error)))?;
+            .map_err(|error| PyValueError::new_err(code(error)))?;
         serde_json::to_string(&events).map_err(|_| PyRuntimeError::new_err("invalid_events"))
+    }
+
+    /// The card a bot at `seat` would play, as JSON, or `None` off turn.
+    #[pyo3(signature = (seat, level="hard", iterations=300, seed=None))]
+    fn bot_move(
+        &self,
+        py: Python<'_>,
+        seat: usize,
+        level: &str,
+        iterations: u32,
+        seed: Option<u64>,
+    ) -> PyResult<Option<String>> {
+        let level = super::level(level)?;
+        let card =
+            py.detach(|| donke_core::bot_move(&self.game, seat, level, iterations, &mut rng(seed)));
+        card.map(|card| to_json(&card)).transpose()
+    }
+
+    /// Every legal move for `seat` with its safe rate, best first, as JSON.
+    #[pyo3(signature = (seat, iterations=300, seed=None))]
+    fn evaluate(
+        &self,
+        py: Python<'_>,
+        seat: usize,
+        iterations: u32,
+        seed: Option<u64>,
+    ) -> PyResult<String> {
+        let scores =
+            py.detach(|| donke_core::evaluate(&self.game, seat, iterations, &mut rng(seed)));
+        to_json(&scores)
+    }
+
+    /// Each seat's chance of avoiding the Donkey from public information.
+    #[pyo3(signature = (iterations=400, seed=None))]
+    fn win_chances(&self, py: Python<'_>, iterations: u32, seed: Option<u64>) -> Vec<f64> {
+        py.detach(|| donke_core::win_chances(&self.game, iterations, &mut rng(seed)))
+    }
+
+    /// Re-run recorded plays from this state. Returns `{snapshot, events}` as
+    /// JSON, or raises `ValueError("invalid_replay:<index>:<code>")`.
+    fn replay(&self, py: Python<'_>, plays_json: &str) -> PyResult<String> {
+        let plays: Vec<Play> =
+            serde_json::from_str(plays_json).map_err(|_| PyValueError::new_err("invalid_plays"))?;
+        let (game, events) = py.detach(|| self.game.replay(&plays)).map_err(|error| {
+            PyValueError::new_err(format!(
+                "invalid_replay:{}:{}",
+                error.index,
+                code(error.error)
+            ))
+        })?;
+        to_json(&serde_json::json!({ "snapshot": game, "events": events }))
     }
 }

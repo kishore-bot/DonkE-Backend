@@ -14,6 +14,10 @@ fn game_with(hands: Vec<Vec<Card>>, version: u32) -> Game {
         turn: 0,
         version,
         outcome: None,
+        rules: HouseRules::default(),
+        discarded: Vec::new(),
+        known: Vec::new(),
+        voids: Vec::new(),
     }
 }
 
@@ -136,6 +140,98 @@ fn seeded_games_conserve_cards_until_a_terminal_result() {
                 assert!(Card::deck().iter().all(|card| cards.contains(card)));
             }
             assert!(game.version() <= PLAY_LIMIT);
+            assert_eq!(game.discarded, discarded);
         }
     }
+}
+
+#[test]
+fn public_tracking_records_voids_pickups_and_discards() {
+    let ace = Card::ACE_OF_SPADES;
+    let two_spades = card(Rank::Two, Suit::Spades);
+    let heart = card(Rank::Four, Suit::Hearts);
+    let club = card(Rank::Five, Suit::Clubs);
+    let mut game = game_with(
+        vec![
+            vec![ace, card(Rank::Three, Suit::Spades)],
+            vec![two_spades, card(Rank::Six, Suit::Diamonds)],
+            vec![heart, club],
+        ],
+        0,
+    );
+    game.play(0, ace).unwrap();
+    game.play(1, two_spades).unwrap();
+    // Seat 2 has no spades: a Vettu. Seat 0 holds the high spade and picks up.
+    game.play(2, heart).unwrap();
+    assert_eq!(game.voids[2], suit_bit(Suit::Spades));
+    assert_eq!(game.known[0], [ace, two_spades, heart]);
+    assert!(game.discarded.is_empty());
+    // Playing a known card removes it from public knowledge.
+    game.play(0, heart).unwrap();
+    assert_eq!(game.known[0], [ace, two_spades]);
+}
+
+#[test]
+fn ace_low_changes_who_picks_up_the_pile() {
+    let ace = Card::ACE_OF_SPADES;
+    let king = card(Rank::King, Suit::Spades);
+    let cutter = card(Rank::Two, Suit::Hearts);
+    let hands = vec![
+        vec![ace, card(Rank::Three, Suit::Clubs)],
+        vec![king, card(Rank::Four, Suit::Clubs)],
+        vec![cutter, card(Rank::Five, Suit::Clubs)],
+    ];
+    let mut classic = game_with(hands.clone(), 0);
+    let mut low = game_with(hands, 0);
+    low.rules = HouseRules { ace_low: true };
+    for game in [&mut classic, &mut low] {
+        game.play(0, ace).unwrap();
+        game.play(1, king).unwrap();
+    }
+    let receiver = |events: Vec<Event>| {
+        events.into_iter().find_map(|event| match event {
+            Event::Vettu { receiver, .. } => Some(receiver),
+            _ => None,
+        })
+    };
+    assert_eq!(receiver(classic.play(2, cutter).unwrap()), Some(0));
+    assert_eq!(receiver(low.play(2, cutter).unwrap()), Some(1));
+}
+
+#[test]
+fn replay_reproduces_the_match_and_reports_the_first_bad_play() {
+    let mut rng = StdRng::seed_from_u64(7);
+    let start = Game::deal(4, &mut rng).unwrap();
+    let mut live = start.clone();
+    let mut plays = Vec::new();
+    while let Some(seat) = live.turn() {
+        let legal = live.legal_moves(seat);
+        let card = legal[rng.random_range(0..legal.len())];
+        live.play(seat, card).unwrap();
+        plays.push(Play { seat, card });
+    }
+    let (replayed, _) = start.replay(&plays).unwrap();
+    assert_eq!(replayed.outcome(), live.outcome());
+    assert_eq!(replayed.version(), live.version());
+
+    let mut tampered = plays.clone();
+    tampered[1].seat = tampered[0].seat;
+    let error = start.replay(&tampered).unwrap_err();
+    assert_eq!(error.index, 1);
+    assert_eq!(error.error, GameError::OutOfTurn);
+}
+
+#[test]
+fn snapshots_without_tracking_still_load_and_play() {
+    let mut rng = StdRng::seed_from_u64(3);
+    let game = Game::deal(3, &mut rng).unwrap();
+    let mut value: serde_json::Value = serde_json::to_value(&game).unwrap();
+    let object = value.as_object_mut().unwrap();
+    for key in ["rules", "discarded", "known", "voids"] {
+        object.remove(key);
+    }
+    let mut legacy: Game = serde_json::from_value(value).unwrap();
+    let seat = legacy.turn().unwrap();
+    legacy.play(seat, Card::ACE_OF_SPADES).unwrap();
+    assert_eq!(legacy.known.len(), 3);
 }
