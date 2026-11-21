@@ -5,6 +5,7 @@ automatically."""
 
 import json
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, cast
 from uuid import UUID, uuid4
@@ -131,28 +132,43 @@ async def analyse_ranked(platform: Platform, game_id: UUID) -> int:
     return opened
 
 
-async def analysis_tick(platform: Platform) -> int:
-    """Worker step: claim a few pending ranked matches and analyse them."""
+async def claim_pending(platform: Platform, limit: int = BATCH) -> list[str]:
+    """Lease up to `limit` due ranked matches so only one job takes each."""
     redis = platform.redis
     key = pending_key(platform)
     now = datetime.now(UTC).timestamp()
-    done = 0
     pending = cast(
         list[str | bytes],
-        await redis.zrangebyscore(key, "-inf", now, start=0, num=BATCH),
+        await redis.zrangebyscore(key, "-inf", now, start=0, num=limit),
     )
+    claimed = []
     for raw in pending:
         game = raw.decode() if isinstance(raw, bytes) else raw
-        if not await redis.set(f"{key}:lease:{game}", "1", nx=True, ex=LEASE_SECONDS):
-            continue
-        try:
-            await analyse_ranked(platform, UUID(game))
-        except AppError as error:
-            # A replay that cannot be analysed will never succeed; drop it.
-            logger.info("Skipping analysis of %s (%s)", game, error.code)
-        await redis.zrem(key, game)
-        done += 1
-    return done
+        if await redis.set(f"{key}:lease:{game}", "1", nx=True, ex=LEASE_SECONDS):
+            claimed.append(game)
+    return claimed
+
+
+async def run_analysis(platform: Platform, game: str) -> int:
+    """Analyse one claimed match. Store errors raise, so the job retries;
+    a replay that can never be analysed is dropped."""
+    try:
+        opened = await analyse_ranked(platform, UUID(game))
+    except AppError as error:
+        logger.info("Skipping analysis of %s (%s)", game, error.code)
+        opened = 0
+    await platform.redis.zrem(pending_key(platform), game)
+    return opened
+
+
+async def drain(
+    platform: Platform, send: Callable[[str], Awaitable[object]], limit: int = 20
+) -> int:
+    """Hand each claimed match to `send` (a Taskiq kick in production)."""
+    claimed = await claim_pending(platform, limit)
+    for game in claimed:
+        await send(game)
+    return len(claimed)
 
 
 async def cases(platform: Platform, status: str) -> list[CaseView]:

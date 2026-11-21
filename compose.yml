@@ -81,6 +81,19 @@ services:
     command: ["python", "-m", "app.workers.matchmaking"]
     depends_on: *online-dependencies
     restart: unless-stopped
+  jobs:
+    <<: *backend
+    entrypoint: ["python", "-m", "scripts.wait_for_storage"]
+    command: ["taskiq", "worker", "app.workers.jobs:broker", "--workers", "1"]
+    depends_on: *online-dependencies
+    restart: unless-stopped
+  scheduler:
+    # Exactly one scheduler, or scheduled jobs would be kicked twice.
+    <<: *backend
+    entrypoint: ["python", "-m", "scripts.wait_for_storage"]
+    command: ["taskiq", "scheduler", "app.workers.jobs:scheduler"]
+    depends_on: *online-dependencies
+    restart: unless-stopped
   voice:
     <<: *backend
     entrypoint: ["python", "-m", "scripts.wait_for_storage"]

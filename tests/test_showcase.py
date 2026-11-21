@@ -201,10 +201,7 @@ def test_matchmaking_survives_store_disconnects(monkeypatch):
     platform = MagicMock()
     platform.settings = Settings(_env_file=None, matchmaking_poll_seconds=0.001)
     poll = AsyncMock(side_effect=[ConnectionRefusedError, 0])
-    prune = AsyncMock(side_effect=TimeoutError)
     monkeypatch.setattr(matchmaking, "match_once", poll)
-    monkeypatch.setattr(matchmaking, "prune_sessions", prune)
-    monkeypatch.setattr(matchmaking, "analysis_tick", AsyncMock(return_value=0))
 
     async def check():
         stop = asyncio.Event()
@@ -219,7 +216,6 @@ def test_matchmaking_survives_store_disconnects(monkeypatch):
 
     asyncio.run(check())
     assert poll.await_count == 2
-    prune.assert_awaited_once()
 
 
 @pytest.mark.integration
@@ -300,5 +296,6 @@ def test_podman_launcher_pins_provider_and_waits_for_migrations(
     assert any("pg_isready" in line for line in commands[stores:migration])
     assert any("redis-cli ping" in line for line in commands[stores:migration])
     assert any(
-        line.endswith("up -d app matchmaking voice") for line in commands[migration:]
+        line.endswith("up -d app matchmaking jobs scheduler voice")
+        for line in commands[migration:]
     ) == (migration_code == 0)

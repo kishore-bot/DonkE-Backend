@@ -17,9 +17,10 @@ from app.modules.ai.coaching import MatchAnalysis, analyse
 from app.modules.ai.fair_play import (
     FairPlayCase,
     Resolve,
-    analysis_tick,
+    drain,
     resolve,
     review,
+    run_analysis,
 )
 from app.modules.ai.rivals import PlayerRival
 from app.modules.matches import bots
@@ -177,7 +178,15 @@ def test_rival_record_fair_play_cases_and_background_analysis(settings):
                 assert await persist(platform, replay)
                 key = pending_analysis_key(platform)
                 assert await platform.redis.zscore(key, str(replay.id)) is not None
-                assert await analysis_tick(platform) == 1
+                sent: list[str] = []
+
+                async def send(game: str) -> None:
+                    sent.append(game)
+
+                assert await drain(platform, send) == 1
+                assert sent == [str(replay.id)]
+                assert await drain(platform, send) == 0  # leased: not sent twice
+                await run_analysis(platform, sent[0])
                 assert await platform.redis.zscore(key, str(replay.id)) is None
                 async with platform.sessions() as db:
                     rival = await db.get(PlayerRival, player)
@@ -233,3 +242,16 @@ def test_rival_record_fair_play_cases_and_background_analysis(settings):
         assert mine["name"] in mine["taunt"]
         lines = client.get("/api/v1/personas/lines", headers=headers(tokens)).json()
         assert set(lines["personas"]) == {"thug", "professor", "aunty"}
+
+
+def test_taskiq_jobs_are_registered_with_retries_and_schedules():
+    from app.workers import jobs
+
+    analyse = jobs.broker.find_task("donke.analyse_match")
+    drain_task = jobs.broker.find_task("donke.drain_analysis")
+    prune = jobs.broker.find_task("donke.prune_sessions")
+    assert analyse is not None and analyse.labels["retry_on_error"] is True
+    assert drain_task is not None and drain_task.labels["schedule"] == [
+        {"cron": "* * * * *"}
+    ]
+    assert prune is not None and prune.labels["schedule"][0]["cron"] == "17 * * * *"

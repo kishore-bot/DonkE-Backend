@@ -38,7 +38,7 @@ case "${1:-up}" in
         compose up -d postgres redis
         wait_for_stores
         compose run --rm migrate
-        compose up -d app matchmaking voice
+        compose up -d app matchmaking jobs scheduler voice
         ;;
     smoke)
         sessions_dir="$(mktemp -d)"
