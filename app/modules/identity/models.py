@@ -15,6 +15,7 @@ class Player(Base):
     display_name: Mapped[str] = mapped_column(String(40))
     language: Mapped[str] = mapped_column(String(2), server_default="ml")
     mmr: Mapped[int] = mapped_column(server_default="1200")
+    voice: Mapped[str | None] = mapped_column(String(20))
     active: Mapped[bool] = mapped_column(server_default="true")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

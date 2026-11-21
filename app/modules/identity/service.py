@@ -9,7 +9,12 @@ from app.core.platform import Platform
 from app.core.tokens import new_token, token_digest
 from app.modules.identity import repository
 from app.modules.identity.models import Player, PlayerSession, RefreshToken
-from app.modules.identity.schemas import Language, Profile, SessionTokens
+from app.modules.identity.schemas import (
+    Language,
+    Profile,
+    ProfileUpdate,
+    SessionTokens,
+)
 
 
 def unauthorized() -> AppError:
@@ -146,11 +151,19 @@ class IdentityService:
                 session.revoked_at = datetime.now(UTC)
 
     async def set_language(self, principal: Principal, language: Language) -> Profile:
+        return await self.update_profile(principal, ProfileUpdate(language=language))
+
+    async def update_profile(
+        self, principal: Principal, body: ProfileUpdate
+    ) -> Profile:
         async with self.platform.sessions.begin() as db:
             player = await repository.active_player(
                 db, principal.profile.id, principal.session_id, datetime.now(UTC)
             )
             if player is None:
                 raise unauthorized()
-            player.language = language
+            if body.language is not None:
+                player.language = body.language
+            if body.voice is not None:
+                player.voice = body.voice
             return Profile.model_validate(player)

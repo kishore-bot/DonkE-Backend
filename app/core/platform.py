@@ -16,7 +16,7 @@ from sqlalchemy.orm import DeclarativeBase
 from app.core.config import Settings
 from app.core.errors import AppError
 
-SCHEMA_HEAD = "20261121_social_safety"
+SCHEMA_HEAD = "20261121_player_voice"
 
 
 class Base(DeclarativeBase):

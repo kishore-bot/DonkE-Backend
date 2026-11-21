@@ -71,7 +71,7 @@ async def profile(principal: CurrentPlayer) -> Profile:
 async def update_profile(
     body: ProfileUpdate, principal: CurrentPlayer, platform: PlatformDep
 ) -> Profile:
-    return await IdentityService(platform).set_language(principal, body.language)
+    return await IdentityService(platform).update_profile(principal, body)
 
 
 @router.post("/logout", status_code=204)
