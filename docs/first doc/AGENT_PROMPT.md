@@ -149,7 +149,7 @@ Update the season and progression rows in `FEATURES.md` to match this design.
   - Voice health + test
   - Admin users (admin role only)
   - Audit log
-- It must work on the server behind Caddy (HTTPS) and locally under Podman.
+- It must work locally under Podman.
 
 ---
 

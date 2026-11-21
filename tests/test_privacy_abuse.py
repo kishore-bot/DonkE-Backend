@@ -78,7 +78,7 @@ def test_client_ip_trusts_forwarded_for_only_from_proxies():
     from ipaddress import ip_network
 
     proxies = (ip_network("10.0.0.0/8"), ip_network("127.0.0.0/8"))
-    # Through Caddy: the real client is the last hop that is not a proxy.
+    # Through a proxy: the real client is the last hop that is not a proxy.
     assert (
         client_host(request_from("10.0.0.2", "198.51.100.7, 10.0.0.9", proxies))
         == "198.51.100.7"
@@ -118,3 +118,40 @@ def test_replay_endpoint_hides_hands_and_player_index_is_written(settings):
         ).json()
         assert "opening" not in body and body["events"]
         assert "Spades" not in str(body.get("seats"))
+
+
+@pytest.mark.integration
+def test_settlement_retry_queues_analysis_a_failed_attempt_missed(
+    settings, monkeypatch
+):
+    from redis.exceptions import RedisError
+
+    from app.modules.matches.settlement import pending_analysis_key
+
+    async def scenario():
+        async with open_platform(settings) as platform:
+            async with platform.sessions.begin() as db:
+                from app.modules.identity.models import Player
+
+                players = [Player(google_sub=uuid4().hex, display_name=n) for n in "AB"]
+                db.add_all(players)
+                await db.flush()
+                ids = [p.id for p in players]
+            replay = played_replay(4, [ids[0], ids[1], None])
+            replay.mode = "ranked"
+            real = platform.redis.zadd
+
+            async def lost(*args, **kwargs):
+                raise RedisError("timeout after commit")
+
+            monkeypatch.setattr(platform.redis, "zadd", lost)
+            with pytest.raises(RedisError):
+                await persist(platform, replay)  # committed, but not queued
+            monkeypatch.setattr(platform.redis, "zadd", real)
+            assert await persist(platform, replay) is False  # already stored ...
+            queued = await platform.redis.zscore(
+                pending_analysis_key(platform), str(replay.id)
+            )
+            assert queued is not None  # ... yet the retry queued the analysis
+
+    asyncio.run(scenario())

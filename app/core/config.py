@@ -15,17 +15,9 @@ class Settings(BaseSettings):
     practice_max_sessions: int = Field(default=128, gt=0)
     practice_sessions_per_client: int = Field(default=3, ge=1, le=50)
     practice_creates_per_minute: int = Field(default=10, ge=1, le=600)
-    # Proxies whose X-Forwarded-For is trusted (the app is bound to loopback
-    # and reached through Caddy). Clients outside these cannot spoof their IP.
-    trusted_proxies: list[str] = Field(
-        default=[
-            "127.0.0.0/8",
-            "::1/128",
-            "10.0.0.0/8",
-            "172.16.0.0/12",
-            "192.168.0.0/16",
-        ]
-    )
+    # Reverse proxies whose X-Forwarded-For header is trusted, as CIDRs.
+    # Empty (the default): no proxy, so the direct peer address is the client.
+    trusted_proxies: list[str] = Field(default=[])
 
     postgres_dsn: PostgresDsn | None = None
     redis_dsn: RedisDsn | None = None

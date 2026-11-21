@@ -164,7 +164,7 @@ What we take from `donkey_backend`, what we change, and what we add. See [PLAN.m
 | Containers | 🔧 | Docker → **Podman** (`podman compose`, Containerfile) | `Dockerfile`, `docker-compose*.yml` |
 | CI (ruff, pyright, deptry, cargo test, pytest, API drift) | 🔧 | Podman, crate split | `.github/workflows/ci.yml` |
 | Tests | 🔧 | Drop tests for removed features | `tests/` |
-| Caddy reverse proxy | ✅ | | `Caddyfile` |
+| Caddy reverse proxy | ❌ | Removed for now (test app) | |
 
 ---
 

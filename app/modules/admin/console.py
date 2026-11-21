@@ -7,11 +7,11 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 
 from app.core.errors import AppError
 from app.modules.admin import flags
-from app.modules.admin.models import AdminUser
+from app.modules.admin.models import AdminSession, AdminUser
 from app.modules.admin.router import Admin, Cookie, CsrfToken, PlatformDep, RequestId
 from app.modules.admin.schemas import USERNAME, AdminProfile, Role
 from app.modules.admin.service import AdminService, admin_write
@@ -486,7 +486,9 @@ async def update_flag(
         platform, cookie, csrf, request_id, f"flag_{key}"[:48], body.reason
     ) as db:
         await flags.set_flag(platform, db, key, body.value)
-    values = await flags.refresh(platform)
+    # Committed: drop the cache and answer from Postgres, the source of truth.
+    await flags.invalidate(platform)
+    values = await flags.stored(platform)
     return FlagView(key=key, value=values[key], description=spec.description)
 
 
@@ -545,6 +547,12 @@ async def update_admin_user(
             user.role = body.role
         if body.active is not None:
             user.active = body.active
+        if body.active is False:
+            # Sign out everywhere now; re-enabling the account later must
+            # require a fresh sign-in, not revive these sessions.
+            await db.execute(
+                delete(AdminSession).where(AdminSession.admin_id == admin_id)
+            )
         await db.flush()
         return AdminRow.model_validate(user)
 

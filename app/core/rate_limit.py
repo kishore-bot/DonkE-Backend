@@ -24,7 +24,7 @@ async def limit(
 
 def client_host(request: Request) -> str:
     """The caller's IP. X-Forwarded-For is honoured only when the direct peer
-    is a trusted proxy (Caddy), walking right to left to the first address
+    is a configured trusted proxy, walking right to left to the first address
     that is not a proxy, so clients cannot spoof it from outside."""
     peer = request.client.host if request.client else "unknown"
     trusted = getattr(request.app.state, "trusted_proxies", ())

@@ -6,10 +6,12 @@ URLs and timers are deliberately not flags.
 """
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, cast
 
+from redis.exceptions import RedisError
 from sqlalchemy import DateTime, String, func, select
 from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +19,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.errors import AppError
 from app.core.platform import Base, Platform
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,22 +86,48 @@ def cache_key(platform: Platform) -> str:
 
 
 LOADED = "__loaded"
+# The Redis copy is a cache, never the source of truth: it expires, so a
+# missed invalidation (Redis down mid-write) heals within this many seconds.
+CACHE_SECONDS = 30
 
 
-async def publish(platform: Platform, db: AsyncSession) -> dict[str, Any]:
-    """Mirror only the overrides, so changed settings defaults still apply."""
-    overrides = {
+async def overrides_in(db: AsyncSession) -> dict[str, Any]:
+    return {
         row.key: row.value
         for row in await db.scalars(select(RuntimeFlag))
         if row.key in FLAGS
     }
+
+
+async def stored(platform: Platform) -> dict[str, Any]:
+    """Flags straight from Postgres, bypassing the cache."""
+    async with platform.sessions() as db:
+        return {**defaults(platform), **await overrides_in(db)}
+
+
+async def publish(platform: Platform, db: AsyncSession) -> dict[str, Any]:
+    """Cache only the overrides, so changed settings defaults still apply."""
+    overrides = await overrides_in(db)
     key = cache_key(platform)
     mapping = {name: json.dumps(value) for name, value in overrides.items()}
     async with platform.redis.pipeline(transaction=True) as pipe:
         pipe.delete(key)
         pipe.hset(key, mapping={LOADED: "1", **mapping})
+        pipe.expire(key, CACHE_SECONDS)
         await pipe.execute()
     return {**defaults(platform), **overrides}
+
+
+async def invalidate(platform: Platform) -> None:
+    """Drop the cache after a committed write; the next read rebuilds it.
+    Deleting (not rewriting) means a slow writer can never overwrite a
+    newer snapshot. If Redis is unreachable the cache expires on its own."""
+    try:
+        await platform.redis.delete(cache_key(platform))
+    except RedisError:
+        logger.warning(
+            "Flag cache invalidation failed; it expires in %ss", CACHE_SECONDS
+        )
 
 
 async def current(platform: Platform) -> dict[str, Any]:

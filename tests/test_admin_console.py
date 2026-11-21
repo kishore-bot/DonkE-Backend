@@ -234,3 +234,85 @@ def test_totp_secrets_are_sealed_and_bound_to_their_account():
     )
     with pytest.raises(ValueError):
         online(auth_secret="x" * 40, admin_totp_key="short")
+
+
+@pytest.mark.integration
+def test_kill_switch_heals_when_the_cache_invalidation_fails(
+    client, settings, monkeypatch
+):
+    from redis.exceptions import RedisError
+
+    from app.modules.admin import flags
+
+    _, csrf = admin_login(client, settings)
+
+    async def read(*, drop_cache: bool = False):
+        # Our own connection: the app's runs on the TestClient's loop.
+        async with open_platform(settings) as platform:
+            key = flags.cache_key(platform)
+            ttl = await platform.redis.ttl(key)
+            if drop_cache:
+                await platform.redis.delete(key)  # what expiry does
+            return (await flags.current(platform))["ai_enabled"], ttl
+
+    assert asyncio.run(read())[0] is True  # now cached in Redis
+    app_redis = client.app.state.platform.redis
+
+    async def broken_delete(*keys):
+        raise RedisError("down")
+
+    monkeypatch.setattr(app_redis, "delete", broken_delete)
+    off = client.put(
+        "/api/v1/admin/flags/ai_enabled",
+        json={"value": False, "reason": "Cost spike"},
+        headers=csrf,
+    )
+    assert off.status_code == 200 and off.json()["value"] is False  # from Postgres
+    monkeypatch.undo()
+    stale, ttl = asyncio.run(read())
+    assert stale is True and 0 < ttl <= flags.CACHE_SECONDS  # stale, but bounded
+    assert asyncio.run(read(drop_cache=True))[0] is False  # healed after expiry
+
+    on = client.put(
+        "/api/v1/admin/flags/ai_enabled",
+        json={"value": None, "reason": "Back"},
+        headers=csrf,
+    )
+    assert on.json()["value"] is True
+    assert asyncio.run(read())[0] is True  # normal path: no waiting for expiry
+
+
+@pytest.mark.integration
+def test_deactivating_an_admin_ends_sessions_for_good(client, settings):
+    _, csrf = admin_login(client, settings)
+    name = f"mod-{uuid4().hex[:8]}"
+
+    async def moderator(action: str, cookie: str | None = None):
+        async with open_platform(settings) as platform:
+            service = AdminService(platform)
+            if action == "create":
+                await service.create_account(name, PASSWORD, "moderator", uuid4())
+                return (await service.sign_in(name, PASSWORD, uuid4()))[1]
+            if action == "sign_in":
+                return (await service.sign_in(name, PASSWORD, uuid4()))[1]
+            try:
+                await service.current(cookie)
+            except AppError:
+                return False
+            return True
+
+    cookie = asyncio.run(moderator("create"))
+    assert asyncio.run(moderator("check", cookie)) is True
+    target = next(
+        row["id"]
+        for row in client.get("/api/v1/admin/users").json()
+        if row["username"] == name
+    )
+    path = f"/api/v1/admin/users/{target}"
+    client.put(path, json={"active": False, "reason": "Left team"}, headers=csrf)
+    assert asyncio.run(moderator("check", cookie)) is False
+    client.put(path, json={"active": True, "reason": "Rejoined"}, headers=csrf)
+    # The old session stays dead; only a fresh sign-in works.
+    assert asyncio.run(moderator("check", cookie)) is False
+    fresh = asyncio.run(moderator("sign_in"))
+    assert asyncio.run(moderator("check", fresh)) is True
