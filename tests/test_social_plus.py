@@ -194,6 +194,8 @@ def test_room_invites_links_and_in_match_emotes(settings):
             f"/api/v1/rooms/{room['id']}/link", headers=headers(host)
         ).json()
         assert link["app_link"] == f"donke://join/{link['code']}"
+        # No public_base_url configured: the link uses the request's origin.
+        assert link["url"] == f"http://testserver/join/{link['code']}"
         joined = client.post(
             f"/api/v1/invites/{link['code']}/join", headers=headers(stranger)
         )
@@ -233,3 +235,28 @@ def test_room_invites_links_and_in_match_emotes(settings):
             while chat["type"] != "feed":
                 chat = socket.receive_json()
             assert chat["value"] == "nice cut, *****"
+
+
+@pytest.mark.parametrize(
+    ("text", "blocked"),
+    [
+        ("പോടാ മൈരേ", True),
+        ("നീ തെണ്ടി ആണ്", True),
+        ("thayolikal", True),
+        ("நீ தேவடியா பையன்", True),
+        ("साला चूतिया है", True),
+        ("bsdk", True),
+        ("ಸೂಳೆಮಗ", True),
+        ("లంజకొడుకు", True),
+        ("Fucking hell", True),
+        ("5h1t", True),
+        ("first class poori and chettan", False),
+        ("a laudable fire retardant", False),
+        ("గుద్దు ఇచ్చాడు", False),
+        ("Kunnamkulam", False),
+        ("Scunthorpe", False),
+        ("randu kali", False),
+    ],
+)
+def test_word_list_covers_every_language_without_common_false_positives(text, blocked):
+    assert (clean(text) != text) is blocked

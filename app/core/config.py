@@ -40,7 +40,12 @@ class Settings(BaseSettings):
     gemini_voice_model: str = "gemini-3.8-flash-tts"
     gemini_embedding_model: str = "gemini-embedding-2"
     admin_ui_dir: str = "admin-ui"
-    public_base_url: str = Field(default="https://donke.app", max_length=200)
+    # Public HTTPS origin for share links, e.g. https://play.example.com.
+    # Empty: links use the address the request arrived on (fine for local
+    # development; set it in production behind a proxy).
+    public_base_url: str = Field(
+        default="", max_length=200, pattern=r"^(https://[A-Za-z0-9.-]+(:\d+)?)?$"
+    )
     practice_hint_iterations: int = Field(default=200, ge=10, le=2000)
     ai_text_daily_calls: int = Field(default=250, ge=0, le=5000)
     ai_voice_daily_calls: int = Field(default=100, ge=0, le=5000)

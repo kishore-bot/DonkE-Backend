@@ -415,10 +415,12 @@ class SocialService:
             hidden = await blocked_with(db, player_id)
         return [invite for invite in invites if invite.from_id not in hidden]
 
-    async def invite_link(self, profile: Profile, room_id: UUID) -> InviteLink:
+    async def invite_link(
+        self, profile: Profile, room_id: UUID, request_origin: str
+    ) -> InviteLink:
         room = await self.member_room(profile, room_id)
         code = await live.create_link(self.platform, room.id, profile.id)
-        base = self.platform.settings.public_base_url.rstrip("/")
+        base = (self.platform.settings.public_base_url or request_origin).rstrip("/")
         return InviteLink(
             code=code,
             url=f"{base}/join/{code}",

@@ -40,6 +40,8 @@ donke-engine = { workspace = true }
 pythonpath = ["."]
 testpaths = ["tests"]
 markers = ["integration: uses disposable PostgreSQL and Redis servers"]
+# Deprecations raised by our own code fail the build instead of piling up.
+filterwarnings = ["error::DeprecationWarning:app.*"]
 
 [tool.pyright]
 include = ["app"]

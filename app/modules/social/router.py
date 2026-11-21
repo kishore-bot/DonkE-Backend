@@ -2,7 +2,7 @@ import re
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Request
 from fastapi.responses import HTMLResponse
 
 from app.core.errors import AppError
@@ -134,11 +134,12 @@ async def room_invites(player: CurrentPlayer, social: Social) -> list[live.RoomI
 
 @router.post("/rooms/{room_id}/link", dependencies=Writes)
 async def invite_link(
-    room_id: UUID, player: CurrentPlayer, social: Social
+    room_id: UUID, request: Request, player: CurrentPlayer, social: Social
 ) -> InviteLink:
     """A shareable one-hour link (WhatsApp friendly) and app deep link."""
     await limit(social.platform, "invite_link", str(player.profile.id), 10, 600)
-    return await social.invite_link(player.profile, room_id)
+    origin = f"{request.url.scheme}://{request.url.netloc}"
+    return await social.invite_link(player.profile, room_id, origin)
 
 
 @router.post("/invites/{code}/join", dependencies=Writes)

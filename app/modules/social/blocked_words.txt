@@ -1,10 +1,122 @@
-# One word or phrase per line. Matching ignores case and digit swaps and only
-# masks whole words. Extend this list for each supported language.
+# Chat filter word list, read by the Rust Aho-Corasick filter.
+#
+# One word or phrase per line. Matching ignores case and digit swaps
+# (5h1t), and masks whole words only, so "class" or "Scunthorpe" are safe.
+# A trailing * also matches the word with any suffix (മൈര* -> മൈരേ, മൈരൻ)
+# and masks the whole word. Use * only when no ordinary word starts with
+# the root; otherwise list the exact forms.
+#
+# Native speakers should review and extend each section.
+
+# English
+fuck*
+motherfucker*
+shit*
+bitch*
+bastard*
+asshole*
+cunt*
+whore*
+slut*
+retard
+retarded
 idiot
 stupid
 moron
-bastard
-bitch
-shit
-fuck
-asshole
+
+# Malayalam
+മൈര*
+പൂറ*
+കുണ്ണ*
+തായോളി*
+പുലയാടി*
+കഴുവേറി*
+ഊമ്പ*
+കൂതി*
+തെണ്ടി
+നായിന്റെ മോൻ
+# Malayalam, romanised (Manglish)
+myre
+myru
+myran
+maire
+mairu
+mairan
+pooru
+kunna
+kunnan
+thayoli*
+pulayadi*
+kazhuveri*
+oombi*
+koothi*
+thendi
+naayinte mon
+
+# Tamil
+புண்டை*
+தேவடியா*
+ஓத்தா
+கூதி*
+சுன்னி*
+# Tamil, romanised
+pundai*
+punda
+thevidiya*
+thevdiya*
+otha
+oththa
+sunni*
+
+# Hindi
+चूतिया*
+मादरचोद*
+बहनचोद*
+भोसड़ी*
+गांडू*
+गांड
+हरामी*
+हरामज़ादा*
+रंडी*
+लौड़ा*
+# Hindi, romanised
+chutiya*
+chutiye
+madarchod*
+maderchod*
+behenchod*
+bhenchod*
+bsdk
+bhosdi*
+gandu*
+harami*
+haramzada*
+randi*
+lauda
+lavda*
+
+# Kannada
+ಸೂಳೆ*
+ಬೋಳಿಮಗ*
+ತುಣ್ಣೆ*
+ಹಡಬೆ*
+# Kannada, romanised
+soole*
+soolemaga*
+bolimaga*
+boli maga
+hadabe*
+
+# Telugu
+లంజ*
+దెంగు*
+పూకు*
+నీయమ్మ*
+గుద్ద
+# Telugu, romanised
+lanja*
+dengu*
+denga*
+puku*
+modda*
+niyamma*

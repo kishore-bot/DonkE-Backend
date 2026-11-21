@@ -4,6 +4,10 @@
 //! Matching ignores case and common digit swaps (`5h1t`), and only masks whole
 //! words so names like "Scunthorpe" or "class" are left alone. Indic scripts
 //! count as word characters, including vowel signs.
+//!
+//! A pattern ending in `*` also matches the word with any suffix and masks the
+//! whole word. Malayalam, Tamil, Kannada and Telugu attach case endings to the
+//! root (മൈര് -> മൈരേ, മൈരൻ), so roots are listed as `മൈര*`.
 
 use std::collections::{HashMap, VecDeque};
 
@@ -28,8 +32,8 @@ fn is_word(character: char) -> bool {
 struct Node {
     next: HashMap<char, usize>,
     fail: usize,
-    /// Lengths, in characters, of the blocked words ending here.
-    ends: Vec<usize>,
+    /// Blocked words ending here: (length in characters, matches suffixes).
+    ends: Vec<(usize, bool)>,
 }
 
 #[derive(Clone, Debug)]
@@ -41,7 +45,12 @@ impl ChatFilter {
     pub fn new<S: AsRef<str>>(words: &[S]) -> Self {
         let mut nodes = vec![Node::default()];
         for word in words {
-            let pattern: Vec<char> = word.as_ref().trim().chars().map(normalize).collect();
+            let trimmed = word.as_ref().trim();
+            let (root, prefix) = match trimmed.strip_suffix('*') {
+                Some(root) => (root.trim_end(), true),
+                None => (trimmed, false),
+            };
+            let pattern: Vec<char> = root.chars().map(normalize).collect();
             if pattern.is_empty() {
                 continue;
             }
@@ -57,8 +66,9 @@ impl ChatFilter {
                     }
                 };
             }
-            if !nodes[state].ends.contains(&pattern.len()) {
-                nodes[state].ends.push(pattern.len());
+            let end = (pattern.len(), prefix);
+            if !nodes[state].ends.contains(&end) {
+                nodes[state].ends.push(end);
             }
         }
 
@@ -107,12 +117,16 @@ impl ChatFilter {
                 }
                 state = self.nodes[state].fail;
             }
-            for &length in &self.nodes[state].ends {
+            for &(length, prefix) in &self.nodes[state].ends {
                 let start = index + 1 - length;
-                let end = index + 1;
+                let mut end = index + 1;
                 let clean_start = start == 0 || !is_word(characters[start - 1]);
                 let clean_end = end == characters.len() || !is_word(characters[end]);
-                if clean_start && clean_end {
+                if clean_start && (clean_end || prefix) {
+                    // A root pattern hides the whole word, suffix included.
+                    while prefix && end < characters.len() && is_word(characters[end]) {
+                        end += 1;
+                    }
                     found.push((start, end));
                 }
             }
@@ -161,6 +175,18 @@ mod tests {
         assert_eq!(filter.censor("നീ പട്ടി ആണ്"), "നീ ***** ആണ്");
         // A longer word that only contains the blocked one is left alone.
         assert_eq!(filter.censor("പട്ടികൾ"), "പട്ടികൾ");
+    }
+
+    #[test]
+    fn root_patterns_match_inflected_words_and_mask_the_whole_word() {
+        let filter = ChatFilter::new(&["മൈര*", "lanja*", "kunna"]);
+        assert_eq!(filter.censor("പോടാ മൈരേ"), "പോടാ ****");
+        assert_eq!(filter.censor("മൈരൻ ആണ്"), "**** ആണ്");
+        assert_eq!(filter.censor("lanjakoduku!"), "***********!");
+        // Without `*` an inflected form is left alone; a root never matches
+        // in the middle of a word.
+        assert_eq!(filter.censor("kunnathu"), "kunnathu");
+        assert_eq!(filter.censor("അമൈര"), "അമൈര");
     }
 
     #[test]
