@@ -10,12 +10,19 @@ if ! command -v podman >/dev/null || ! provider="$(command -v podman-compose)"; 
 fi
 export PODMAN_COMPOSE_PROVIDER="$provider"
 
+env_file=()
+if [[ -f .env.dev ]]; then
+    env_file=(--env-file .env.dev)
+elif [[ -f .env ]]; then
+    env_file=(--env-file .env)
+fi
+
 compose() {
-    podman compose --file compose.yml "$@"
+    podman compose "${env_file[@]}" --file compose.yml "$@"
 }
 
 validate_config() {
-    "$provider" --file compose.yml config >/dev/null
+    "$provider" "${env_file[@]}" --file compose.yml config >/dev/null
 }
 
 wait_for_stores() {

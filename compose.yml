@@ -13,6 +13,7 @@ x-backend: &backend
     DONKE_REDIS_PREFIX: ${DONKE_REDIS_PREFIX:-donke}
     DONKE_ACCESS_SECONDS: ${DONKE_ACCESS_SECONDS:-1800}
     DONKE_REFRESH_SECONDS: ${DONKE_REFRESH_SECONDS:-604800}
+    DONKE_REFRESH_REUSE_GRACE_SECONDS: ${DONKE_REFRESH_REUSE_GRACE_SECONDS:-20}
     DONKE_ADMIN_SESSION_SECONDS: ${DONKE_ADMIN_SESSION_SECONDS:-900}
     DONKE_ROOM_TTL_SECONDS: ${DONKE_ROOM_TTL_SECONDS:-3600}
     DONKE_QUEUE_TTL_SECONDS: ${DONKE_QUEUE_TTL_SECONDS:-120}
@@ -71,7 +72,7 @@ services:
     entrypoint: ["python", "-m", "scripts.wait_for_storage"]
     command: ["granian", "--interface", "asgi", "--host", "0.0.0.0", "app.main:app"]
     ports:
-      - "127.0.0.1:8000:8000"
+      - "0.0.0.0:8000:8000"
     depends_on: &online-dependencies
       postgres:
         condition: service_healthy

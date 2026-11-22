@@ -280,11 +280,21 @@ def test_podman_launcher_pins_provider_and_waits_for_migrations(
         "PODMAN_TEST_LOG": str(log),
         "PODMAN_TEST_MIGRATION_CODE": str(migration_code),
     }
-    launcher = Path(__file__).resolve().parents[1] / "scripts/podman-dev.sh"
+    source = Path(__file__).resolve().parents[1] / "scripts/podman-dev.sh"
+    launcher = tmp_path / "scripts/podman-dev.sh"
+    launcher.parent.mkdir()
+    launcher.write_bytes(source.read_bytes())
+    (tmp_path / ".env").touch()
+    (tmp_path / ".env.dev").touch()
     result = subprocess.run(["bash", str(launcher), "up"], env=env, check=False)
     assert result.returncode == migration_code
     commands = log.read_text().splitlines()
-    assert commands[0] == "provider --file compose.yml config"
+    assert commands[0] == "provider --env-file .env.dev --file compose.yml config"
+    assert all(
+        "--env-file .env.dev" in line
+        for line in commands
+        if line.startswith(f"podman {provider} ") and "--file compose.yml" in line
+    )
     assert all(line.startswith(f"podman {provider} ") for line in commands[1:])
     stores = next(
         i for i, line in enumerate(commands) if line.endswith("up -d postgres redis")

@@ -1,23 +1,62 @@
-# DonkE Backend
+<div align="center">
 
-DonkE is a fresh backend for the Kerala card game Kazhutha. Play a local practice match with one human and one to four bots, or play online with rooms, friends and matchmaking. The Rust engine owns the rules. FastAPI starts matches, protects each private hand with a match-scoped token, and rejects stale card commands.
+<h1>DonkE Backend</h1>
+<p><strong>Real-time multiplayer and AI coaching for Kazhutha, the Kerala card game.</strong></p>
+<p>Python · FastAPI · Rust / PyO3 · Redis · PostgreSQL / pgvector · Gemini</p>
+<p>
+  <a href="#quick-start">Quick start</a> ·
+  <a href="docs/api/README.md">API endpoint list</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#showcase">WebSocket demo</a> ·
+  <a href="docs/AI_EVAL.md">AI scorecard</a>
+</p>
 
-## Run the practice API
+</div>
 
-Use standard CPython 3.14, Rust and uv. The locked sync creates and updates the local `.venv`, including development tools. Runtime-only installers can use `uv pip install -r requirements.txt` from the repository root with the environment active. The requirements file is exported from `uv.lock` and includes the local PyO3 package.
+## What you can do
+
+| Feature | What the backend provides |
+| --- | --- |
+| **Practice** | Play with one to four bots, choose a difficulty, and request a hint that scores your legal moves. |
+| **Online matches** | Create private rooms or queue for classic and ranked matches. Reconnect to recover missed moves, and review finished matches through participant-only replays. |
+| **Friends and progression** | Invite friends, queue as a party, earn coins and season rewards, and unlock cosmetics. |
+| **Coaching and voice** | Ask the rules coach for cited answers in six languages, review decisions after a match, and request spoken commentary with Gemini text-to-speech. |
+| **Operator console** | Review players, matches, reports, and fair-play cases. Manage seasons, feature flags, and the store from `/admin/`. |
+
+## Quick start
+
+### Practice API
+
+Use CPython 3.14, Rust, and uv. Practice runs in memory and needs no external services or API keys.
 
 ```sh
 uv sync --locked
 uv run granian --interface asgi --host 127.0.0.1 --port 8000 app.main:app
 ```
 
-Open `http://127.0.0.1:8000/docs` for the interactive API. Start a match with `POST /api/v1/practice` and `{"seats": 4}`. Use the returned `access_token` as a Bearer token on requests to that match. Send a card from `view.legal_moves` along with `view.version` as `expected_version` and a new UUID as `request_id`. Retry the identical command with the same UUID after a lost response. The update includes the resulting view and ordered events for human and bot plays.
+Create a four-seat game and inspect `view.legal_moves` in the response.
 
-Practice lives in one process. Sessions expire after an hour by default and disappear when the server restarts. Run a single worker for this step.
+```sh
+curl --fail-with-body http://127.0.0.1:8000/api/v1/practice \
+  -H 'Content-Type: application/json' \
+  -d '{"seats": 4}'
+```
 
-## Run online services with rootless Podman
+Send the returned `access_token` as a Bearer token to read the game, request a hint, or play. To play, use a legal card, `view.version` as `expected_version`, and a new UUID as `request_id`. An identical retry returns the recorded response. See the [practice endpoints](docs/api/README.md#practice).
 
-Install rootless Podman and the `podman-compose` provider inside WSL. Copy `.env.example` to `.env`, then set `DONKE_POSTGRES_PASSWORD` to a URL-safe random password and `DONKE_AUTH_SECRET` to a separate random value of at least 32 bytes. Set `DONKE_GOOGLE_CLIENT_ID` for player sign-in.
+Run practice with one server worker. Sessions expire after an hour by default and reset on restart. For runtime-only installs, use `uv pip install -r requirements.txt` with the environment active. The file comes from `uv.lock` and includes the local PyO3 package.
+
+### Online stack with rootless Podman
+
+Install Podman and `podman-compose` inside WSL. Use [`.env.example`](.env.example) to configure `.env.dev` (preferred by the launcher) or `.env`.
+
+| Variable | When to set it |
+| --- | --- |
+| `DONKE_POSTGRES_PASSWORD` | Required by Compose. Use a URL-safe random value. |
+| `DONKE_AUTH_SECRET` | Required for the online stack. Use a separate random value of at least 32 bytes. |
+| `DONKE_GOOGLE_CLIENT_ID` | Enables player sign-in with Google. |
+| `DONKE_GEMINI_API_KEY` | Enables Gemini calls for coaching, commentary, embeddings, and voice. |
+| `DONKE_DEMO_MODE` | Set to `true` on a dedicated demo database to enable the showcase seed. |
 
 ```sh
 bash scripts/podman-dev.sh config
@@ -25,19 +64,93 @@ bash scripts/podman-dev.sh up
 curl --fail http://127.0.0.1:8000/ready
 ```
 
-The launcher selects `podman-compose` explicitly, builds the image with Podman, waits for PostgreSQL and Redis, and runs Alembic before starting the API and workers. Set `DONKE_GEMINI_API_KEY` to enable Gemini calls. PostgreSQL and Redis use the internal network. Run `bash scripts/podman-dev.sh down` to stop the stack while keeping data. [Podman Compose documentation](https://docs.podman.io/en/latest/markdown/podman-compose.1.html)
+The launcher builds the image, waits for PostgreSQL and Redis, runs Alembic, then starts the API and background workers. The stores stay on the internal network. Use `bash scripts/podman-dev.sh down` to stop the stack and retain its data volumes.
 
-For an existing local PostgreSQL and Redis setup, configure `DONKE_POSTGRES_DSN`, `DONKE_REDIS_DSN` and `DONKE_AUTH_SECRET` in `.env`. Run `uv run alembic upgrade head`, start Granian as above and run `uv run python -m app.workers.matchmaking` in a separate terminal.
+[Podman Compose documentation](https://docs.podman.io/en/latest/markdown/podman-compose.1.html)
+
+<details>
+<summary>Connect a device on your LAN from WSL</summary>
+
+The online API listens on port `8000` on all WSL interfaces. Use the Windows host's LAN IP from another device, for example `http://192.168.1.10:8000`. Allow inbound TCP port `8000` in Windows Firewall. WSL2 NAT may also need port forwarding or mirrored networking. Keep the development port on your local network.
+
+</details>
+
+<details>
+<summary>Use an existing PostgreSQL and Redis setup</summary>
+
+Set `DONKE_POSTGRES_DSN`, `DONKE_REDIS_DSN`, and `DONKE_AUTH_SECRET` in `.env`. Run `uv run alembic upgrade head`, start Granian as shown above, and run `uv run python -m app.workers.matchmaking` in a separate terminal. See the [online setup guide](docs/ONLINE_FOUNDATION.md) for identity, admin accounts, and storage requirements.
+
+</details>
+
+## API reference
+
+| Reference | What you get |
+| --- | --- |
+| **[Endpoint list](docs/api/README.md)** | Every documented HTTP operation grouped by feature, plus the gameplay socket and its messages. |
+| [Swagger UI](http://127.0.0.1:8000/docs) · [ReDoc](http://127.0.0.1:8000/redoc) | Interactive requests and a browsable schema while the API server is running. |
+| [OpenAPI JSON](docs/api/openapi.json) | Version-controlled HTTP contract with request, response, and authentication schemas. |
+| [AsyncAPI JSON](docs/api/asyncapi.json) | Gameplay WebSocket contract with command, acknowledgment, event, and reconnect schemas. |
+
+The gameplay socket is `WS /api/v1/games/{game_id}/ws`. Authenticate with the player Bearer token and reconnect with `?after_sequence=<last_applied_sequence>`. The server replays missed public events and sends a private snapshot for the player's seat. [Multiplayer protocol](docs/MULTIPLAYER.md)
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Client["Game client"] <-->|"REST + WebSocket"| API["FastAPI / Granian"]
+    API -->|"PyO3"| Engine["Rust rules and search"]
+    API -->|"Live state and events"| Redis["Redis"]
+    API -->|"Profiles, replays, and rule search"| Postgres["PostgreSQL / pgvector"]
+    Matches["Matchmaking and turn worker"] --> Engine
+    Matches -->|"Claims and deadlines"| Redis
+    Matches -->|"Results and ratings"| Postgres
+    API -->|"Optional text and embeddings"| Gemini["Gemini"]
+    Voice["Voice worker"] <-->|"Jobs and audio cache"| Redis
+    Voice -->|"Speech synthesis"| Gemini
+    classDef service fill:#134e4a,stroke:#2dd4bf,color:#fff
+    classDef storage fill:#1e3a5f,stroke:#60a5fa,color:#fff
+    class API,Engine,Matches,Voice service
+    class Redis,Postgres storage
+```
+
+- **Real-time state.** One Redis Lua commit checks the game version and stores the move, acknowledgment, event batch, and next deadline together. Redis Streams let clients fetch events after a known sequence, and sorted sets let workers fetch due turns without scanning active matches.
+- **Durable history.** PostgreSQL settles completed games, rankings, and rewards transactionally. A composite index on `(player_id, finished_at DESC)` supports recent player history and head-to-head lookups over match participants.
+- **Bots and coaching.** Rust runs rules and Monte Carlo move scoring. Post-match coaching replays decisions through the engine. The rules coach blends BM25 with pgvector retrieval when embeddings are configured and cites curated answers. Text and voice requests run outside the turn protocol.
+
+<details>
+<summary>Query performance on 20,000 synthetic matches</summary>
+
+| PostgreSQL query | Replay JSONB scan | Indexed participant lookup |
+| --- | ---: | ---: |
+| Head-to-head, latest 200 shared matches | 76.7 ms | 2.04 ms |
+| Admin history, latest 10 matches | 73.5 ms | 0.053 ms |
+
+Values are median database execution times from 20 warm runs per query on local PostgreSQL 18.7. The before and after queries returned the same ordered match IDs. [Participant-index migration](migrations/versions/20261121_match_players.py)
+
+</details>
 
 ## Showcase
 
-Use a dedicated demo database with `DONKE_DEMO_MODE=true` and start the Podman stack. Then run `bash scripts/podman-dev.sh smoke`. It seeds two demo players and completes an online game over actual WebSockets. [Showcase workflow and architecture](docs/SHOWCASE.md)
+With `DONKE_DEMO_MODE=true` on a dedicated demo database, start the online stack and run:
 
-## Local branches
+```sh
+bash scripts/podman-dev.sh smoke
+```
 
-`dev-deploy` is the integration branch. The phase branches are `phase-4-multiplayer`, `phase-5-progression`, `phase-6-ai` and `phase-7-showcase`.
+The demo seeds two players, plays a real WebSocket match, retries the opening move, reconnects a player who missed an event, and verifies the committed replay. [Showcase walkthrough](docs/SHOWCASE.md)
 
-## Verify
+## Verification
+
+| Offline fixture group | Passing |
+| --- | ---: |
+| Rule source selection and abstention | 12 / 12 |
+| Commentary facts across six languages | 6 / 6 |
+| Native game completion and 52-card conservation | 16 / 16 |
+
+[Evaluation fixtures and results](docs/AI_EVAL.md) · [CI workflow](.github/workflows/ci.yml)
+
+<details>
+<summary>Run verification locally</summary>
 
 ```sh
 cargo test --locked --manifest-path engine/Cargo.toml
@@ -50,6 +163,12 @@ uv run python -m scripts.evaluate --check
 uv run pytest -q
 ```
 
-[Reference study and architecture](docs/STUDY_NOTES.md) · [Build steps and practice design](docs/BUILD_STEPS.md) · [Online foundation](docs/ONLINE_FOUNDATION.md)
+For integration tests, point `TEST_POSTGRES_DSN` and `TEST_REDIS_DSN` at disposable stores. CI also exercises migration round trips and the Podman smoke flow.
 
-[Multiplayer](docs/MULTIPLAYER.md) · [Progression](docs/PROGRESSION.md) · [AI and voice](docs/AI.md) · [November 2026 stack review](docs/STACK_REVIEW.md)
+</details>
+
+## Engineering notes
+
+[Practice and build steps](docs/BUILD_STEPS.md) · [Online foundation](docs/ONLINE_FOUNDATION.md) · [Multiplayer protocol](docs/MULTIPLAYER.md) · [Progression](docs/PROGRESSION.md) · [AI and voice](docs/AI.md) · [Architecture study](docs/STUDY_NOTES.md) · [Stack review](docs/STACK_REVIEW.md)
+
+`dev-deploy` is the integration branch. Phase branches are `phase-4-multiplayer`, `phase-5-progression`, `phase-6-ai`, and `phase-7-showcase`.
