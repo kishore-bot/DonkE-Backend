@@ -49,6 +49,8 @@ def test_seeded_story_call_first_clear_and_final_form(client, settings, monkeypa
     player = UUID(profile(client, tokens)["id"])
     auth, other = headers(tokens), headers(sign_in(client))
     base = f"/api/v1/seasons/{season.id}/me"
+    path = f"{base}/awakening/path"
+    pending = "/api/v1/story/awakening/pending"
 
     async def prepare_points():
         async with open_platform(settings) as platform, platform.sessions.begin() as db:
@@ -80,6 +82,21 @@ def test_seeded_story_call_first_clear_and_final_form(client, settings, monkeypa
             await db.execute(delete(Season).where(Season.id == season.id))
 
     try:
+        assert client.get(path).status_code == 401
+        assert client.get(pending).status_code == 401
+        assert client.get(pending, headers=auth).json() is None
+        response = client.get(path, headers=auth)
+        path_start = response.json()
+        assert response.headers["cache-control"] == "no-store"
+        assert path_start["missing"] == [
+            "choose_character",
+            "clear_duel",
+            "earn_points",
+        ]
+        assert path_start["claim_available"] is False
+        assert path_start["steps"][0]["id"] == "season_active"
+        assert path_start["steps"][-1]["requires"] == ["claim_form"]
+        assert (client.get(path, headers=other).json()["character_id"]) is None
         assert (
             client.put(
                 f"{base}/character", json={"character_id": "ashblade"}, headers=auth
@@ -213,7 +230,28 @@ def test_seeded_story_call_first_clear_and_final_form(client, settings, monkeypa
         ]
 
         assert client.post(f"{base}/awakening", headers=auth).status_code == 409
+        expired_objectives = client.get(path, headers=auth).json()
+        statuses = {step["id"]: step["status"] for step in expired_objectives["steps"]}
+        assert statuses["earn_points"] == "blocked"
+        assert statuses["claim_window"] == "complete"
+        assert statuses["claim_form"] == "blocked"
         asyncio.run(prepare_points())
+        ready = client.get(path, headers=auth).json()
+        assert ready["claim_available"] is True
+        assert client.get(pending, headers=auth).json() == {
+            "season_id": str(season.id),
+            "title": season.theme,
+        }
+        assert client.get(pending, headers=other).json() is None
+        assert any(
+            step["id"] == "claim_form" and step["status"] == "ready"
+            for step in ready["steps"]
+        )
+        now = end + timedelta(days=3)
+        assert client.get(pending, headers=auth).json() is None
+        assert not client.get(path, headers=auth).json()["claim_available"]
+        now = end + timedelta(minutes=1)
+
         for _ in range(2):
             claimed = client.post(f"{base}/awakening", headers=auth)
             assert claimed.json()["awakened_character_id"] == "ashblade"
@@ -221,5 +259,10 @@ def test_seeded_story_call_first_clear_and_final_form(client, settings, monkeypa
             client.get(f"{base}/story", headers=other).json()["awakened_character_id"]
             is None
         )
+        owned = client.get(path, headers=auth).json()
+        assert owned["awakened_character_id"] == "ashblade"
+        assert not owned["claim_available"]
+        assert client.get(pending, headers=auth).json() is None
+        assert all(step["status"] == "complete" for step in owned["steps"])
     finally:
         asyncio.run(clean())

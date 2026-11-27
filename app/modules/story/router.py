@@ -36,9 +36,13 @@ from app.modules.story.challenge import (
 )
 from app.modules.story.coach import DuelCoach, explain
 from app.modules.story.progression import (
+    AwakeningPath,
+    PendingAwakening,
     StoryProgress,
     StoryResult,
     awaken,
+    awakening_path,
+    pending_awakening,
     progress,
     settle,
 )
@@ -231,6 +235,24 @@ async def get_progress(
 ) -> StoryProgress:
     async with platform.sessions() as db:
         return await progress(db, season_id, player.profile.id)
+
+
+@router.get("/seasons/{season_id}/me/awakening/path")
+async def explain_awakening(
+    season_id: UUID, player: CurrentPlayer, platform: PlatformDep, response: Response
+) -> AwakeningPath:
+    response.headers["Cache-Control"] = "no-store"
+    async with platform.sessions() as db:
+        return await awakening_path(db, season_id, player.profile.id, datetime.now(UTC))
+
+
+@router.get("/story/awakening/pending")
+async def pending_final_form(
+    player: CurrentPlayer, platform: PlatformDep, response: Response
+) -> PendingAwakening | None:
+    response.headers["Cache-Control"] = "no-store"
+    async with platform.sessions() as db:
+        return await pending_awakening(db, player.profile.id, datetime.now(UTC))
 
 
 @router.post("/seasons/{season_id}/me/awakening", dependencies=Writes)

@@ -361,6 +361,85 @@
         "title": "AuditEntry",
         "type": "object"
       },
+      "AwakeningPath": {
+        "properties": {
+          "awakened_character_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Awakened Character Id"
+          },
+          "character_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Id"
+          },
+          "claim_available": {
+            "title": "Claim Available",
+            "type": "boolean"
+          },
+          "claim_deadline": {
+            "format": "date-time",
+            "title": "Claim Deadline",
+            "type": "string"
+          },
+          "cleared": {
+            "title": "Cleared",
+            "type": "boolean"
+          },
+          "missing": {
+            "items": {
+              "$ref": "#/components/schemas/Requirement"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "points": {
+            "title": "Points",
+            "type": "integer"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/PathStep"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "target": {
+            "default": 300,
+            "title": "Target",
+            "type": "integer"
+          },
+          "version": {
+            "default": "awakening-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cleared",
+          "points",
+          "awakened_character_id",
+          "missing",
+          "character_id",
+          "claim_deadline",
+          "claim_available",
+          "steps"
+        ],
+        "title": "AwakeningPath",
+        "type": "object"
+      },
       "BiggestPile": {
         "properties": {
           "cards": {
@@ -1993,6 +2072,59 @@
           "members"
         ],
         "title": "PartyView",
+        "type": "object"
+      },
+      "PathStep": {
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/StepId"
+          },
+          "requires": {
+            "items": {
+              "$ref": "#/components/schemas/StepId"
+            },
+            "title": "Requires",
+            "type": "array"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "source",
+          "requires",
+          "status"
+        ],
+        "title": "PathStep",
+        "type": "object"
+      },
+      "PendingAwakening": {
+        "properties": {
+          "season_id": {
+            "format": "uuid",
+            "title": "Season Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season_id",
+          "title"
+        ],
+        "title": "PendingAwakening",
         "type": "object"
       },
       "PerkView": {
@@ -3721,6 +3853,26 @@
         ],
         "title": "StartDuel",
         "type": "object"
+      },
+      "Status": {
+        "enum": [
+          "complete",
+          "ready",
+          "blocked"
+        ],
+        "type": "string"
+      },
+      "StepId": {
+        "enum": [
+          "season_active",
+          "choose_character",
+          "clear_duel",
+          "earn_points",
+          "claim_window",
+          "claim_form",
+          "final_form"
+        ],
+        "type": "string"
       },
       "StoreItem": {
         "properties": {
@@ -10356,6 +10508,64 @@
         ]
       }
     },
+    "/api/v1/seasons/{season_id}/me/awakening/path": {
+      "get": {
+        "operationId": "explain_awakening_api_v1_seasons__season_id__me_awakening_path_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "season_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Season Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AwakeningPath"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Explain Awakening",
+        "tags": [
+          "Story"
+        ]
+      }
+    },
     "/api/v1/seasons/{season_id}/me/character": {
       "get": {
         "operationId": "selected_character_api_v1_seasons__season_id__me_character_get",
@@ -11194,6 +11404,60 @@
           }
         ],
         "summary": "Share Attempt",
+        "tags": [
+          "Story"
+        ]
+      }
+    },
+    "/api/v1/story/awakening/pending": {
+      "get": {
+        "operationId": "pending_final_form_api_v1_story_awakening_pending_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PendingAwakening"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Pending Final Form Api V1 Story Awakening Pending Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Pending Final Form",
         "tags": [
           "Story"
         ]

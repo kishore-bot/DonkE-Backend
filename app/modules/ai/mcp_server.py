@@ -4,6 +4,7 @@ from mcp.server import MCPServer
 
 from app.modules.ai.knowledge import RULES, sources
 from app.modules.progression.season_content import PACKS
+from app.modules.story.awakening import PATH_VERSION, STEPS
 
 server = MCPServer(
     "DonkE Rules", description="Read-only tools for the DonkE Kazhutha rules"
@@ -31,6 +32,23 @@ def season_pack(pack_key: str) -> dict:
     """Read the public cast and presentation metadata for a versioned season pack."""
     pack = PACKS.get(pack_key)
     return pack.model_dump(mode="json") if pack else {}
+
+
+@server.tool()
+def awakening_requirements() -> dict:
+    """Read the public prerequisite graph for a seasonal final form."""
+    return {
+        "version": PATH_VERSION,
+        "steps": [
+            {
+                "id": key,
+                "text": step.text,
+                "source": step.source,
+                "requires": list(step.requires),
+            }
+            for key, step in STEPS.items()
+        ],
+    }
 
 
 if __name__ == "__main__":

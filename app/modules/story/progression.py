@@ -1,8 +1,8 @@
-from datetime import datetime, timedelta
-from typing import Literal
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel
+from sqlalchemy import and_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,23 +16,20 @@ from app.modules.progression.models import (
     SeasonStoryProgress,
 )
 
+from app.modules.story.awakening import (
+    AWAKENING_POINTS,
+    CLAIM_GRACE,
+    PATH_VERSION,
+    PathStep,
+    Requirement,
+    claim_deadline,
+    requirements,
+    resolve_path,
+    window_open,
+)
+
 CLEAR_POINTS = 40
 CLEAR_COINS = 20
-AWAKENING_POINTS = 300
-
-
-type Requirement = Literal["choose_character", "clear_duel", "earn_points"]
-
-
-def requirements(selected: bool, cleared: bool, points: int) -> list[Requirement]:
-    missing: list[Requirement] = []
-    if not selected:
-        missing.append("choose_character")
-    if not cleared:
-        missing.append("clear_duel")
-    if points < AWAKENING_POINTS:
-        missing.append("earn_points")
-    return missing
 
 
 class StoryProgress(BaseModel):
@@ -50,19 +47,123 @@ class StoryResult(BaseModel):
     points: int
 
 
-async def progress(db: AsyncSession, season_id: UUID, player_id: UUID) -> StoryProgress:
-    story = await db.get(SeasonStoryProgress, (season_id, player_id))
-    player = await db.get(SeasonPlayer, (season_id, player_id))
-    character = await db.get(SeasonCharacter, (season_id, player_id))
+class AwakeningPath(StoryProgress):
+    version: str = PATH_VERSION
+    character_id: str | None
+    claim_deadline: datetime
+    claim_available: bool
+    steps: list[PathStep]
+
+
+class PendingAwakening(BaseModel):
+    season_id: UUID
+    title: str
+
+
+def project(
+    story: SeasonStoryProgress | None, points: int, character: str | None
+) -> StoryProgress:
+    awakened = story.awakened_character_id if story else None
     return StoryProgress(
         cleared=story is not None,
-        points=player.points if player else 0,
-        awakened_character_id=story.awakened_character_id if story else None,
+        points=points,
+        awakened_character_id=awakened,
         missing=[]
-        if story and story.awakened_character_id
-        else requirements(
-            character is not None, story is not None, player.points if player else 0
+        if awakened
+        else requirements(character is not None, story is not None, points),
+    )
+
+
+def progress_rows(player_id: UUID):
+    return (
+        select(
+            Season,
+            SeasonStoryProgress,
+            SeasonPlayer.points,
+            SeasonCharacter.character_id,
+        )
+        .select_from(Season)
+        .outerjoin(
+            SeasonStoryProgress,
+            and_(
+                SeasonStoryProgress.season_id == Season.id,
+                SeasonStoryProgress.player_id == player_id,
+            ),
+        )
+        .outerjoin(
+            SeasonPlayer,
+            and_(
+                SeasonPlayer.season_id == Season.id,
+                SeasonPlayer.player_id == player_id,
+            ),
+        )
+        .outerjoin(
+            SeasonCharacter,
+            and_(
+                SeasonCharacter.season_id == Season.id,
+                SeasonCharacter.player_id == player_id,
+            ),
+        )
+    )
+
+
+async def read_progress(
+    db: AsyncSession, season_id: UUID, player_id: UUID
+) -> tuple[Season | None, StoryProgress, str | None]:
+    query = progress_rows(player_id).where(Season.id == season_id)
+    row = (await db.execute(query)).one_or_none()
+    if row is None:
+        return None, project(None, 0, None), None
+    season, story, points, character = row
+    return season, project(story, points or 0, character), character
+
+
+async def pending_awakening(
+    db: AsyncSession, player_id: UUID, now: datetime
+) -> PendingAwakening | None:
+    query = (
+        progress_rows(player_id)
+        .where(
+            Season.pack_key.is_not(None),
+            Season.ends_at <= now,
+            Season.ends_at > now - CLAIM_GRACE,
+            SeasonStoryProgress.player_id.is_not(None),
+            SeasonStoryProgress.awakened_character_id.is_(None),
+            SeasonPlayer.points >= AWAKENING_POINTS,
+            SeasonCharacter.character_id.is_not(None),
+        )
+        .order_by(Season.ends_at.desc())
+        .limit(1)
+    )
+    row = (await db.execute(query)).one_or_none()
+    return PendingAwakening(season_id=row[0].id, title=row[0].theme) if row else None
+
+
+async def progress(db: AsyncSession, season_id: UUID, player_id: UUID) -> StoryProgress:
+    _, state, _ = await read_progress(db, season_id, player_id)
+    return state
+
+
+async def awakening_path(
+    db: AsyncSession, season_id: UUID, player_id: UUID, now: datetime
+) -> AwakeningPath:
+    season, state, character = await read_progress(db, season_id, player_id)
+    if season is None or season.pack_key is None:
+        raise AppError(404, "season_not_found", "Season not found")
+    steps = resolve_path(
+        state.missing,
+        season.closed_at is None and season.starts_at <= now < season.ends_at,
+        window_open(season.starts_at, season.ends_at, now),
+        bool(state.awakened_character_id),
+    )
+    return AwakeningPath(
+        **state.model_dump(),
+        character_id=state.awakened_character_id or character,
+        claim_deadline=claim_deadline(season.ends_at),
+        claim_available=any(
+            step.id == "claim_form" and step.status == "ready" for step in steps
         ),
+        steps=steps,
     )
 
 
@@ -123,7 +224,7 @@ async def awaken(
     )
     if story is not None and story.awakened_character_id is not None:
         return await progress(db, season_id, player_id)
-    if not season.starts_at <= now < season.ends_at + timedelta(days=3):
+    if not window_open(season.starts_at, season.ends_at, now):
         raise AppError(
             409, "claim_window_closed", "The awakening claim window has closed"
         )

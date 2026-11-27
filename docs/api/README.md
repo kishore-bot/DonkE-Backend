@@ -125,6 +125,8 @@ Run `uv run python -m app.modules.ai.mcp_server` for stdio, or add `--http` for 
 | `GET` | `/api/v1/seasons/{season_id}/me/character` | Read the player's character choice |
 | `PUT` | `/api/v1/seasons/{season_id}/me/character` | Save the player's character choice |
 | `GET` | `/api/v1/seasons/{season_id}/me/story` | Read first-clear and awakening progress |
+| `GET` | `/api/v1/seasons/{season_id}/me/awakening/path` | Explain final-form requirements, step states and the claim deadline |
+| `GET` | `/api/v1/story/awakening/pending` | Find an earned final form still claimable from a past season |
 | `POST` | `/api/v1/seasons/{season_id}/me/awakening` | Claim the chosen character's final form |
 | `POST` | `/api/v1/story/attempts` | Open a seeded story duel |
 | `POST` | `/api/v1/story/attempts/{game_id}/result` | Confirm the finished duel and read its reward receipt |
