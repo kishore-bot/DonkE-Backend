@@ -21,6 +21,8 @@ CATALOG = {
     "monsoon_back": CatalogProduct("Monsoon card back", "card_back", 60),
     "poorayil_frame": CatalogProduct("Poorayil festival frame", "frame", 90),
     "kettuvallam_title": CatalogProduct("Kettuvallam Captain", "title", 75),
+    "grimoire_fan:emote": CatalogProduct("Grimoire Fan", "emote", 45),
+    "duelist_salute:emote": CatalogProduct("Duelist Salute", "emote", 70),
     "vishu_kani_frame": CatalogProduct(
         "Vishu Kani frame", "frame", 110, "Vishu", ((4, 1), (4, 20))
     ),

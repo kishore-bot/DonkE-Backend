@@ -1416,6 +1416,37 @@
         "title": "EarnedGift",
         "type": "object"
       },
+      "EmoteMotion": {
+        "enum": [
+          "resolve",
+          "salute",
+          "flourish"
+        ],
+        "type": "string"
+      },
+      "EmoteSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "sku": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sku"
+          }
+        },
+        "required": [
+          "sku"
+        ],
+        "title": "EmoteSelection",
+        "type": "object"
+      },
       "ErrorBody": {
         "properties": {
           "code": {
@@ -3675,6 +3706,32 @@
         "title": "RoomInvite",
         "type": "object"
       },
+      "SceneEmote": {
+        "properties": {
+          "motion": {
+            "$ref": "#/components/schemas/EmoteMotion",
+            "default": "resolve"
+          },
+          "sku": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sku"
+          },
+          "title": {
+            "default": "Standard celebration",
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "title": "SceneEmote",
+        "type": "object"
+      },
       "SeasonCreate": {
         "additionalProperties": false,
         "properties": {
@@ -3720,6 +3777,26 @@
           "reason"
         ],
         "title": "SeasonCreate",
+        "type": "object"
+      },
+      "SeasonEmotes": {
+        "properties": {
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/SceneEmote"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "selected": {
+            "$ref": "#/components/schemas/SceneEmote"
+          }
+        },
+        "required": [
+          "selected",
+          "options"
+        ],
+        "title": "SeasonEmotes",
         "type": "object"
       },
       "SeasonGifts": {
@@ -4427,6 +4504,9 @@
           "character": {
             "$ref": "#/components/schemas/CharacterPreview"
           },
+          "emote": {
+            "$ref": "#/components/schemas/SceneEmote"
+          },
           "events": {
             "items": {
               "discriminator": {
@@ -4505,9 +4585,61 @@
           "chapter_title",
           "rival",
           "character",
-          "rewards_eligible"
+          "rewards_eligible",
+          "emote"
         ],
         "title": "StoryAttempt",
+        "type": "object"
+      },
+      "StoryHighlight": {
+        "properties": {
+          "alternative_safe_rate": {
+            "title": "Alternative Safe Rate",
+            "type": "number"
+          },
+          "alternative_samples": {
+            "title": "Alternative Samples",
+            "type": "integer"
+          },
+          "card": {
+            "$ref": "#/components/schemas/Card"
+          },
+          "emote": {
+            "$ref": "#/components/schemas/SceneEmote"
+          },
+          "legal_choices": {
+            "title": "Legal Choices",
+            "type": "integer"
+          },
+          "move": {
+            "title": "Move",
+            "type": "integer"
+          },
+          "played_safe_rate": {
+            "title": "Played Safe Rate",
+            "type": "number"
+          },
+          "played_samples": {
+            "title": "Played Samples",
+            "type": "integer"
+          },
+          "version": {
+            "default": "strike-review-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "move",
+          "card",
+          "legal_choices",
+          "played_safe_rate",
+          "alternative_safe_rate",
+          "played_samples",
+          "alternative_samples",
+          "emote"
+        ],
+        "title": "StoryHighlight",
         "type": "object"
       },
       "StoryProgress": {
@@ -11415,6 +11547,130 @@
         ]
       }
     },
+    "/api/v1/seasons/{season_id}/me/emote": {
+      "get": {
+        "operationId": "selected_emote_api_v1_seasons__season_id__me_emote_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "season_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Season Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonEmotes"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Selected Emote",
+        "tags": [
+          "Progression"
+        ]
+      },
+      "put": {
+        "operationId": "choose_emote_api_v1_seasons__season_id__me_emote_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "season_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Season Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmoteSelection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonEmotes"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Choose Emote",
+        "tags": [
+          "Progression"
+        ]
+      }
+    },
     "/api/v1/seasons/{season_id}/me/story": {
       "get": {
         "operationId": "get_progress_api_v1_seasons__season_id__me_story_get",
@@ -12252,6 +12508,72 @@
           }
         ],
         "summary": "Story Coach",
+        "tags": [
+          "Story"
+        ]
+      }
+    },
+    "/api/v1/story/attempts/{game_id}/highlight": {
+      "get": {
+        "operationId": "story_highlight_api_v1_story_attempts__game_id__highlight_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/StoryHighlight"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Story Highlight Api V1 Story Attempts  Game Id  Highlight Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Story Highlight",
         "tags": [
           "Story"
         ]

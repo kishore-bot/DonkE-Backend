@@ -13,6 +13,13 @@ class RivalDecision:
     card: str
 
 
+@dataclass(frozen=True, slots=True)
+class StrikeDecision:
+    move: int
+    snapshot: str
+    card: str
+
+
 class SeededDuel:
     """Expose one human seat through the existing practice move protocol."""
 
@@ -24,6 +31,7 @@ class SeededDuel:
         *,
         intent: RivalIntent = "steady",
         decision: RivalDecision | None = None,
+        strike_decision: StrikeDecision | None = None,
     ):
         self.game = game
         self.seed = seed
@@ -31,6 +39,7 @@ class SeededDuel:
         self.remaining = remaining
         self.intent: RivalIntent = intent
         self.decision = decision
+        self.strike_decision = strike_decision
         self.events: list[dict] = []
         self.advance_rival()
 
@@ -77,7 +86,8 @@ class SeededDuel:
     def play(self, card: str, call_strike: bool) -> tuple[SeededDuel, str]:
         if call_strike and not self.available(self.player_view()):
             raise ValueError("strike_call_unavailable")
-        game = OnlineGame.restore(self.game.snapshot())
+        opening = self.game.snapshot()
+        game = OnlineGame.restore(opening)
         events = json.loads(game.play(0, card))
         duel = SeededDuel(
             game,
@@ -85,6 +95,7 @@ class SeededDuel:
             2 if call_strike else self.remaining,
             intent=self.intent,
             decision=self.decision,
+            strike_decision=self.strike_decision,
         )
         rival_events = duel.events
         duel.events = [{"event": "strike_called", "target": 1}] if call_strike else []
@@ -92,6 +103,12 @@ class SeededDuel:
             duel.events.append(event)
             if duel.remaining and (result := duel.resolve(event)) is not None:
                 duel.events.append({"event": "strike_call_resolved", "success": result})
+                if result:
+                    view = self.player_view()
+                    if len(view["legal_moves"]) > 1:
+                        duel.strike_decision = StrikeDecision(
+                            view["version"] + 1, opening, card
+                        )
         return duel, duel.snapshot()
 
     def resolve(self, event: dict) -> bool | None:
@@ -115,6 +132,9 @@ class SeededDuel:
             "remaining": self.remaining,
             "intent": self.intent,
             "decision": asdict(self.decision) if self.decision is not None else None,
+            "strike_decision": asdict(self.strike_decision)
+            if self.strike_decision is not None
+            else None,
             "events": self.events,
         }
 
@@ -123,12 +143,14 @@ class SeededDuel:
         game = OnlineGame.restore(snapshot["native"])
         assert game.turn != 1
         first = snapshot["decision"]
+        strike = snapshot.get("strike_decision")
         duel = cls(
             game,
             snapshot["seed"],
             snapshot["remaining"],
             intent=snapshot["intent"],
             decision=RivalDecision(**first) if first else None,
+            strike_decision=StrikeDecision(**strike) if strike else None,
         )
         duel.events = snapshot["events"]
         return duel

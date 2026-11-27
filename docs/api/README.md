@@ -139,6 +139,9 @@ Run `uv run python -m app.modules.ai.mcp_server` for stdio, or add `--http` for 
 | `POST` | `/api/v1/story/attempts` | Open a seeded story duel |
 | `POST` | `/api/v1/story/attempts/{game_id}/result` | Confirm the finished duel and read its reward receipt |
 | `GET` | `/api/v1/story/attempts/{game_id}/coach` | Read engine evidence or a cited rule for a finished attempt |
+| `GET` | `/api/v1/seasons/{season_id}/me/emote` | Read the account's equipped emote and owned options for the active season |
+| `PUT` | `/api/v1/seasons/{season_id}/me/emote` | Equip an owned SKU or restore the standard emote with null |
+| `GET` | `/api/v1/story/attempts/{game_id}/highlight` | Read an owner-only standout Strike review, or JSON null when it does not qualify |
 | `POST` | `/api/v1/story/attempts/{game_id}/share` | Create a 30-day browser challenge for a finished duel |
 | `GET` | `/api/v1/story/challenges/{code}` | Show the public matchup and result summary |
 | `POST` | `/api/v1/story/challenges/{code}/attempts` | Start the shared opening deal as an unranked replay |

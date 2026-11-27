@@ -12,6 +12,7 @@ from app.modules.matches.repository import MatchRepository
 from app.modules.matches.settlement import read_replay
 from app.modules.progression import service, squad
 from app.modules.progression.analytics import MatchAnalytics, match_analytics
+from app.modules.progression.emotes import EmoteSelection, SeasonEmotes, season_emotes
 from app.modules.progression.schemas import (
     AchievementsView,
     CatalogItem,
@@ -140,6 +141,30 @@ async def choose_character(
             player.profile.id,
             datetime.now(UTC),
             character_id=body.character_id,
+        )
+
+
+@router.get("/seasons/{season_id}/me/emote")
+async def selected_emote(
+    season_id: UUID, player: CurrentPlayer, platform: PlatformDep, response: Response
+) -> SeasonEmotes:
+    response.headers["Cache-Control"] = "no-store"
+    async with platform.sessions() as db:
+        return await season_emotes(db, season_id, player.profile.id, datetime.now(UTC))
+
+
+@router.put("/seasons/{season_id}/me/emote", dependencies=Writes)
+async def choose_emote(
+    season_id: UUID,
+    body: EmoteSelection,
+    player: CurrentPlayer,
+    platform: PlatformDep,
+    response: Response,
+) -> SeasonEmotes:
+    response.headers["Cache-Control"] = "no-store"
+    async with platform.sessions.begin() as db:
+        return await season_emotes(
+            db, season_id, player.profile.id, datetime.now(UTC), body
         )
 
 

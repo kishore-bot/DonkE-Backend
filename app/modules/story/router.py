@@ -16,7 +16,7 @@ from app.modules.ai.index import ranked_rules
 from app.modules.ai.router import AI
 from app.modules.game.repository import StoryPin
 from app.modules.game.router import AccessToken, Service
-from app.modules.game.schemas import PracticeCreated
+from app.modules.game.schemas import PracticeCreated, SceneEmote
 from app.modules.game.seeded import SeededDuel
 from app.modules.game.story_store import PIN, StoryStore, for_attempt
 from app.modules.identity.router import (
@@ -26,6 +26,7 @@ from app.modules.identity.router import (
     current_player,
 )
 from app.modules.lobby.router import Writes
+from app.modules.progression.emotes import pinned_emote
 from app.modules.progression.models import SeasonCharacter, SeasonSquadMember
 from app.modules.progression.season_content import PACKS, CharacterPreview
 from app.modules.progression.service import active_manifest
@@ -46,6 +47,7 @@ from app.modules.story.chapters import (
     describe,
 )
 from app.modules.story.coach import DuelCoach, explain
+from app.modules.story.highlights import StoryHighlight, stored_highlight
 from app.modules.story.progression import (
     AwakeningPath,
     PendingAwakening,
@@ -78,6 +80,7 @@ class StoryAttempt(PracticeCreated):
     rival: str
     character: CharacterPreview
     rewards_eligible: bool
+    emote: SceneEmote
 
 
 ChallengeCode = Annotated[
@@ -106,6 +109,7 @@ def story_attempt(
         rival=chapter.rival,
         character=character,
         rewards_eligible=pin.player_id is not None,
+        emote=pin.emote,
     )
 
 
@@ -185,6 +189,9 @@ async def start_duel(
             player_id,
             squad_party_id=squad_member.party_id if squad_member else None,
             chapter_id=chapter.id,
+            emote=await pinned_emote(db, manifest.season_id, player_id)
+            if player_id
+            else SceneEmote(),
         )
     if player_id is not None:
         await limit(
@@ -363,6 +370,16 @@ async def claim_awakening(
 ) -> StoryProgress:
     async with platform.sessions.begin() as db:
         return await awaken(db, season_id, player.profile.id, datetime.now(UTC))
+
+
+@router.get("/story/attempts/{game_id}/highlight")
+async def story_highlight(
+    game_id: UUID, player: CurrentPlayer, platform: PlatformDep, response: Response
+) -> StoryHighlight | None:
+    actor = player.profile.id
+    await limit(platform, "story_highlight", str(actor), 15, 60)
+    response.headers["Cache-Control"] = "no-store"
+    return await stored_highlight(platform, game_id, actor)
 
 
 @router.get("/story/attempts/{game_id}/coach")

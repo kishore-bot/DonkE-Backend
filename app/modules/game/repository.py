@@ -6,7 +6,7 @@ from uuid import UUID
 
 from donke_engine import PracticeGame
 
-from app.modules.game.schemas import GameUpdate, PracticePlayRequest
+from app.modules.game.schemas import GameUpdate, PracticePlayRequest, SceneEmote
 from app.modules.game.seeded import RivalIntent, SeededDuel
 
 
@@ -26,6 +26,7 @@ class StoryPin:
     intent_source: Literal["gemini", "engine"] = "engine"
     squad_party_id: UUID | None = None
     chapter_id: str = "trial"
+    emote: SceneEmote = field(default_factory=SceneEmote)
 
 
 @dataclass(slots=True)

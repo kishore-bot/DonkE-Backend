@@ -66,6 +66,23 @@ class SeasonCharacter(Base):
     character_id: Mapped[str] = mapped_column(String(40))
 
 
+class SeasonEmote(Base):
+    __tablename__ = "season_emotes"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["player_id", "sku"],
+            ["cosmetics_owned.player_id", "cosmetics_owned.sku"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    season_id: Mapped[UUID] = mapped_column(
+        ForeignKey("seasons.id", ondelete="CASCADE"), primary_key=True
+    )
+    player_id: Mapped[UUID] = mapped_column(primary_key=True)
+    sku: Mapped[str] = mapped_column(String(80))
+
+
 class SeasonSquad(Base):
     __tablename__ = "season_squads"
     __table_args__ = (CheckConstraint("target BETWEEN 2 AND 4", name="squad_size"),)

@@ -20,6 +20,16 @@ type Rank = Literal[
     "Ace",
 ]
 
+type EmoteMotion = Literal["resolve", "salute", "flourish"]
+
+
+class SceneEmote(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    sku: str | None = None
+    title: str = "Standard celebration"
+    motion: EmoteMotion = "resolve"
+
 
 class Card(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)

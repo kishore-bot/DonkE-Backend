@@ -27,6 +27,7 @@ class StoryDuel(Base):
     duel: Mapped[dict] = mapped_column(JSONB)
     finished: Mapped[bool]
     receipt: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
+    highlight: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
 
 
 class StoryDuelCommand(Base):
