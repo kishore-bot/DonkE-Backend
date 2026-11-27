@@ -26,6 +26,7 @@ class StoryPin:
     player_id: UUID | None
     intent: RivalIntent = "steady"
     intent_source: Literal["gemini", "engine"] = "engine"
+    squad_party_id: UUID | None = None
 
 
 @dataclass(slots=True)

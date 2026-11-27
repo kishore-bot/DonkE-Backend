@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.modules.game.repository import StoryPin
-from app.modules.progression import service
+from app.modules.progression import service, squad
+from app.modules.progression.calendar import CLAIM_GRACE, claim_deadline, window_open
 from app.modules.progression.models import (
     Season,
     SeasonCharacter,
@@ -18,14 +19,11 @@ from app.modules.progression.models import (
 
 from app.modules.story.awakening import (
     AWAKENING_POINTS,
-    CLAIM_GRACE,
     PATH_VERSION,
     PathStep,
     Requirement,
-    claim_deadline,
     requirements,
     resolve_path,
-    window_open,
 )
 
 CLEAR_POINTS = 40
@@ -168,10 +166,16 @@ async def awakening_path(
 
 
 async def settle(
-    db: AsyncSession, pin: StoryPin, player_id: UUID, game_id: UUID, escaped: bool
+    db: AsyncSession,
+    pin: StoryPin,
+    player_id: UUID,
+    game_id: UUID,
+    escaped: bool,
+    now: datetime,
 ) -> StoryResult:
     first_clear = False
     if escaped:
+        await service.lock_season_schedule(db, read=True)
         wallet = await service.wallet_lock(db, player_id)
         season = await db.get(Season, pin.season_id)
         if season is None or season.pack_key != pin.pack_key:
@@ -201,6 +205,10 @@ async def settle(
         else:
             stored = await db.get(SeasonStoryProgress, (pin.season_id, player_id))
             first_clear = stored is not None and stored.clear_game_id == game_id
+        if pin.squad_party_id is not None:
+            await squad.contribute(
+                db, season, pin.squad_party_id, player_id, game_id, now
+            )
     return StoryResult(
         escaped=escaped,
         first_clear=first_clear,

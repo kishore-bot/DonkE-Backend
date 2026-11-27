@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -10,7 +10,7 @@ from app.modules.identity.router import CurrentPlayer, PlatformDep
 from app.modules.lobby.router import Writes
 from app.modules.matches.repository import MatchRepository
 from app.modules.matches.settlement import read_replay
-from app.modules.progression import service
+from app.modules.progression import service, squad
 from app.modules.progression.analytics import MatchAnalytics, match_analytics
 from app.modules.progression.schemas import (
     AchievementsView,
@@ -18,6 +18,7 @@ from app.modules.progression.schemas import (
     CloseSeason,
     MySeason,
     SeasonCreate,
+    SeasonGifts,
     SeasonInfo,
     Standing,
     WalletView,
@@ -68,6 +69,40 @@ async def equip(sku: Sku, player: CurrentPlayer, progress: Progression) -> None:
 @router.get("/seasons/current")
 async def current(player: CurrentPlayer, progress: Progression) -> MySeason | None:
     return await progress.current(player.profile.id)
+
+
+@router.get("/seasons/rewards")
+async def season_rewards(
+    player: CurrentPlayer, progress: Progression, response: Response
+) -> list[SeasonGifts]:
+    """List earned gifts from the active packed season and its recent predecessors."""
+    response.headers["Cache-Control"] = "no-store"
+    return await progress.gifts(player.profile.id)
+
+
+@router.get("/seasons/squads")
+async def season_squads(
+    player: CurrentPlayer, platform: PlatformDep, response: Response
+) -> squad.SquadOverview:
+    response.headers["Cache-Control"] = "no-store"
+    async with platform.sessions() as db:
+        return await squad.overview(db, player.profile.id, datetime.now(UTC))
+
+
+@router.post("/seasons/{season_id}/squad", dependencies=Writes)
+async def enroll_squad(
+    season_id: UUID, player: CurrentPlayer, platform: PlatformDep
+) -> squad.SquadProgress:
+    async with platform.sessions.begin() as db:
+        return await squad.enroll(db, season_id, player.profile.id, datetime.now(UTC))
+
+
+@router.post("/seasons/{season_id}/squad/claim", dependencies=Writes)
+async def claim_squad(
+    season_id: UUID, player: CurrentPlayer, platform: PlatformDep
+) -> squad.SquadProgress:
+    async with platform.sessions.begin() as db:
+        return await squad.claim(db, season_id, player.profile.id, datetime.now(UTC))
 
 
 @router.get("/seasons/active/manifest")
@@ -127,11 +162,15 @@ async def claim_tier(
 
 @router.post("/seasons/{season_id}/weekly/{challenge}/claim", dependencies=Writes)
 async def claim_weekly(
-    season_id: UUID, challenge: Sku, player: CurrentPlayer, progress: Progression
+    season_id: UUID,
+    challenge: Sku,
+    player: CurrentPlayer,
+    progress: Progression,
+    week: date | None = None,
 ) -> dict[str, bool]:
     return {
         "credited": await progress.claim(
-            player.profile.id, season_id, challenge=challenge
+            player.profile.id, season_id, challenge=challenge, week=week
         )
     }
 

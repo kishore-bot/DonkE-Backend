@@ -1,7 +1,16 @@
 from datetime import date, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, Double, ForeignKey, String, func
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    Double,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    String,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.platform import Base
@@ -55,6 +64,35 @@ class SeasonCharacter(Base):
         ForeignKey("players.id", ondelete="CASCADE"), primary_key=True
     )
     character_id: Mapped[str] = mapped_column(String(40))
+
+
+class SeasonSquad(Base):
+    __tablename__ = "season_squads"
+    __table_args__ = (CheckConstraint("target BETWEEN 2 AND 4", name="squad_size"),)
+
+    season_id: Mapped[UUID] = mapped_column(
+        ForeignKey("seasons.id", ondelete="CASCADE"), primary_key=True
+    )
+    # Persist the enrollment after the live party is deleted.
+    party_id: Mapped[UUID] = mapped_column(primary_key=True)
+    target: Mapped[int]
+
+
+class SeasonSquadMember(Base):
+    __tablename__ = "season_squad_members"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["season_id", "party_id"],
+            ["season_squads.season_id", "season_squads.party_id"],
+            ondelete="CASCADE",
+        ),
+        Index("season_squad_roster", "season_id", "party_id"),
+    )
+
+    season_id: Mapped[UUID] = mapped_column(primary_key=True)
+    player_id: Mapped[UUID] = mapped_column(primary_key=True)
+    party_id: Mapped[UUID]
+    clear_game_id: Mapped[UUID | None]
 
 
 class SeasonPlayer(Base):

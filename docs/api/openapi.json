@@ -1271,6 +1271,83 @@
         "title": "DuelCoach",
         "type": "object"
       },
+      "EarnedGift": {
+        "properties": {
+          "act": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Act"
+          },
+          "claimed": {
+            "title": "Claimed",
+            "type": "boolean"
+          },
+          "coins": {
+            "default": 0,
+            "title": "Coins",
+            "type": "integer"
+          },
+          "cosmetic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cosmetic"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "tiers",
+              "weekly",
+              "bonus"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "points": {
+            "default": 0,
+            "title": "Points",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "week": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week"
+          }
+        },
+        "required": [
+          "kind",
+          "key",
+          "title",
+          "claimed"
+        ],
+        "title": "EarnedGift",
+        "type": "object"
+      },
       "ErrorBody": {
         "properties": {
           "code": {
@@ -3577,6 +3654,39 @@
         "title": "SeasonCreate",
         "type": "object"
       },
+      "SeasonGifts": {
+        "properties": {
+          "claim_deadline": {
+            "format": "date-time",
+            "title": "Claim Deadline",
+            "type": "string"
+          },
+          "gifts": {
+            "items": {
+              "$ref": "#/components/schemas/EarnedGift"
+            },
+            "title": "Gifts",
+            "type": "array"
+          },
+          "season_id": {
+            "format": "uuid",
+            "title": "Season Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season_id",
+          "title",
+          "claim_deadline",
+          "gifts"
+        ],
+        "title": "SeasonGifts",
+        "type": "object"
+      },
       "SeasonInfo": {
         "properties": {
           "closed_at": {
@@ -3996,6 +4106,95 @@
           "ticket"
         ],
         "title": "SocketTicket",
+        "type": "object"
+      },
+      "SquadOverview": {
+        "properties": {
+          "active_season_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Season Id"
+          },
+          "squads": {
+            "items": {
+              "$ref": "#/components/schemas/SquadProgress"
+            },
+            "title": "Squads",
+            "type": "array"
+          }
+        },
+        "required": [
+          "active_season_id",
+          "squads"
+        ],
+        "title": "SquadOverview",
+        "type": "object"
+      },
+      "SquadProgress": {
+        "properties": {
+          "can_claim": {
+            "title": "Can Claim",
+            "type": "boolean"
+          },
+          "claim_deadline": {
+            "format": "date-time",
+            "title": "Claim Deadline",
+            "type": "string"
+          },
+          "claimed": {
+            "title": "Claimed",
+            "type": "boolean"
+          },
+          "coins": {
+            "default": 60,
+            "title": "Coins",
+            "type": "integer"
+          },
+          "completed": {
+            "title": "Completed",
+            "type": "integer"
+          },
+          "contributed": {
+            "title": "Contributed",
+            "type": "boolean"
+          },
+          "cosmetic": {
+            "default": "Squad Finale frame",
+            "title": "Cosmetic",
+            "type": "string"
+          },
+          "season_id": {
+            "format": "uuid",
+            "title": "Season Id",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season_id",
+          "title",
+          "completed",
+          "target",
+          "contributed",
+          "claim_deadline",
+          "can_claim",
+          "claimed"
+        ],
+        "title": "SquadProgress",
         "type": "object"
       },
       "Standing": {
@@ -10653,6 +10852,103 @@
         ]
       }
     },
+    "/api/v1/seasons/rewards": {
+      "get": {
+        "description": "List earned gifts from the active packed season and its recent predecessors.",
+        "operationId": "season_rewards_api_v1_seasons_rewards_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SeasonGifts"
+                  },
+                  "title": "Response Season Rewards Api V1 Seasons Rewards Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Season Rewards",
+        "tags": [
+          "Progression"
+        ]
+      }
+    },
+    "/api/v1/seasons/squads": {
+      "get": {
+        "operationId": "season_squads_api_v1_seasons_squads_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SquadOverview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Season Squads",
+        "tags": [
+          "Progression"
+        ]
+      }
+    },
     "/api/v1/seasons/{season_id}/board": {
       "get": {
         "operationId": "board_api_v1_seasons__season_id__board_get",
@@ -11086,6 +11382,122 @@
         ]
       }
     },
+    "/api/v1/seasons/{season_id}/squad": {
+      "post": {
+        "operationId": "enroll_squad_api_v1_seasons__season_id__squad_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "season_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Season Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SquadProgress"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Enroll Squad",
+        "tags": [
+          "Progression"
+        ]
+      }
+    },
+    "/api/v1/seasons/{season_id}/squad/claim": {
+      "post": {
+        "operationId": "claim_squad_api_v1_seasons__season_id__squad_claim_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "season_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Season Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SquadProgress"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Claim Squad",
+        "tags": [
+          "Progression"
+        ]
+      }
+    },
     "/api/v1/seasons/{season_id}/tiers/{tier}/claim": {
       "post": {
         "operationId": "claim_tier_api_v1_seasons__season_id__tiers__tier__claim_post",
@@ -11182,6 +11594,23 @@
               "minLength": 1,
               "title": "Challenge",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "week",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Week"
             }
           }
         ],

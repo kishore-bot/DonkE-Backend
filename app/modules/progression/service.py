@@ -1,7 +1,7 @@
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,11 +15,13 @@ from app.modules.progression.analytics import (
     SeatStats,
     finishing_ranks,
 )
+from app.modules.progression.calendar import CLAIM_GRACE, claim_deadline, window_open
 from app.modules.progression.catalog import (
     ACHIEVEMENTS,
     BONUS_TRACK,
     CATALOG,
     PERKS,
+    SQUAD_COSMETIC,
     STREAK_DAYS,
     TIER_POINTS,
     TIERS,
@@ -27,6 +29,7 @@ from app.modules.progression.catalog import (
     bank_share,
     boosted_coins,
     in_window,
+    tier_reached,
     window_end,
 )
 from app.modules.progression.models import (
@@ -48,9 +51,11 @@ from app.modules.progression.schemas import (
     BonusView,
     CatalogItem,
     ChallengeView,
+    EarnedGift,
     MySeason,
     PerkView,
     SeasonCreate,
+    SeasonGifts,
     SeasonInfo,
     Standing,
     TierView,
@@ -66,8 +71,8 @@ CHALLENGES = {
     "play_three": ("Play three matches", "games", 3, 20),
     "play_seven": ("Play seven matches", "games", 7, 40),
     "escape_twice": ("Escape twice", "escapes", 2, 25),
-    "give_three_cuts": ("Give three Vettus", "cuts", 3, 30),
-    "give_eight_cuts": ("Give eight Vettus", "cuts", 8, 45),
+    "give_three_cuts": ("Give three Strikes", "cuts", 3, 30),
+    "give_eight_cuts": ("Give eight Strikes", "cuts", 8, 45),
 }
 
 
@@ -322,6 +327,64 @@ async def close_season(
 
 
 TIER_REWARDS = {10: "card_back", 20: "title", 25: "emote", 30: "frame"}
+EARNED_COSMETICS = {
+    "tier": "Season tier",
+    "bonus": "Streak bonus",
+    "season": "Season reward",
+}
+
+
+def cosmetic_slot(sku: str) -> str:
+    entry = CATALOG.get(sku)
+    return entry.slot if entry else sku.rsplit(":", 1)[-1]
+
+
+def earned_cosmetic(sku: str, item: Cosmetic) -> CatalogItem:
+    origin = sku.split(":", 1)[0]
+    slot = cosmetic_slot(sku)
+    label = (
+        SQUAD_COSMETIC
+        if origin == "squad"
+        else f"{EARNED_COSMETICS.get(origin, 'Earned')} {slot.replace('_', ' ')}"
+    )
+    return CatalogItem(
+        sku=sku,
+        label=label,
+        slot=slot,
+        price=0,
+        owned=True,
+        equipped=item.equipped,
+        available=False,
+    )
+
+
+async def reward_refs(db: AsyncSession, season_id: UUID, player: UUID) -> set[str]:
+    return set(
+        await db.scalars(
+            select(CoinLedger.reference).where(
+                CoinLedger.player_id == player,
+                or_(
+                    CoinLedger.reference.startswith(f"tier:{season_id}:{player}:"),
+                    CoinLedger.reference.startswith(f"week:{season_id}:{player}:"),
+                    CoinLedger.reference.startswith(f"bonus:{season_id}:{player}:"),
+                ),
+            )
+        )
+    )
+
+
+def claim_week(season: Season, now: datetime, selected: date | None = None) -> date:
+    latest = week_start(min(now, season.ends_at - timedelta(microseconds=1)), season)
+    if selected is None or selected == latest:
+        return latest
+    first = season.starts_at.astimezone(UTC).date()
+    if (
+        season.pack_key is None
+        or not first <= selected < latest
+        or (selected - first).days % 7
+    ):
+        raise AppError(409, "reward_week_unavailable", "Choose an act from this season")
+    return selected
 
 
 async def streak_stars(db: AsyncSession, season_id: UUID, player: UUID) -> int:
@@ -568,7 +631,7 @@ class ProgressionService:
                 )
             }
         today = datetime.now(UTC).date()
-        return [
+        standard = [
             CatalogItem(
                 sku=sku,
                 label=item.label,
@@ -581,6 +644,11 @@ class ProgressionService:
                 available_until=window_end(item.window, today),
             )
             for sku, item in CATALOG.items()
+        ]
+        return standard + [
+            earned_cosmetic(sku, item)
+            for sku, item in sorted(owned.items())
+            if sku not in CATALOG
         ]
 
     async def buy(self, player: UUID, sku: str) -> int:
@@ -617,11 +685,9 @@ class ProgressionService:
                     404, "cosmetic_not_owned", "Cosmetic not found in inventory"
                 )
 
-            def slot(key: str) -> str:
-                return CATALOG[key].slot if key in CATALOG else key.rsplit(":", 1)[-1]
-
+            slot = cosmetic_slot(sku)
             for item in owned:
-                if slot(item.sku) == slot(sku):
+                if cosmetic_slot(item.sku) == slot:
                     item.equipped = item.sku == sku
 
     async def current(self, player: UUID) -> MySeason | None:
@@ -633,14 +699,7 @@ class ProgressionService:
             progress = await db.get(SeasonPlayer, (season.id, player))
             week = week_start(now, season)
             weekly = await db.get(WeeklyPlayer, (season.id, player, week))
-            refs = set(
-                await db.scalars(
-                    select(CoinLedger.reference).where(
-                        CoinLedger.player_id == player,
-                        CoinLedger.kind.in_(["tier", "challenge", "bonus"]),
-                    )
-                )
-            )
+            refs = await reward_refs(db, season.id, player)
             points = progress.points if progress else 0
             perks = active_perks(points)
             days = await db.scalar(
@@ -702,6 +761,82 @@ class ProgressionService:
                 ],
             )
 
+    async def gifts(self, player: UUID) -> list[SeasonGifts]:
+        now = datetime.now(UTC)
+        async with self.platform.sessions() as db:
+            rows = await db.execute(
+                select(Season, SeasonPlayer.points)
+                .join(SeasonPlayer, SeasonPlayer.season_id == Season.id)
+                .where(
+                    SeasonPlayer.player_id == player,
+                    Season.pack_key.is_not(None),
+                    Season.starts_at <= now,
+                    Season.ends_at > now - CLAIM_GRACE,
+                )
+                .order_by(Season.ends_at)
+            )
+            inbox = []
+            for season, points in rows:
+                refs = await reward_refs(db, season.id, player)
+                first = season.starts_at.astimezone(UTC).date()
+                weeks = await db.scalars(
+                    select(WeeklyPlayer)
+                    .where(
+                        WeeklyPlayer.season_id == season.id,
+                        WeeklyPlayer.player_id == player,
+                        WeeklyPlayer.week >= first,
+                        WeeklyPlayer.week <= claim_week(season, now),
+                    )
+                    .order_by(WeeklyPlayer.week)
+                )
+                stars = await streak_stars(db, season.id, player)
+                gifts = [
+                    EarnedGift(
+                        kind="weekly",
+                        key=key,
+                        title=title,
+                        week=entry.week,
+                        act=(entry.week - first).days // 7 + 1,
+                        points=award,
+                        claimed=f"week:{season.id}:{player}:{entry.week}:{key}" in refs,
+                    )
+                    for entry in weeks
+                    for key, (title, attribute, target, award) in CHALLENGES.items()
+                    if getattr(entry, attribute) >= target
+                ]
+                gifts.extend(
+                    EarnedGift(
+                        kind="tiers",
+                        key=str(tier),
+                        title=f"Tier {tier}",
+                        coins=5 + tier,
+                        cosmetic=TIER_REWARDS.get(tier),
+                        claimed=f"tier:{season.id}:{player}:{tier}" in refs,
+                    )
+                    for tier in range(1, tier_reached(points) + 1)
+                )
+                gifts.extend(
+                    EarnedGift(
+                        kind="bonus",
+                        key=str(tier),
+                        title=f"Streak bonus {tier}",
+                        cosmetic=slot,
+                        claimed=f"bonus:{season.id}:{player}:{tier}" in refs,
+                    )
+                    for tier, (needed, slot) in BONUS_TRACK.items()
+                    if needed <= min(stars, 3)
+                )
+                if gifts:
+                    inbox.append(
+                        SeasonGifts(
+                            season_id=season.id,
+                            title=season.theme,
+                            claim_deadline=claim_deadline(season.ends_at),
+                            gifts=gifts,
+                        )
+                    )
+            return inbox
+
     async def claim(
         self,
         player: UUID,
@@ -710,16 +845,20 @@ class ProgressionService:
         tier: int | None = None,
         challenge: str | None = None,
         bonus: int | None = None,
+        week: date | None = None,
     ) -> bool:
-        now = datetime.now(UTC)
         async with self.platform.sessions.begin() as db:
-            season = await active_season(db, now)
-            if season is None or season.id != season_id:
+            await lock_season_schedule(db, read=True)
+            now = datetime.now(UTC)
+            season = await db.get(Season, season_id)
+            if season is None or not window_open(season.starts_at, season.ends_at, now):
+                raise AppError(409, "season_unavailable", "This season is unavailable")
+            if season.pack_key is None and (season.closed_at or now >= season.ends_at):
                 raise AppError(409, "season_unavailable", "This season is unavailable")
             wallet = await wallet_lock(db, player)
             progress = await db.get(SeasonPlayer, (season.id, player))
             if tier is not None:
-                if progress is None or progress.points < 10 * tier:
+                if progress is None or progress.points < TIER_POINTS * tier:
                     raise AppError(409, "tier_locked", "Earn more season points")
                 credited = await credit(
                     db, wallet, f"tier:{season_id}:{player}:{tier}", "tier", 5 + tier
@@ -749,7 +888,7 @@ class ProgressionService:
             if challenge not in CHALLENGES:
                 raise AppError(404, "challenge_not_found", "Challenge not found")
             _, attribute, target, points = CHALLENGES[challenge]
-            week = week_start(now, season)
+            week = claim_week(season, now, week)
             weekly = await db.get(WeeklyPlayer, (season.id, player, week))
             if progress is None or getattr(weekly, attribute, 0) < target:
                 raise AppError(

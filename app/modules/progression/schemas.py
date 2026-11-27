@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime, time, timedelta
+from typing import Literal
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
@@ -109,6 +110,25 @@ class MySeason(BaseModel):
     streak_target: int
     stars: int
     bonus: list[BonusView]
+
+
+class EarnedGift(BaseModel):
+    kind: Literal["tiers", "weekly", "bonus"]
+    key: str
+    title: str
+    week: date | None = None
+    act: int | None = None
+    coins: int = 0
+    points: int = 0
+    cosmetic: str | None = None
+    claimed: bool
+
+
+class SeasonGifts(BaseModel):
+    season_id: UUID
+    title: str
+    claim_deadline: datetime
+    gifts: list[EarnedGift]
 
 
 class Standing(BaseModel):

@@ -16,7 +16,8 @@ from app.modules.ai.knowledge import sources
 from app.modules.game.repository import StoryPin
 from app.modules.game.seeded import SeededDuel
 from app.modules.identity.schemas import Language
-from app.modules.story.awakening import requirements, resolve_path, window_open
+from app.modules.progression.calendar import window_open
+from app.modules.story.awakening import requirements, resolve_path
 from app.modules.story.coach import explain
 from app.modules.story.lines import FALLBACK, valid
 from app.modules.story.router import authored_duel

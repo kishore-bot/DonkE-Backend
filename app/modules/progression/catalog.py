@@ -114,6 +114,7 @@ PERKS = [
 TIER_POINTS = 10
 TIERS = 30
 STREAK_DAYS = 5
+SQUAD_COSMETIC = "Squad Finale frame"
 # Bonus tier -> (streak stars needed, cosmetic slot granted).
 BONUS_TRACK = {1: (1, "emote"), 2: (2, "card_back"), 3: (3, "title"), 4: (4, "frame")}
 

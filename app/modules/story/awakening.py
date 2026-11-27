@@ -1,14 +1,12 @@
 """Versioned prerequisites shared by the player coach and the claim service."""
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from typing import Literal
 
 from pydantic import BaseModel
 
 AWAKENING_POINTS = 300
 PATH_VERSION = "awakening-v1"
-CLAIM_GRACE = timedelta(days=3)
 
 type Requirement = Literal["choose_character", "clear_duel", "earn_points"]
 type StepId = Literal[
@@ -76,14 +74,6 @@ def requirements(selected: bool, cleared: bool, points: int) -> list[Requirement
         ("earn_points", points >= AWAKENING_POINTS),
     )
     return [requirement for requirement, complete in checklist if not complete]
-
-
-def claim_deadline(ends_at: datetime) -> datetime:
-    return ends_at + CLAIM_GRACE
-
-
-def window_open(starts_at: datetime, ends_at: datetime, now: datetime) -> bool:
-    return starts_at <= now < claim_deadline(ends_at)
 
 
 def resolve_path(

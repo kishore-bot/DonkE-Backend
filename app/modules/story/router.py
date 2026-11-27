@@ -24,7 +24,7 @@ from app.modules.identity.router import (
     current_player,
 )
 from app.modules.lobby.router import Writes
-from app.modules.progression.models import SeasonCharacter
+from app.modules.progression.models import SeasonCharacter, SeasonSquadMember
 from app.modules.progression.season_content import CharacterPreview
 from app.modules.progression.service import active_manifest
 from app.modules.story.challenge import (
@@ -130,6 +130,11 @@ async def start_duel(
             if player_id
             else None
         )
+        squad_member = (
+            await db.get(SeasonSquadMember, (body.season_id, player_id))
+            if player_id
+            else None
+        )
         cast = {character.id: character for character in manifest.pack.cast}
         character_id = (
             selection.character_id
@@ -142,7 +147,13 @@ async def start_duel(
                 "season_character_not_found",
                 "Character is unavailable in this season",
             )
-        pin = StoryPin(manifest.season_id, manifest.pack_key, character_id, player_id)
+        pin = StoryPin(
+            manifest.season_id,
+            manifest.pack_key,
+            character_id,
+            player_id,
+            squad_party_id=squad_member.party_id if squad_member else None,
+        )
     seed, rival = authored_duel(pin.pack_key)
     if body.adaptive and gateway.provider is not None:
         await limit(platform, "story_rival", client_host(request), 4, 60)
@@ -226,7 +237,7 @@ async def story_result(
         practice.story_result, game_id, body.attempt_token, player_id
     )
     async with platform.sessions.begin() as db:
-        return await settle(db, pin, player_id, game_id, escaped)
+        return await settle(db, pin, player_id, game_id, escaped, datetime.now(UTC))
 
 
 @router.get("/seasons/{season_id}/me/story")
