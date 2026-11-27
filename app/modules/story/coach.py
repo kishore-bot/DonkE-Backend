@@ -1,11 +1,17 @@
 import json
 
 from donke_engine import OnlineGame
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.modules.game.repository import StoryPin
-from app.modules.game.schemas import Card
+from app.modules.game.schemas import Card, StoryEvent
 from app.modules.game.seeded import SeededDuel
+from app.modules.story.replay import (
+    asks_for_private_state,
+    at_sequence,
+    replay_summary,
+    requested_sequence,
+)
 
 
 class RivalEvidence(BaseModel):
@@ -21,6 +27,29 @@ class DuelCoach(BaseModel):
     evidence: RivalEvidence | None = None
     answer: str
     citation: str | None = None
+    replay_event: StoryEvent | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+
+def grounded_replay(
+    events: tuple[StoryEvent, ...], question: str | None, sequence: int | None
+) -> DuelCoach | None:
+    if asks_for_private_state(question):
+        return DuelCoach(
+            answer="The coach can cite public recorded events and game rules."
+        )
+    sequence = sequence if sequence is not None else requested_sequence(question)
+    if sequence is None:
+        return None
+    event = at_sequence(events, sequence)
+    if event is None:
+        return DuelCoach(answer="That event was not recorded in this duel.")
+    return DuelCoach(
+        answer=replay_summary(event),
+        citation=f"replay:{event.sequence}",
+        replay_event=event,
+    )
 
 
 def explain(pin: StoryPin, duel: SeededDuel) -> DuelCoach:

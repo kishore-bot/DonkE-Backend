@@ -325,6 +325,24 @@
         "title": "AllSafeOutcome",
         "type": "object"
       },
+      "ArchiveChapter": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "ArchiveChapter",
+        "type": "object"
+      },
       "AuditEntry": {
         "properties": {
           "action": {
@@ -456,6 +474,45 @@
           "cards"
         ],
         "title": "BiggestPile",
+        "type": "object"
+      },
+      "Body_upload_media_api_v1_admin_season_media_post": {
+        "properties": {
+          "character_id": {
+            "maxLength": 40,
+            "title": "Character Id",
+            "type": "string"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "pack_key": {
+            "maxLength": 80,
+            "title": "Pack Key",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "slot": {
+            "maxLength": 24,
+            "title": "Slot",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "pack_key",
+          "character_id",
+          "slot",
+          "reason"
+        ],
+        "title": "Body_upload_media_api_v1_admin_season_media_post",
         "type": "object"
       },
       "BonusView": {
@@ -1021,6 +1078,53 @@
         "title": "CoinGrant",
         "type": "object"
       },
+      "CollectionEntry": {
+        "properties": {
+          "awakened": {
+            "title": "Awakened",
+            "type": "boolean"
+          },
+          "chapters": {
+            "items": {
+              "$ref": "#/components/schemas/ArchiveChapter"
+            },
+            "title": "Chapters",
+            "type": "array"
+          },
+          "character": {
+            "$ref": "#/components/schemas/CharacterPreview"
+          },
+          "ended_at": {
+            "format": "date-time",
+            "title": "Ended At",
+            "type": "string"
+          },
+          "pack_key": {
+            "title": "Pack Key",
+            "type": "string"
+          },
+          "season_id": {
+            "format": "uuid",
+            "title": "Season Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season_id",
+          "title",
+          "ended_at",
+          "pack_key",
+          "character",
+          "awakened",
+          "chapters"
+        ],
+        "title": "CollectionEntry",
+        "type": "object"
+      },
       "Commentary": {
         "properties": {
           "language": {
@@ -1326,6 +1430,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/RivalEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "replay_event": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryEvent"
               },
               {
                 "type": "null"
@@ -1790,6 +1904,16 @@
             "title": "Events",
             "type": "array"
           },
+          "objective": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryObjective"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "view": {
             "$ref": "#/components/schemas/PlayerView"
           }
@@ -2169,10 +2293,101 @@
         "title": "MatchRow",
         "type": "object"
       },
+      "MediaReview": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "publish",
+              "withdraw"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "reason"
+        ],
+        "title": "MediaReview",
+        "type": "object"
+      },
+      "MediaView": {
+        "properties": {
+          "bytes": {
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "character_id": {
+            "title": "Character Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "pack_key": {
+            "title": "Pack Key",
+            "type": "string"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "slot": {
+            "title": "Slot",
+            "type": "string"
+          },
+          "withdrawn_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawn At"
+          }
+        },
+        "required": [
+          "id",
+          "pack_key",
+          "character_id",
+          "slot",
+          "bytes",
+          "created_at",
+          "published_at",
+          "withdrawn_at"
+        ],
+        "title": "MediaView",
+        "type": "object"
+      },
       "Moment": {
         "enum": [
           "strike",
-          "victory"
+          "victory",
+          "transform"
         ],
         "type": "string"
       },
@@ -2786,6 +3001,16 @@
             "title": "Game Id",
             "type": "string"
           },
+          "objective": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryObjective"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "view": {
             "$ref": "#/components/schemas/PlayerView"
           }
@@ -2989,6 +3214,17 @@
                 "type": "null"
               }
             ]
+          },
+          "audio_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Url"
           },
           "caption": {
             "title": "Caption",
@@ -3950,6 +4186,14 @@
             "title": "Description",
             "type": "string"
           },
+          "routes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/StoryRoute"
+            },
+            "title": "Routes",
+            "type": "array"
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -4394,6 +4638,16 @@
             ],
             "title": "Character Id"
           },
+          "route": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryRoute"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "season_id": {
             "format": "uuid",
             "title": "Season Id",
@@ -4553,6 +4807,16 @@
             "title": "Game Id",
             "type": "string"
           },
+          "objective": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryObjective"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "pack_key": {
             "title": "Pack Key",
             "type": "string"
@@ -4564,6 +4828,32 @@
           "rival": {
             "title": "Rival",
             "type": "string"
+          },
+          "rival_intent": {
+            "default": "steady",
+            "title": "Rival Intent",
+            "type": "string"
+          },
+          "rival_memory": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryEvent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rival_target_rating": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rival Target Rating"
           },
           "season_id": {
             "format": "uuid",
@@ -4589,6 +4879,90 @@
           "emote"
         ],
         "title": "StoryAttempt",
+        "type": "object"
+      },
+      "StoryEvent": {
+        "properties": {
+          "cards": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cards"
+          },
+          "kind": {
+            "enum": [
+              "strike",
+              "escaped",
+              "finished",
+              "strike_called",
+              "strike_resolved"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "led_suit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Suit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "move": {
+            "title": "Move",
+            "type": "integer"
+          },
+          "recipient": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient"
+          },
+          "seat": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seat"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "success": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Success"
+          }
+        },
+        "required": [
+          "sequence",
+          "move",
+          "kind"
+        ],
+        "title": "StoryEvent",
         "type": "object"
       },
       "StoryHighlight": {
@@ -4640,6 +5014,33 @@
           "emote"
         ],
         "title": "StoryHighlight",
+        "type": "object"
+      },
+      "StoryObjective": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "met": {
+            "title": "Met",
+            "type": "boolean"
+          },
+          "route": {
+            "$ref": "#/components/schemas/StoryRoute"
+          },
+          "target": {
+            "title": "Target",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "route",
+          "count",
+          "target",
+          "met"
+        ],
+        "title": "StoryObjective",
         "type": "object"
       },
       "StoryProgress": {
@@ -4699,6 +5100,16 @@
             "title": "First Clear",
             "type": "boolean"
           },
+          "objective": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoryObjective"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "points": {
             "title": "Points",
             "type": "integer"
@@ -4712,6 +5123,14 @@
         ],
         "title": "StoryResult",
         "type": "object"
+      },
+      "StoryRoute": {
+        "enum": [
+          "seal",
+          "reef",
+          "storm"
+        ],
+        "type": "string"
       },
       "StrikeCallResolved": {
         "properties": {
@@ -7313,6 +7732,299 @@
         "summary": "Advance Cue",
         "tags": [
           "Season cues"
+        ]
+      }
+    },
+    "/api/v1/admin/season-media": {
+      "get": {
+        "operationId": "admin_media_api_v1_admin_season_media_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MediaView"
+                  },
+                  "title": "Response Admin Media Api V1 Admin Season Media Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Admin Media",
+        "tags": [
+          "Season media"
+        ]
+      },
+      "post": {
+        "operationId": "upload_media_api_v1_admin_season_media_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_media_api_v1_admin_season_media_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Upload Media",
+        "tags": [
+          "Season media"
+        ]
+      }
+    },
+    "/api/v1/admin/season-media/{asset_id}/preview": {
+      "get": {
+        "operationId": "preview_media_api_v1_admin_season_media__asset_id__preview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "307": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Preview Media",
+        "tags": [
+          "Season media"
+        ]
+      }
+    },
+    "/api/v1/admin/season-media/{asset_id}/review": {
+      "post": {
+        "operationId": "review_media_api_v1_admin_season_media__asset_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Asset Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaReview"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Review Media",
+        "tags": [
+          "Season media"
         ]
       }
     },
@@ -12468,6 +13180,23 @@
               ],
               "title": "Question"
             }
+          },
+          {
+            "in": "query",
+            "name": "sequence",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sequence"
+            }
           }
         ],
         "responses": {
@@ -12508,6 +13237,68 @@
           }
         ],
         "summary": "Story Coach",
+        "tags": [
+          "Story"
+        ]
+      }
+    },
+    "/api/v1/story/attempts/{game_id}/events": {
+      "get": {
+        "operationId": "story_events_api_v1_story_attempts__game_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StoryEvent"
+                  },
+                  "title": "Response Story Events Api V1 Story Attempts  Game Id  Events Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Story Events",
         "tags": [
           "Story"
         ]
@@ -12869,6 +13660,123 @@
         ]
       }
     },
+    "/api/v1/story/collection": {
+      "get": {
+        "operationId": "story_collection_api_v1_story_collection_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CollectionEntry"
+                  },
+                  "title": "Response Story Collection Api V1 Story Collection Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Story Collection",
+        "tags": [
+          "Story"
+        ]
+      }
+    },
+    "/api/v1/story/collection/{season_id}/{chapter_id}/attempts": {
+      "post": {
+        "operationId": "start_archived_attempt_api_v1_story_collection__season_id___chapter_id__attempts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "season_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Season Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "chapter_id",
+            "required": true,
+            "schema": {
+              "title": "Chapter Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryAttempt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Start Archived Attempt",
+        "tags": [
+          "Story"
+        ]
+      }
+    },
     "/api/v1/story/cues/{pack_key}/{character_id}/{moment}": {
       "get": {
         "operationId": "public_cue_api_v1_story_cues__pack_key___character_id___moment__get",
@@ -12898,7 +13806,8 @@
             "schema": {
               "enum": [
                 "strike",
-                "victory"
+                "victory",
+                "transform"
               ],
               "title": "Moment",
               "type": "string"
@@ -12972,7 +13881,8 @@
             "schema": {
               "enum": [
                 "strike",
-                "victory"
+                "victory",
+                "transform"
               ],
               "title": "Moment",
               "type": "string"
@@ -13020,6 +13930,124 @@
         "summary": "Cue Audio",
         "tags": [
           "Season cues"
+        ]
+      }
+    },
+    "/api/v1/story/media/{asset_id}": {
+      "get": {
+        "operationId": "public_media_api_v1_story_media__asset_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "307": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Public Media",
+        "tags": [
+          "Season media"
+        ]
+      }
+    },
+    "/api/v1/story/scenes/{pack_key}/{character_id}/model": {
+      "get": {
+        "operationId": "character_model_api_v1_story_scenes__pack_key___character_id__model_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_key",
+            "required": true,
+            "schema": {
+              "title": "Pack Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "title": "Response Character Model Api V1 Story Scenes  Pack Key   Character Id  Model Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Character Model",
+        "tags": [
+          "Season media"
         ]
       }
     },

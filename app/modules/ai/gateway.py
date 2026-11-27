@@ -97,8 +97,9 @@ class Gateway:
     async def embeddings(
         self, texts: list[str], *, query: bool
     ) -> list[list[float]] | None:
+        feature = "embedding_query" if query else "embedding_index"
         response = await self.call(
-            "embedding_query" if query else "embedding_index",
+            feature,
             lambda provider: provider.embed(texts, query=query),
         )
         if (
@@ -110,6 +111,7 @@ class Gateway:
             )
         ):
             return None
+        await self.platform.redis.hincrby(self.usage_key(), f"{feature}_successes", 1)
         return response
 
 

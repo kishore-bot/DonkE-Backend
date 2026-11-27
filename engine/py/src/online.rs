@@ -1,4 +1,4 @@
-use donke_core::{Card, Game, HouseRules, Play};
+use donke_core::{Card, Game, HouseRules, Play, Suit};
 use pyo3::{
     exceptions::{PyRuntimeError, PyValueError},
     prelude::*,
@@ -92,6 +92,27 @@ impl OnlineGame {
         let card =
             py.detach(|| donke_core::bot_move(&self.game, seat, level, iterations, &mut rng(seed)));
         card.map(|card| to_json(&card)).transpose()
+    }
+
+    /// A bounded search policy for a two-player story duel.
+    #[pyo3(signature = (seat, avoid_suit=None))]
+    fn story_move(
+        &self,
+        py: Python<'_>,
+        seat: usize,
+        avoid_suit: Option<&str>,
+    ) -> PyResult<Option<String>> {
+        let avoid = match avoid_suit {
+            None => None,
+            Some("Clubs") => Some(Suit::Clubs),
+            Some("Diamonds") => Some(Suit::Diamonds),
+            Some("Hearts") => Some(Suit::Hearts),
+            Some("Spades") => Some(Suit::Spades),
+            Some(_) => return Err(PyValueError::new_err("unknown_suit")),
+        };
+        py.detach(|| donke_core::story_duel_move(&self.game, seat, avoid))
+            .map(|card| to_json(&card))
+            .transpose()
     }
 
     /// Every legal move for `seat` with its safe rate, best first, as JSON.

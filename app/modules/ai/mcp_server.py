@@ -1,14 +1,25 @@
 import argparse
+from os import environ
+from uuid import UUID
 
 from mcp.server import MCPServer
+
+from app.core.config import Settings
+from app.core.errors import AppError
+from app.core.platform import open_platform
+from app.core.rate_limit import limit
+from app.modules.game.story_store import StoryStore
+from app.modules.identity.service import IdentityService
 
 from app.modules.ai.knowledge import RULES, sources
 from app.modules.progression.season_content import PACKS
 from app.modules.story.awakening import PATH_VERSION, STEPS
+from app.modules.story.replay import at_sequence, replay_summary
 
 server = MCPServer(
     "DonkE Rules", description="Read-only tools for the DonkE Kazhutha rules"
 )
+player_scope: str | None = None
 
 
 @server.tool()
@@ -51,6 +62,32 @@ def awakening_requirements() -> dict:
     }
 
 
+@server.tool()
+async def story_replay_event(attempt_id: UUID, sequence: int) -> dict:
+    """Read one public event from the signed-in player's finished story attempt."""
+    if not player_scope or sequence < 1:
+        return {}
+    settings = Settings()
+    if settings.postgres_dsn is None:
+        return {}
+    async with open_platform(settings) as platform:
+        try:
+            actor = await IdentityService(platform).authenticate(player_scope)
+            await limit(platform, "mcp_story_event", str(actor.profile.id), 30, 60)
+            store = StoryStore(platform)
+            _, duel = await store.finished(
+                attempt_id, store.token(attempt_id), player=actor.profile.id
+            )
+        except AppError:
+            return {}
+    event = at_sequence(duel.journal, sequence)
+    return (
+        {"event": event.model_dump(exclude_none=True), "summary": replay_summary(event)}
+        if event
+        else {}
+    )
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -60,4 +97,5 @@ if __name__ == "__main__":
     if args.http:
         server.run(transport="streamable-http", host="127.0.0.1", port=8001)
     else:
+        player_scope = environ.get("DONKE_MCP_PLAYER_TOKEN")
         server.run(transport="stdio")

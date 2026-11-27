@@ -6,7 +6,14 @@ from uuid import UUID
 
 from donke_engine import PracticeGame
 
-from app.modules.game.schemas import GameUpdate, PracticePlayRequest, SceneEmote
+from app.modules.game.schemas import (
+    GameUpdate,
+    PracticePlayRequest,
+    SceneEmote,
+    StoryEvent,
+    StoryRoute,
+    Suit,
+)
 from app.modules.game.seeded import RivalIntent, SeededDuel
 
 
@@ -27,6 +34,12 @@ class StoryPin:
     squad_party_id: UUID | None = None
     chapter_id: str = "trial"
     emote: SceneEmote = field(default_factory=SceneEmote)
+    route: StoryRoute | None = None
+    rival_budget: int | None = None
+    target_rating: int | None = None
+    remembered: StoryEvent | None = None
+    rival_avoid_suit: Suit | None = None
+    rival_expert: bool = False
 
 
 @dataclass(slots=True)

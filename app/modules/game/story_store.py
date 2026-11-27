@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 
 from donke_engine import OnlineGame
 from pydantic import TypeAdapter
-from sqlalchemy import delete, func, select
+from sqlalchemy import Integer, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
@@ -16,13 +16,16 @@ from app.core.platform import Platform
 from app.modules.game.commands import hint_game, play_game, validate_retry
 from app.modules.game.models import StoryDuel, StoryDuelCommand
 from app.modules.game.repository import StoryPin
+from app.modules.game.rival_memory import remember
 from app.modules.game.schemas import (
     GameUpdate,
     PracticeCreated,
     PracticeHint,
     PracticePlayRequest,
+    StoryEvent,
 )
 from app.modules.game.seeded import SeededDuel
+from app.modules.game.story_rules import public_event
 from app.modules.identity.models import Player
 from app.modules.progression.service import lock_season_schedule
 
@@ -158,13 +161,17 @@ class StoryStore:
                     PracticePlayRequest.model_validate(prior.command), command
                 )
                 return GameUpdate.model_validate(prior.update)
-            game = SeededDuel.restore(row.duel)
+            game = await self.replay_game(db, row)
             next_game, update = await run_in_threadpool(play_game, game, command)
             assert isinstance(next_game, SeededDuel)
             row.duel = next_game.freeze()
             row.finished = update.view.outcome is not None
             if row.finished:
-                row.expires_at = datetime.now(UTC) + FINISHED_RETENTION
+                finished_at = datetime.now(UTC)
+                row.expires_at = finished_at + FINISHED_RETENTION
+                await remember(
+                    db, PIN.validate_python(row.pin), finished_at, next_game.journal
+                )
             db.add(
                 StoryDuelCommand(
                     duel_id=game_id,
@@ -175,16 +182,49 @@ class StoryStore:
             )
             return update
 
-    async def finished(self, game_id: UUID, token: str) -> tuple[StoryPin, SeededDuel]:
+    async def finished(
+        self, game_id: UUID, token: str, *, player: UUID | None = None
+    ) -> tuple[StoryPin, SeededDuel]:
         async with self.platform.sessions() as db:
-            row = await self.load(db, game_id, token)
-        if not row.finished:
-            raise AppError(409, "story_in_progress", "Finish the story duel first")
-        return PIN.validate_python(row.pin), SeededDuel.restore(row.duel)
+            row = await self.load(db, game_id, token, player=player)
+            if not row.finished:
+                raise AppError(409, "story_in_progress", "Finish the story duel first")
+            return PIN.validate_python(row.pin), await self.replay_game(db, row)
+
+    @staticmethod
+    async def replay_game(db: AsyncSession, row: StoryDuel) -> SeededDuel:
+        game = SeededDuel.restore(row.duel)
+        if "journal" in row.duel:
+            return game
+        history = await db.scalars(
+            select(StoryDuelCommand.update)
+            .where(StoryDuelCommand.duel_id == row.id)
+            .order_by(StoryDuelCommand.command["expected_version"].astext.cast(Integer))
+        )
+        journal: list[StoryEvent] = []
+        for update in history:
+            events = update["events"]
+            move = update["view"]["version"] - sum(
+                event["event"] == "card_played" for event in events
+            )
+            for event in events:
+                move += event["event"] == "card_played"
+                if visible := public_event(event, len(journal) + 1, move):
+                    journal.append(visible)
+        game.journal = tuple(journal)
+        return game
 
 
 def build_duel(seed: int, pin: StoryPin) -> SeededDuel:
-    return SeededDuel(OnlineGame.seeded(2, seed), seed, intent=pin.intent)
+    return SeededDuel(
+        OnlineGame.seeded(2, seed),
+        seed,
+        intent=pin.intent,
+        route=pin.route,
+        rival_budget=pin.rival_budget,
+        rival_avoid_suit=pin.rival_avoid_suit,
+        rival_expert=pin.rival_expert,
+    )
 
 
 def for_attempt(

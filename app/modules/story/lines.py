@@ -3,7 +3,7 @@ from typing import Literal
 
 from donke_engine import ChatFilter
 
-type Moment = Literal["strike", "victory"]
+type Moment = Literal["strike", "victory", "transform"]
 type VoiceLocale = Literal["en", "ja"]
 
 FALLBACK = {
@@ -14,6 +14,10 @@ FALLBACK = {
     "victory": {
         "en": "I made it through. Until next time.",
         "ja": "切り抜けたぞ。また会おう。",
+    },
+    "transform": {
+        "en": "The seal is broken. My next form is ready.",
+        "ja": "封印は解けた。新たな姿で進もう。",
     },
 }
 BLOCKED = ChatFilter(["idiot", "hate", "kill", "moron"])

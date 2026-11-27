@@ -18,8 +18,9 @@ export function setCsrf(token) {
 
 async function request(method, path, body) {
   const headers = { Accept: "application/json" };
+  const form = body instanceof FormData;
   if (method !== "GET") {
-    headers["Content-Type"] = "application/json";
+    if (!form) headers["Content-Type"] = "application/json";
     headers["X-Request-ID"] = crypto.randomUUID();
     if (csrf) headers["X-CSRF-Token"] = csrf;
   }
@@ -27,7 +28,7 @@ async function request(method, path, body) {
     method,
     headers,
     credentials: "same-origin",
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined || form ? body : JSON.stringify(body),
   });
   if (response.status === 204) return null;
   const data = await response.json().catch(() => null);

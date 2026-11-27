@@ -1,13 +1,14 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import and_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.modules.game.repository import StoryPin
+from app.modules.game.schemas import StoryObjective
 from app.modules.progression import service, squad
 from app.modules.progression.calendar import CLAIM_GRACE, claim_deadline, window_open
 from app.modules.progression.models import (
@@ -42,6 +43,9 @@ class StoryResult(BaseModel):
     first_clear: bool
     coins: int
     points: int
+    objective: StoryObjective | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class AwakeningPath(StoryProgress):
@@ -171,10 +175,11 @@ async def settle(
     game_id: UUID,
     escaped: bool,
     now: datetime,
+    objective: StoryObjective | None = None,
 ) -> StoryResult:
     chapter = chapter_for(pin.pack_key, pin.chapter_id)
     first_clear = False
-    if escaped:
+    if escaped and (objective is None or objective.met):
         await service.lock_season_schedule(db, read=True)
         wallet = await service.wallet_lock(db, player_id)
         season = await db.get(Season, pin.season_id)
@@ -243,6 +248,7 @@ async def settle(
         first_clear=first_clear,
         coins=chapter.coins if first_clear else 0,
         points=chapter.points if first_clear else 0,
+        objective=objective,
     )
 
 

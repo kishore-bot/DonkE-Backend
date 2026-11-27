@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Index, desc
+from sqlalchemy import DateTime, ForeignKey, Index, String, desc
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -39,3 +39,17 @@ class StoryDuelCommand(Base):
     request_id: Mapped[UUID] = mapped_column(primary_key=True)
     command: Mapped[dict] = mapped_column(JSONB)
     update: Mapped[dict] = mapped_column(JSONB)
+
+
+class StoryRivalMemory(Base):
+    __tablename__ = "story_rival_memory"
+
+    season_id: Mapped[UUID] = mapped_column(
+        ForeignKey("seasons.id", ondelete="CASCADE"), primary_key=True
+    )
+    player_id: Mapped[UUID] = mapped_column(
+        ForeignKey("players.id", ondelete="CASCADE"), primary_key=True
+    )
+    chapter_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    finished_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    moment: Mapped[dict] = mapped_column(JSONB)

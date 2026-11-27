@@ -15,6 +15,7 @@ from app.modules.ai.voice import Voice, enabled
 from app.modules.progression.season_content import PACKS
 from app.modules.story.content import CUE_GRAPH, VOICES
 from app.modules.story.lines import Moment, VoiceLocale, valid
+from app.modules.story.media import approved_media, media_path
 from app.modules.story.models import SeasonCue
 
 router = APIRouter(prefix="/api/v1", tags=["Season cues"])
@@ -56,6 +57,7 @@ class PublicCue(BaseModel):
     caption: str
     japanese: str
     audio_locale: VoiceLocale | None = None
+    audio_url: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 def cue_query(pack_key: str, character_id: str, moment: str):
@@ -150,7 +152,7 @@ async def advance_cue(
                 cue.en, cue.en_source = en, "editor"
             if ja != cue.ja:
                 cue.ja, cue.ja_source = ja, "editor"
-            if await enabled(gateway):
+            if not PACKS[cue.pack_key].routes and await enabled(gateway):
                 voice = Voice(gateway)
                 await voice.enqueue(en, "en", VOICES["en"])
                 await voice.enqueue(ja, "ja", VOICES["ja"])
@@ -187,7 +189,21 @@ async def public_cue(
 ) -> PublicCue:
     async with gateway.platform.sessions() as db:
         en, ja = await published(db, pack_key, character_id, moment)
+        for locale in ("en", "ja"):
+            asset = await approved_media(
+                db, pack_key, character_id, f"{moment}:{locale}"
+            )
+            if asset is not None:
+                response.headers["Cache-Control"] = "no-store"
+                return PublicCue(
+                    caption=en,
+                    japanese=ja,
+                    audio_locale=locale,
+                    audio_url=media_path(asset.id),
+                )
     response.headers["Cache-Control"] = "no-store"
+    if PACKS[pack_key].routes:
+        return PublicCue(caption=en, japanese=ja)
     voice = Voice(gateway)
     if await voice.available(en, "en", VOICES["en"]):
         return PublicCue(caption=en, japanese=ja, audio_locale="en")
@@ -210,6 +226,8 @@ async def cue_audio(
 ) -> Response:
     async with gateway.platform.sessions() as db:
         en, ja = await published(db, pack_key, character_id, moment)
+    if PACKS[pack_key].routes:
+        raise AppError(404, "cue_audio_not_found", "Scene audio unavailable")
     audio = await Voice(gateway).clip(
         en if locale == "en" else ja, locale, VOICES[locale]
     )

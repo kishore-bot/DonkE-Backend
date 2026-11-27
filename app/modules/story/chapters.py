@@ -63,6 +63,9 @@ CHAPTERS = {
     ),
 }
 
+CHAPTERS["grimoire-awakening-v2"] = CHAPTERS["grimoire-awakening-v1"]
+CHAPTERS["skybound-voyage-v2"] = CHAPTERS["skybound-voyage-v1"]
+
 
 class ChapterView(BaseModel):
     chapter_id: str

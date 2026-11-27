@@ -12,6 +12,7 @@ dependencies = [
     "anyio>=4,<5",
     "argon2-cffi>=25,<26",
     "asyncpg>=0.31,<1",
+    "boto3>=1.40,<2",
     "google-auth[requests]>=2.40,<3",
     "google-genai>=2.27,<3",
     "mcp>=2,<3",

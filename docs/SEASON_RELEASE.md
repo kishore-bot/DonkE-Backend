@@ -61,3 +61,18 @@ uv run --locked --extra a2a python -m scripts.review_cues --task TASK_ID
 ```
 
 The client discovers the card and checks the RPC endpoint before sending credentials. The response contains a task ID and findings. SQLite keeps the task status and findings without the submitted dialogue. After restarting the reviewer, use the same SQLite file and token and retrieve the result with the task ID. Resubmit a revised batch as a new task and use the existing admin review to publish.
+
+## Publish a seasonal rig and recordings
+
+Apply Alembic revision `0002_season_expansion` or later. Configure a private S3-compatible bucket using `DONKE_SEASON_MEDIA_BUCKET`. Set `DONKE_SEASON_MEDIA_REGION` and, for a custom service, `DONKE_SEASON_MEDIA_ENDPOINT`. The AWS SDK uses the deployment's role or standard AWS credentials. Give that identity PutObject and GetObject access to the `seasons/` prefix. Allow GET requests from the mobile site's origin in the bucket's CORS configuration so the browser can fetch GLBs. [S3 PutObject](https://docs.aws.amazon.com/boto3/latest/reference/services/s3/client/put_object.html) · [S3 CORS](https://docs.aws.amazon.com/AmazonS3/latest/userguide/cors.html)
+
+1. In **Admin → Season cues**, create and publish the English and Japanese captions for Strike, Victory, and Transformation.
+2. In **Admin → Season media**, choose the pack, character, and asset slot. Upload a self-contained GLB with a skin and named Idle, Strike, Victory, and Transform clips, or PCM WAV up to 30 seconds in the appropriate English or Japanese scene slot. The upload limits are 20 MiB for GLB and 4 MiB for audio.
+3. Preview the upload and publish it after review. Media is held in the private bucket. The API stores metadata and issues five-minute signed reads for approved assets.
+4. The app selects the published rig, then falls back to its bundled rig. For the new packs it plays an approved English recording when available, then Japanese, then captions. Withdrawing a recording updates selection and stops the API from issuing new signed reads. Previously issued signed reads expire within five minutes.
+
+## Seasonal game packs
+
+Activate `grimoire-awakening-v2` to require both a successful called Strike and an escape for chapter credit. Activate `skybound-voyage-v2` to offer Reef, which allows at most one pile pickup, or Storm, which requires landing a Strike. Both Voyage routes require escape. The original packs keep their existing rules. The selected route is stored at admission so it survives retries, resume and sharing. The Profile collection lists past seasons and offers unranked replays of cleared chapters and transformation playback for earned forms.
+
+The adaptive rival reads one previous public moment per player and chapter. Gemini can choose a tactic before the duel. Rust chooses the legal card. A pressure rival can pivot away from a remembered led suit when an alternative scores within two percentage points and has enough visits. A bounded two-seat search is available to the higher rating bands and uses cards inferred from public play. The pinned search profile makes shared duels reproducible. Upper-band calibration is pending. [Rival measurements and coach evaluation](SEASON_AI_EVAL.md)

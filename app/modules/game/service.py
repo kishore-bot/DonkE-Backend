@@ -80,7 +80,15 @@ class PracticeService:
         try:
             # Bots may play before the human's first turn: outside the table lock.
             game = (
-                SeededDuel(OnlineGame.seeded(2, seed), seed, intent=story.intent)
+                SeededDuel(
+                    OnlineGame.seeded(2, seed),
+                    seed,
+                    intent=story.intent,
+                    route=story.route,
+                    rival_budget=story.rival_budget,
+                    rival_avoid_suit=story.rival_avoid_suit,
+                    rival_expert=story.rival_expert,
+                )
                 if story
                 else PracticeGame(seats, level, iterations=200)
             )
@@ -96,9 +104,7 @@ class PracticeService:
             response = PracticeCreated(
                 game_id=game_id,
                 access_token=token,
-                view=update.view,
-                events=update.events,
-                can_call_strike=update.can_call_strike,
+                **update.model_dump(),
             )
         except BaseException:
             with self.repository.lock:

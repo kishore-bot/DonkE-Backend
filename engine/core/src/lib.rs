@@ -1,4 +1,5 @@
 mod cards;
+mod duel_search;
 mod fair_play;
 mod game;
 mod matchmaking;
@@ -8,6 +9,7 @@ mod rules;
 mod search;
 
 pub use cards::{Card, Rank, Suit};
+pub use duel_search::story_duel_move;
 pub use fair_play::{Decision, FairPlayStats, Signal, fair_play_stats};
 pub use game::{Event, Game, GameError, Outcome, Play, PlayedCard, ReplayError, View};
 pub use matchmaking::{Candidate, TableConfig, select_table};

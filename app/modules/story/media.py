@@ -1,0 +1,137 @@
+"""Validated uploads and private object storage for season performances."""
+
+import json
+import struct
+import wave
+from io import BytesIO
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import Settings
+from app.core.errors import AppError
+from app.modules.story.models import SeasonMedia
+
+MAX_MODEL = 20 * 1024 * 1024
+MAX_AUDIO = 4 * 1024 * 1024
+CLIPS = {"idle", "strike", "victory", "transform"}
+AUDIO_SLOTS = {
+    f"{moment}:{locale}"
+    for moment in ("strike", "victory", "transform")
+    for locale in ("en", "ja")
+}
+
+
+def glb_document(data: bytes) -> dict:
+    magic, version, length, size, chunk = struct.unpack_from("<4sIII4s", data)
+    if (
+        magic != b"glTF"
+        or version != 2
+        or length != len(data)
+        or chunk != b"JSON"
+        or size > len(data) - 20
+    ):
+        raise ValueError("Invalid GLB header")
+    return json.loads(data[20 : 20 + size])
+
+
+def validate_media(slot: str, data: bytes) -> str:
+    if slot == "model":
+        try:
+            document = glb_document(data)
+            animations = {
+                entry["name"].strip().lower()
+                for entry in document.get("animations", [])
+                if entry.get("channels")
+            }
+            embedded = all(
+                "uri" not in item
+                for key in ("buffers", "images")
+                for item in document.get(key, [])
+            )
+            if document.get("skins") and animations >= CLIPS and embedded:
+                return "model/gltf-binary"
+        except AttributeError, KeyError, TypeError, ValueError, struct.error:
+            pass
+        raise AppError(
+            422,
+            "invalid_model",
+            "Upload a self-contained rigged GLB with Idle, Strike, Victory and Transform clips",
+        )
+    if slot in AUDIO_SLOTS:
+        try:
+            with wave.open(BytesIO(data)) as clip:
+                rate = clip.getframerate()
+                frames = clip.getnframes()
+                if 8_000 <= rate <= 96_000 and 0 < frames <= rate * 30:
+                    size = frames * clip.getsampwidth() * clip.getnchannels()
+                    if len(clip.readframes(frames)) == size:
+                        return "audio/wav"
+        except EOFError, wave.Error:
+            pass
+        raise AppError(
+            422, "invalid_audio", "Upload a PCM WAV recording of up to 30 seconds"
+        )
+    raise AppError(
+        422,
+        "invalid_media_slot",
+        "Choose a model or an English or Japanese scene recording",
+    )
+
+
+async def approved_media(
+    db: AsyncSession, pack: str, character: str, slot: str
+) -> SeasonMedia | None:
+    return await db.scalar(
+        select(SeasonMedia)
+        .where(
+            SeasonMedia.pack_key == pack,
+            SeasonMedia.character_id == character,
+            SeasonMedia.slot == slot,
+            SeasonMedia.published_at.is_not(None),
+            SeasonMedia.withdrawn_at.is_(None),
+        )
+        .order_by(SeasonMedia.published_at.desc(), SeasonMedia.id.desc())
+        .limit(1)
+    )
+
+
+def media_path(asset_id: UUID) -> str:
+    return f"/api/v1/story/media/{asset_id}"
+
+
+class ObjectStorage:
+    def __init__(self, settings: Settings):
+        bucket = settings.season_media_bucket
+        if not bucket:
+            raise AppError(
+                503, "media_unavailable", "Season object storage is not configured"
+            )
+        from boto3 import client  # noqa: PLC0415
+        from botocore.config import Config  # noqa: PLC0415
+
+        self.bucket = bucket
+        self.client = client(
+            "s3",
+            endpoint_url=str(settings.season_media_endpoint).rstrip("/")
+            if settings.season_media_endpoint
+            else None,
+            region_name=settings.season_media_region,
+            config=Config(
+                connect_timeout=3,
+                read_timeout=10,
+                signature_version="s3v4",
+                retries={"max_attempts": 2},
+            ),
+        )
+
+    def upload(self, key: str, data: bytes, content_type: str) -> None:
+        self.client.put_object(
+            Bucket=self.bucket, Key=key, Body=data, ContentType=content_type
+        )
+
+    def url(self, key: str) -> str:
+        return self.client.generate_presigned_url(
+            "get_object", Params={"Bucket": self.bucket, "Key": key}, ExpiresIn=300
+        )

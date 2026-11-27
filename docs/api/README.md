@@ -19,7 +19,7 @@ Connect to `WS /api/v1/games/{game_id}/ws` with a single-use browser ticket or a
 
 ## Rules MCP
 
-Run `uv run python -m app.modules.ai.mcp_server` for stdio, or add `--http` for Streamable HTTP on `127.0.0.1:8001`. The tools are `search_kazhutha_rules` and `kazhutha_rule`. [AI and voice guide](../AI.md)
+Run `uv run python -m app.modules.ai.mcp_server` for stdio, or add `--http` for Streamable HTTP on `127.0.0.1:8001`. The public tools include `search_kazhutha_rules`, `kazhutha_rule`, `season_pack` and `awakening_requirements`. An authorized stdio session can use `story_replay_event` for the player’s own finished attempts. [AI and voice guide](../AI.md)
 
 ## Browser routes
 
@@ -138,7 +138,12 @@ Run `uv run python -m app.modules.ai.mcp_server` for stdio, or add `--http` for 
 | `POST` | `/api/v1/seasons/{season_id}/me/awakening` | Claim the chosen character's final form |
 | `POST` | `/api/v1/story/attempts` | Open a seeded story duel |
 | `POST` | `/api/v1/story/attempts/{game_id}/result` | Confirm the finished duel and read its reward receipt |
-| `GET` | `/api/v1/story/attempts/{game_id}/coach` | Read engine evidence or a cited rule for a finished attempt |
+| `GET` | `/api/v1/story/attempts/{game_id}/coach` | Read engine evidence, a cited rule or one scoped replay event from a finished attempt |
+| `GET` | `/api/v1/story/attempts/{game_id}/events` | Read typed public moments from a finished attempt using its capability |
+| `GET` | `/api/v1/story/collection` | List past seasons, owned forms, and cleared chapters for the signed-in player |
+| `POST` | `/api/v1/story/collection/{season_id}/{chapter_id}/attempts` | Replay one of the player’s cleared archived chapters |
+| `GET` | `/api/v1/story/scenes/{pack_key}/{character_id}/model` | Resolve the current approved character rig |
+| `GET` | `/api/v1/story/media/{asset_id}` | Redirect to a short-lived object URL for an approved asset |
 | `GET` | `/api/v1/seasons/{season_id}/me/emote` | Read the account's equipped emote and owned options for the active season |
 | `PUT` | `/api/v1/seasons/{season_id}/me/emote` | Equip an owned SKU or restore the standard emote with null |
 | `GET` | `/api/v1/story/attempts/{game_id}/highlight` | Read an owner-only standout Strike review, or JSON null when it does not qualify |
@@ -206,6 +211,13 @@ Run `uv run python -m app.modules.ai.mcp_server` for stdio, or add `--http` for 
 | `GET` | `/api/v1/admin/reports` | Reports |
 | `POST` | `/api/v1/admin/reports/{report_id}/resolve` | Resolve Report |
 | `GET` | `/api/v1/admin/seasons` | Seasons |
+| `GET` | `/api/v1/admin/season-cues` | List caption drafts and published cues |
+| `POST` | `/api/v1/admin/season-cues` | Create a caption draft |
+| `POST` | `/api/v1/admin/season-cues/{cue_id}/advance` | Draft or approve a bilingual caption pair |
+| `GET` | `/api/v1/admin/season-media` | List rig and recording uploads |
+| `POST` | `/api/v1/admin/season-media` | Upload a GLB or WAV for review |
+| `GET` | `/api/v1/admin/season-media/{asset_id}/preview` | Preview an asset in admin |
+| `POST` | `/api/v1/admin/season-media/{asset_id}/review` | Publish or withdraw an asset |
 | `GET` | `/api/v1/admin/store` | Store |
 | `GET` | `/api/v1/admin/users` | Admin Users |
 | `POST` | `/api/v1/admin/users` | Create Admin User |

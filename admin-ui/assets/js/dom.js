@@ -74,7 +74,9 @@ export function ask(title, fields, submit, confirmLabel = "Confirm") {
   const form = document.getElementById("dialog-form");
   const error = document.getElementById("dialog-error");
   document.getElementById("dialog-title").textContent = title;
-  document.getElementById("dialog-submit").textContent = confirmLabel;
+  const button = document.getElementById("dialog-submit");
+  button.textContent = confirmLabel;
+  button.disabled = false;
   const inputs = {};
   mount(
     document.getElementById("dialog-fields"),
@@ -98,6 +100,7 @@ export function ask(title, fields, submit, confirmLabel = "Confirm") {
           minlength: field.minlength,
           maxlength: field.maxlength ?? 200,
           autocomplete: "off",
+          accept: field.accept,
         });
       }
       inputs[field.name] = { input, field };
@@ -117,9 +120,13 @@ export function ask(title, fields, submit, confirmLabel = "Confirm") {
     };
     form.onsubmit = async (event) => {
       event.preventDefault();
+      if (button.disabled) return;
+      button.disabled = true;
       const values = {};
       for (const [name, { input, field }] of Object.entries(inputs)) {
-        values[name] = field.parse ? field.parse(input.value) : input.value.trim();
+        values[name] = field.type === "file"
+          ? input.files[0]
+          : field.parse ? field.parse(input.value) : input.value.trim();
       }
       try {
         const result = submit ? await submit(values) : values;
@@ -128,6 +135,8 @@ export function ask(title, fields, submit, confirmLabel = "Confirm") {
       } catch (failure) {
         error.textContent = failure.message;
         error.hidden = false;
+      } finally {
+        button.disabled = false;
       }
     };
     dialog.showModal();

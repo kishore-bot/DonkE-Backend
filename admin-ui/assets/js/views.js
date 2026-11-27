@@ -246,7 +246,7 @@ async function seasonCues({ refresh }) {
   const create = () => act("Create a seasonal cue", [
     { name: "pack_key", label: "Pack key", placeholder: "grimoire-awakening-v1", maxlength: 80 },
     { name: "character_id", label: "Character ID", placeholder: "ashblade", maxlength: 40 },
-    { name: "moment", label: "Scene", options: [["strike", "Strike"], ["victory", "Victory"]], value: "strike" },
+    { name: "moment", label: "Scene", options: [["strike", "Strike"], ["victory", "Victory"], ["transform", "Transformation"]], value: "strike" },
   ], (value) => api.post("/admin/season-cues", value), refresh, "Cue created");
   const actions = { english: "Draft English", japanese: "Draft Japanese", review: "Review and publish" };
   const advance = (cue) => {
@@ -288,6 +288,44 @@ async function users({ admin, refresh }) {
       { label: "", render: (row) => (row.id === admin.id ? h("span", { class: "muted" }, "you") : h("div", { class: "row" },
         h("button", { onclick: () => act(`Role for ${row.username}`, [{ name: "role", label: "Role", options: roles, value: row.role }], (v) => api.put(`/admin/users/${row.id}`, v), refresh) }, "Role"),
         h("button", { class: row.active ? "danger" : "", onclick: () => act(`${row.active ? "Disable" : "Enable"} ${row.username}`, [], (v) => api.put(`/admin/users/${row.id}`, { ...v, active: !row.active }), refresh) }, row.active ? "Disable" : "Enable"))) },
+    ], rows)));
+}
+
+async function seasonMedia({ refresh }) {
+  const rows = await api.get("/admin/season-media");
+  const scenes = [["strike", "Strike"], ["victory", "Victory"], ["transform", "Transformation"]];
+  const upload = () => act("Upload rig or approved recording", [
+    { name: "pack_key", label: "Pack key", placeholder: "grimoire-awakening-v2", maxlength: 80 },
+    { name: "character_id", label: "Character ID", placeholder: "ashblade", maxlength: 40 },
+    { name: "slot", label: "Asset", options: [
+      ["model", "Rigged GLB"],
+      ...scenes.flatMap(([id, label]) => [[id + ":en", label + " · English WAV"], [id + ":ja", label + " · Japanese WAV"]]),
+    ], value: "model" },
+    { name: "file", label: "Asset file", type: "file", accept: ".glb,.wav" },
+  ], (value) => {
+    const form = new FormData();
+    for (const [key, field] of Object.entries(value)) form.append(key, field);
+    return api.post("/admin/season-media", form);
+  }, refresh, "Uploaded for review");
+  const review = (row, decision) => act(
+    decision === "publish" ? "Approve and publish this asset" : "Withdraw this asset",
+    [],
+    (value) => api.post(`/admin/season-media/${row.id}/review`, { ...value, decision }),
+    refresh,
+  );
+  return h("div", {}, header("Season media", h("button", { onclick: upload }, "Upload asset")),
+    h("div", { class: "card" }, table([
+      { label: "Pack and character", render: (row) => `${row.pack_key} · ${row.character_id}` },
+      { label: "Asset", render: (row) => row.slot },
+      { label: "Created", render: (row) => when(row.created_at) },
+      { label: "Preview", render: (row) => row.withdrawn_at ? null : h("a", {
+        href: `/api/v1/admin/season-media/${row.id}/preview`, target: "_blank", rel: "noopener",
+      }, row.slot === "model" ? "Open GLB" : "Listen") },
+      { label: "Status", render: (row) => row.withdrawn_at ? badge("withdrawn")
+        : row.published_at ? badge("published", "ok") : badge("pending review", "warn") },
+      { label: "Action", render: (row) => row.withdrawn_at ? null
+        : row.published_at ? h("button", { onclick: () => review(row, "withdraw") }, "Withdraw")
+          : h("button", { onclick: () => review(row, "publish") }, "Approve") },
     ], rows)));
 }
 
@@ -340,6 +378,7 @@ export const VIEWS = {
   flags: { title: "Runtime flags", render: flags },
   ai: { title: "AI", render: ai, roles: ADMIN },
   "season-cues": { title: "Season cues", render: seasonCues, roles: ADMIN },
+  "season-media": { title: "Season media", render: seasonMedia, roles: ADMIN },
   users: { title: "Admin users", render: users, roles: ADMIN },
   audit: { title: "Audit log", render: audit, roles: ADMIN },
   security: { title: "Security", render: security },

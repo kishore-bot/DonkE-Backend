@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.modules.game.schemas import StoryRoute
+
 
 class CharacterPreview(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -22,6 +24,7 @@ class SeasonPack(BaseModel):
     title: str
     description: str
     cast: tuple[CharacterPreview, ...]
+    routes: tuple[StoryRoute, ...] = ()
 
 
 class SeasonManifest(BaseModel):
@@ -80,3 +83,22 @@ PACKS = {
         ),
     ),
 }
+
+
+def rigged_pack(key: str, routes: tuple[StoryRoute, ...]) -> SeasonPack:
+    pack = PACKS[key]
+    return pack.model_copy(
+        update={
+            "routes": routes,
+            "cast": tuple(
+                character.model_copy(
+                    update={"model_url": f"/models/{character.stage_theme}-rig-v1.glb"}
+                )
+                for character in pack.cast
+            ),
+        }
+    )
+
+
+PACKS["grimoire-awakening-v2"] = rigged_pack("grimoire-awakening-v1", ("seal",))
+PACKS["skybound-voyage-v2"] = rigged_pack("skybound-voyage-v1", ("reef", "storm"))

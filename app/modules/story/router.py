@@ -15,8 +15,9 @@ from app.core.rate_limit import client_host, limit
 from app.modules.ai.index import ranked_rules
 from app.modules.ai.router import AI
 from app.modules.game.repository import StoryPin
+from app.modules.game.rival_memory import recall
 from app.modules.game.router import AccessToken, Service
-from app.modules.game.schemas import PracticeCreated, SceneEmote
+from app.modules.game.schemas import PracticeCreated, SceneEmote, StoryEvent, StoryRoute
 from app.modules.game.seeded import SeededDuel
 from app.modules.game.story_store import PIN, StoryStore, for_attempt
 from app.modules.identity.router import (
@@ -30,6 +31,7 @@ from app.modules.progression.emotes import pinned_emote
 from app.modules.progression.models import SeasonCharacter, SeasonSquadMember
 from app.modules.progression.season_content import PACKS, CharacterPreview
 from app.modules.progression.service import active_manifest
+from app.modules.story.archive import CollectionEntry, archive_attempt, collection
 from app.modules.story.challenge import (
     ChallengeLink,
     ChallengeView,
@@ -46,8 +48,9 @@ from app.modules.story.chapters import (
     cleared_chapters,
     describe,
 )
-from app.modules.story.coach import DuelCoach, explain
+from app.modules.story.coach import DuelCoach, explain, grounded_replay
 from app.modules.story.highlights import StoryHighlight, stored_highlight
+from app.modules.story.rival import expert_search, rival_budget
 from app.modules.story.progression import (
     AwakeningPath,
     PendingAwakening,
@@ -70,6 +73,7 @@ class StartDuel(BaseModel):
     chapter_id: str = Field(default=OPENING_CHAPTER, min_length=1, max_length=40)
     adaptive: bool = False
     character_id: str | None = Field(default=None, min_length=1, max_length=40)
+    route: StoryRoute | None = None
 
 
 class StoryAttempt(PracticeCreated):
@@ -81,6 +85,9 @@ class StoryAttempt(PracticeCreated):
     character: CharacterPreview
     rewards_eligible: bool
     emote: SceneEmote
+    rival_memory: StoryEvent | None = None
+    rival_target_rating: int | None = None
+    rival_intent: str = "steady"
 
 
 ChallengeCode = Annotated[
@@ -110,6 +117,9 @@ def story_attempt(
         character=character,
         rewards_eligible=pin.player_id is not None,
         emote=pin.emote,
+        rival_memory=pin.remembered,
+        rival_target_rating=pin.target_rating,
+        rival_intent=pin.intent,
     )
 
 
@@ -153,6 +163,11 @@ async def start_duel(
         if manifest is None or manifest.season_id != body.season_id:
             raise AppError(409, "season_unavailable", "This season is unavailable")
         chapter = chapter_for(manifest.pack_key, body.chapter_id)
+        route = body.route or next(iter(manifest.pack.routes), None)
+        if route is not None and route not in manifest.pack.routes:
+            raise AppError(
+                422, "story_route_unavailable", "Choose a route for this season"
+            )
         if chapter.requires is not None:
             cleared = await cleared_chapters(db, manifest.season_id, player_id)
             status = describe(manifest, chapter, player_id, cleared, now).status
@@ -192,7 +207,21 @@ async def start_duel(
             emote=await pinned_emote(db, manifest.season_id, player_id)
             if player_id
             else SceneEmote(),
+            route=route,
         )
+        if body.adaptive and player is not None:
+            memory = await recall(db, manifest.season_id, player.profile.id, chapter.id)
+            budget, target = rival_budget(player.profile.mmr)
+            pin = replace(
+                pin,
+                remembered=memory,
+                target_rating=target,
+                rival_budget=budget,
+                rival_expert=expert_search(player.profile.mmr),
+                rival_avoid_suit=memory.led_suit
+                if memory and memory.seat == 0
+                else None,
+            )
     if player_id is not None:
         await limit(
             platform,
@@ -201,13 +230,17 @@ async def start_duel(
             platform.settings.practice_creates_per_minute,
             60,
         )
+    if body.adaptive:
+        intent = "pressure" if pin.remembered and pin.remembered.seat == 0 else "steady"
+        pin = replace(pin, intent=intent)
     if body.adaptive and gateway.provider is not None:
         await limit(platform, "story_rival", client_host(request), 4, 60)
         try:
             async with asyncio.timeout(1.25):
                 intent = await gateway.select(
                     "story_rival",
-                    f"Choose steady or pressure for {chapter.rival} in the {manifest.pack.title} card duel.",
+                    f"Choose steady or pressure for {chapter.rival} in the {manifest.pack.title} card duel. "
+                    f"Last public moment: {public_memory(pin.remembered)}.",
                     {"steady", "pressure"},
                 )
         except TimeoutError, RedisError:
@@ -228,6 +261,12 @@ async def start_duel(
         )
     response.headers["Cache-Control"] = "no-store"
     return story_attempt(game, pin, cast[character_id], chapter)
+
+
+def public_memory(moment: StoryEvent | None) -> str:
+    if moment is None:
+        return "no earlier public result"
+    return f"{moment.kind}, move {moment.move}, seat {moment.seat}, recipient {moment.recipient}, led suit {moment.led_suit}"
 
 
 async def finished_duel(
@@ -256,6 +295,36 @@ async def resume_story(
     return story_attempt(
         game, pin, character, chapter_for(pin.pack_key, pin.chapter_id)
     )
+
+
+@router.get("/story/collection")
+async def story_collection(
+    player: CurrentPlayer, platform: PlatformDep, response: Response
+) -> list[CollectionEntry]:
+    response.headers["Cache-Control"] = "no-store"
+    async with platform.sessions() as db:
+        return await collection(db, player.profile.id, datetime.now(UTC))
+
+
+@router.post("/story/collection/{season_id}/{chapter_id}/attempts", status_code=201)
+async def start_archived_attempt(
+    season_id: UUID,
+    chapter_id: str,
+    request: Request,
+    response: Response,
+    player: CurrentPlayer,
+    platform: PlatformDep,
+    practice: Service,
+) -> StoryAttempt:
+    async with platform.sessions() as db:
+        pin, character, chapter = await archive_attempt(
+            db, player.profile.id, season_id, chapter_id, datetime.now(UTC)
+        )
+    game = await run_in_threadpool(
+        practice.create, 2, client=client_host(request), story=pin, seed=chapter.seed
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return story_attempt(game, pin, character, chapter)
 
 
 @router.post("/story/attempts/{game_id}/share")
@@ -332,8 +401,12 @@ async def story_result(
         if not row.finished:
             raise AppError(409, "story_in_progress", "Finish the story duel first")
         pin = PIN.validate_python(row.pin)
-        escaped = 0 in SeededDuel.restore(row.duel).player_view()["escape_order"]
-        receipt = await settle(db, pin, player_id, game_id, escaped, datetime.now(UTC))
+        duel = SeededDuel.restore(row.duel)
+        escaped = 0 in duel.player_view()["escape_order"]
+        objective = duel.objective() if duel.route else None
+        receipt = await settle(
+            db, pin, player_id, game_id, escaped, datetime.now(UTC), objective
+        )
         row.receipt = receipt.model_dump(mode="json")
         return receipt
 
@@ -382,6 +455,21 @@ async def story_highlight(
     return await stored_highlight(platform, game_id, actor)
 
 
+@router.get("/story/attempts/{game_id}/events")
+async def story_events(
+    game_id: UUID,
+    token: AccessToken,
+    practice: Service,
+    platform: PlatformDep,
+    response: Response,
+    request: Request,
+) -> tuple[StoryEvent, ...]:
+    await limit(platform, "story_coach", client_host(request), 15, 60)
+    _, duel = await finished_duel(practice, platform, game_id, token)
+    response.headers["Cache-Control"] = "no-store"
+    return duel.journal
+
+
 @router.get("/story/attempts/{game_id}/coach")
 async def story_coach(
     game_id: UUID,
@@ -391,10 +479,13 @@ async def story_coach(
     practice: Service,
     gateway: AI,
     question: Annotated[str | None, Query(min_length=2, max_length=240)] = None,
+    sequence: Annotated[int | None, Query(ge=1)] = None,
 ) -> DuelCoach:
     await limit(gateway.platform, "story_coach", client_host(request), 15, 60)
     pin, duel = await finished_duel(practice, gateway.platform, game_id, token)
     response.headers["Cache-Control"] = "no-store"
+    if grounded := grounded_replay(duel.journal, question, sequence):
+        return grounded
     if question is None:
         return await run_in_threadpool(explain, pin, duel)
     rules = await ranked_rules(gateway, question)

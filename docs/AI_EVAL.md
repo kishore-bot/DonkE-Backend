@@ -8,7 +8,7 @@ Run `uv run python -m scripts.evaluate --check` to reproduce this report. The fi
 | Strike commentary facts | 6 | 6 |
 | Native game completion and card conservation | 16 | 16 |
 | Awakening and grace period | 6 | 6 |
-| English and Japanese scene fallbacks | 4 | 4 |
+| English and Japanese scene fallbacks | 6 | 6 |
 | Seeded story trace | 3 | 3 |
 
 ## Coach source selection and abstention
@@ -79,6 +79,8 @@ Run `uv run python -m scripts.evaluate --check` to reproduce this report. The fi
 | strike · ja | valid | valid |
 | victory · en | valid | valid |
 | victory · ja | valid | valid |
+| transform · en | valid | valid |
+| transform · ja | valid | valid |
 
 ## Seeded story trace
 

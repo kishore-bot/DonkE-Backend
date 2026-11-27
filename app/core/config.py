@@ -1,5 +1,6 @@
 from pydantic import (
     Field,
+    HttpUrl,
     PostgresDsn,
     RedisDsn,
     SecretStr,
@@ -53,6 +54,15 @@ class Settings(BaseSettings):
     match_archive_seconds: int = Field(default=86400, ge=60, le=604800)
 
     gemini_api_key: SecretStr | None = None
+    season_media_bucket: str | None = None
+    season_media_endpoint: HttpUrl | None = None
+    season_media_region: str | None = None
+
+    @field_validator("season_media_endpoint", "season_media_region", mode="before")
+    @classmethod
+    def empty_media_setting(cls, value: object) -> object:
+        return None if value == "" else value
+
     gemini_text_model: str = "gemini-3.8-flash"
     gemini_voice_model: str = "gemini-3.8-flash-tts"
     gemini_embedding_model: str = "gemini-embedding-2"

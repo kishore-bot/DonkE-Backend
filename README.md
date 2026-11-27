@@ -170,6 +170,12 @@ Initialize a disposable PostgreSQL database with `uv run --locked alembic upgrad
 
 </details>
 
+## Product and operations guides
+
+[Game and seasons](docs/GAME.md) · [AI and evaluation](docs/AI.md) · [Mobile web app](docs/APP.md) · [Admin operations](docs/ADMIN.md)
+
+The original plans and early reviews remain under [first doc](docs/first%20doc/) and [new changes](docs/new%20changes/). The guides above use the current release and API documentation for feature status.
+
 ## Engineering notes
 
 [Practice and build steps](docs/BUILD_STEPS.md) · [Online foundation](docs/ONLINE_FOUNDATION.md) · [Multiplayer protocol](docs/MULTIPLAYER.md) · [Progression](docs/PROGRESSION.md) · [AI and voice](docs/AI.md) · [Architecture study](docs/STUDY_NOTES.md) · [Stack review](docs/STACK_REVIEW.md)

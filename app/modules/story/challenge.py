@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from app.core.errors import AppError
 from app.core.platform import Platform
 from app.modules.game.repository import StoryPin
+from app.modules.game.schemas import StoryRoute, Suit
 from app.modules.game.seeded import RivalIntent, SeededDuel
 from app.modules.progression.season_content import PACKS, CharacterPreview
 from app.modules.story.chapters import OPENING_CHAPTER
@@ -42,6 +43,10 @@ class ChallengePin(BaseModel):
     chapter_id: str = OPENING_CHAPTER
     result: SharedResult
     exp: datetime
+    route: StoryRoute | None = None
+    rival_budget: int | None = Field(default=None, ge=0, le=256)
+    rival_avoid_suit: Suit | None = None
+    rival_expert: bool = False
 
     def story(self) -> StoryPin:
         return StoryPin(
@@ -51,6 +56,10 @@ class ChallengePin(BaseModel):
             None,
             intent=self.intent,
             chapter_id=self.chapter_id,
+            route=self.route,
+            rival_budget=self.rival_budget,
+            rival_avoid_suit=self.rival_avoid_suit,
+            rival_expert=self.rival_expert,
         )
 
 
@@ -70,12 +79,16 @@ def challenge_link(
         character_id=pin.character_id,
         intent=pin.intent,
         chapter_id=pin.chapter_id,
+        route=pin.route,
+        rival_budget=pin.rival_budget,
+        rival_avoid_suit=pin.rival_avoid_suit,
+        rival_expert=pin.rival_expert,
         result=SharedResult(escaped=0 in view["escape_order"], plays=view["version"]),
         exp=datetime.now(UTC) + timedelta(days=30),
     )
     return ChallengeLink(
         code=jwt.encode(
-            payload.model_dump(mode="json", exclude={"exp"})
+            payload.model_dump(mode="json", exclude={"exp"}, exclude_none=True)
             | {"aud": AUDIENCE, "exp": int(payload.exp.timestamp())},
             signing_key(platform),
             algorithm="HS256",

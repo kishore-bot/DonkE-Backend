@@ -114,6 +114,27 @@ Event = Annotated[
 ]
 
 
+type StoryRoute = Literal["seal", "reef", "storm"]
+
+
+class StoryObjective(BaseModel):
+    route: StoryRoute
+    count: int
+    target: int
+    met: bool
+
+
+class StoryEvent(BaseModel):
+    sequence: int
+    move: int
+    kind: Literal["strike", "escaped", "finished", "strike_called", "strike_resolved"]
+    seat: int | None = None
+    recipient: int | None = None
+    cards: int | None = None
+    led_suit: Suit | None = None
+    success: bool | None = None
+
+
 class PlayerView(BaseModel):
     version: int
     turn: int | None
@@ -129,6 +150,9 @@ class GameUpdate(BaseModel):
     view: PlayerView
     events: list[Event]
     can_call_strike: bool | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    objective: StoryObjective | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
 
