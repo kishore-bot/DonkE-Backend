@@ -1,6 +1,6 @@
-# DonkE backend study
+# DonkE backend design
 
-The new backend is a from-scratch rewrite in `DonkE-Backend`. The separately located `donkey_backend` is the read-only implementation reference. The project briefs specify a premium, family-friendly Kazhutha game with earned-only cosmetics, fast tables, and optional localized AI. The rewrite follows the later brief for seasons and the admin panel.
+This document describes the code in this repository and the boundaries between the API, game worker, background jobs and data stores. The browser and native clients share the HTTP and gameplay contracts. [HTTP and WebSocket reference](api/README.md)
 
 ## Kazhutha rules
 
@@ -11,37 +11,44 @@ The new backend is a from-scratch rewrite in `DonkE-Backend`. The separately loc
 
 ```mermaid
 flowchart LR
-    Client[KMP client] -->|HTTP and WebSocket| API[FastAPI]
-    API -->|PyO3 in process| Engine[Rust rules and bot search]
-    API --> Redis[Redis live state and queues]
-    API --> PG[PostgreSQL durable records]
-    GameWorker[Game worker] --> Redis
-    GameWorker --> PG
-    GameWorker --> Engine
-    GameWorker --> Gateway[Gemini gateway]
-    API --> Gateway
-    VoiceWorker[Voice worker] --> Redis
-    VoiceWorker --> TTS[Gemini TTS]
+    Client[Browser or native client] <-->|HTTP and WebSocket| API[Granian and FastAPI]
+    API --> Rust[Rust rules and bot search via PyO3]
+    API --> Redis[Redis: live games, streams, queues and cache]
+    API --> PG[PostgreSQL: accounts, results, progress and pgvector]
+    Worker[Game worker] --> Rust
+    Worker --> Redis
+    Worker --> PG
+    Jobs[Taskiq worker and scheduler] --> Redis
+    Jobs --> PG
+    Jobs --> Rust
+    API --> Gemini[Gemini gateway]
+    Voice[Voice worker] --> Redis
+    Voice --> Gemini
 ```
 
-| Domain | Current implementation | Revamp design implication |
-| --- | --- | --- |
-| Identity | Google and Apple sign-in, rotating refresh sessions, Redis rate limits, moderation checks. | Group account and session ownership together. Keep existing session behavior through migration. |
-| Live game | FastAPI and Redis orchestrate seats, matchmaking, pacing and recovery. Rust owns legal moves, cut and clean-trick outcomes, and bot search. | Split orchestration by lifecycle, turn and publication responsibilities while preserving the state format and command contract. |
-| Social | Friends, blocks, invites, chat and party-aware matchmaking share the room and presence services. | Give social code a room and queue interface. Keep whole-party seating atomic. |
-| Progression and store | Ranked MMR, hidden skill, peak-MMR seasons, daily missions, an idempotent coin ledger and cosmetic inventory. The current store also handles Play purchases. | The revamp’s free season track, weekly challenges and earned-only store require explicit rules for existing balances, entitlements and season history. |
-| AI and voice | The gateway tracks Gemini usage and budgets. Coaching retrieves pgvector matches with a keyword fallback. Commentary and speech are optional delivery paths. The operator MCP server uses stdio. | Keep engine facts and validation at the boundary. Hybrid retrieval, voice selection and additional transports are revamp work. |
-| Admin and operations | FastAPI serves an existing admin panel. Admin, economy and AI operator features share the app and its data stores. | Separate admin account and audit ownership in the target design. Keep route and migration changes outside gameplay cleanup. |
+The Python backend is a modular monolith deployed as separate API and worker processes. The Rust engine owns the card rules and scoring. Python owns sessions, rooms, scheduling, progression, and API contracts. Redis supplies atomic live-state transitions and PostgreSQL owns durable records. Process separation lets an API restart preserve an online table while Redis and the game worker remain available.
 
-The reference repository's architecture documentation covers the deployed system. The reference OpenAPI and AsyncAPI exports describe the client contracts.
+| Module | Responsibility |
+| --- | --- |
+| `game` | Guest practice, local session state, move and hint endpoints. Practice state is held in API process memory. |
+| `identity`, `social` | Google login, token rotation, player profiles, friends, blocks, chat and room invites. |
+| `lobby` | Rooms, readiness, queue membership, match assembly, and abandoned-claim recovery. |
+| `matches` | Game lifecycle, socket authentication, private views, ordered public events, worker deadlines and settlement. |
+| `progression` | Rankings and hidden skill, wallet ledger, cosmetic inventory, seasons, rewards and achievements. |
+| `ai`, `admin` | Optional coaching, narration and voice, fair-play review, audited moderation and runtime flags. |
 
 ## Low-level design
 
-| Flow | Implementation and invariants |
+| Flow | Implementation and invariant |
 | --- | --- |
-| Seat admission | RoomService (`app/service/room_service.py`) and PlayerGuard (`app/service/player_guard.py`) coordinate queue and room membership. MatchmakingService (`app/service/matchmaking_service.py`) uses Redis Lua to claim players, fence room creation, finalize a match, and recover or re-enqueue stale claims. A cancellation must survive a stale worker. |
-| Play | WebSocket handlers (`app/routers/ws_handlers.py`) parse and dispatch a command. GameService (`app/service/game_service.py`) checks the seat and version and resolves retries by request ID. The Rust engine (`engine/src/game/rules.rs`) returns the next state and ordered events. A Redis transaction commits the version, events, command outcome and publication work together. |
-| Publish and reconnect | The outbox retries from a sequence cursor. ConnectionManager (`app/service/connection_manager.py`) fans out through Redis, bounds socket queues and tracks ownership by session. Clients deduplicate public events by game and sequence and recover the caller's hand and legal moves with a private sync. Admission is automatic in the reference socket. Its advertised explicit `join` action lacks a handler. |
-| Timers and exits | The timeout worker (`app/service/timeout_worker.py`) claims due jobs from a sorted set with renewable leases and owner-checked completion. Auto-play is version-fenced. Takeover keeps the seat's cards and separates the original player's penalties. The orphan reconciler (`app/service/orphan_reconciliation_service.py`) handles SQL games whose live state disappeared. |
-| Settlement | A terminal Redis state schedules retryable SQL work. GameResultPersistenceService (`app/service/game_result_persistence.py`) applies the result, ranking and progression in one database transaction, with idempotency checks and post-commit notification recovery. Redis and SQL have separate commit boundaries. |
-| Optional AI | VoiceWorker (`app/workers/voice_worker.py`) leases stream messages, honors budgets and a concurrency limit, caches audio, and dead-letters exhausted jobs. Coaching (`app/ai/coaching.py`) can return engine-derived tips when generation fails. Commentary can be omitted while the match continues. |
+| Seat admission | `app/modules/lobby/repository.py` and its Lua script fence claims and check player membership. A room starts only if its ready revision and all seat reservations match. |
+| Player move | `app/modules/matches/router.py` authenticates the socket. `MatchService` restores the native game, applies a legal move and asks `game.lua` to commit. The script checks connection ownership and version, then publishes the snapshot, stream batch, receipt and next deadline atomically. Retried request IDs return the original acknowledgement when the payload matches. |
+| Reconnect | The browser exchanges its access token for a same-origin, single-use socket ticket. Native clients can send a Bearer header. The API replays public batches after the last applied sequence and sends a private seat view. A newer connection supersedes the previous one. |
+| Game worker | `app/workers/matchmaking.py` runs independent polls for matching, room starts, turns and settlement. The turn poll tracks up to four in-flight games and refills free slots. Rust search runs in a thread so the event loop can renew leases and advance other tables. |
+| Turn lease | A Redis lease grants two seconds of ownership and is refreshed every half second while the turn runs. Lua checks the owner before renewal, release, or retry deferral. The final commit also checks the version and deadline. A crashed worker leaves the turn due for another worker after the lease expires. |
+| Settlement | A terminal Lua commit adds a pending settlement. `app/modules/matches/settlement.py` inserts a result once and applies rating and progression in the same SQL transaction. A retry after a lost response can enqueue fair-play work without reapplying SQL effects. Redis removes the pending entry and releases room reservations after settlement succeeds. |
+| Fair-play queue | Each Taskiq drain atomically claims due ranked matches and moves their retry scores forward by the claim lease. Later due entries become visible to the next drain. A failed dispatch stays queued for retry after the lease. Successful analysis removes the queue entry. |
+| Runtime flags | PostgreSQL stores overrides. After commit, the admin path increments the Redis generation and deletes the cached hash in one transaction. A slow cache fill can publish only against the generation it read before SQL. If invalidation fails while Redis is unavailable, a cached snapshot can survive until its 30-second TTL. |
+| Health | `/healthz` checks the API process and `/ready` checks configured storage and schema. `/api/v1/online/health` also requires a turn scheduler heartbeat less than 10 seconds old. The response includes the oldest currently due turn lag, which can reveal a backlog even while the scheduler responds. |
+
+Online rooms, active matches and pending settlements depend on Redis persistence and its no-eviction policy. PostgreSQL retains settled history after Redis data loss. Taskiq analysis uses retryable delivery and a five-minute lease, so a job that exceeds the lease may be delivered again. [Online storage guide](ONLINE_FOUNDATION.md) · [Multiplayer guide](MULTIPLAYER.md)

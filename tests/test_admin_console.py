@@ -258,10 +258,10 @@ def test_kill_switch_heals_when_the_cache_invalidation_fails(
     assert asyncio.run(read())[0] is True  # now cached in Redis
     app_redis = client.app.state.platform.redis
 
-    async def broken_delete(*keys):
+    def broken_pipeline(*args, **kwargs):
         raise RedisError("down")
 
-    monkeypatch.setattr(app_redis, "delete", broken_delete)
+    monkeypatch.setattr(app_redis, "pipeline", broken_pipeline)
     off = client.put(
         "/api/v1/admin/flags/ai_enabled",
         json={"value": False, "reason": "Cost spike"},

@@ -3,7 +3,7 @@ from ipaddress import ip_network
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from redis.exceptions import RedisError
@@ -16,7 +16,7 @@ from app.core.errors import (
     handle_app_error,
     handle_validation_error,
 )
-from app.core.platform import Platform, open_platform
+from app.core.platform import Platform, get_platform, open_platform
 from app.modules.admin import flags
 from app.modules.admin.console import router as console_router
 from app.modules.admin.router import router as admin_router
@@ -31,6 +31,7 @@ from app.modules.game.service import PracticeService
 from app.modules.identity.google import GoogleIdentity, GoogleVerifier
 from app.modules.identity.router import router as identity_router
 from app.modules.lobby.router import matchmaking, rooms
+from app.modules.matches.health import OnlineHealth, online_health
 from app.modules.matches.router import router as matches_router
 from app.modules.progression.router import router as progress_router
 from app.modules.social.router import landing as join_landing
@@ -126,6 +127,12 @@ def create_app(
         if platform is not None:
             await platform.ready()
         return {"status": "ok"}
+
+    @app.get("/api/v1/online/health", tags=["Platform"])
+    async def online_status(request: Request, response: Response) -> OnlineHealth:
+        """Check online storage and the game worker, and report due turn lag."""
+        response.headers["Cache-Control"] = "no-store"
+        return await online_health(get_platform(request))
 
     return app
 

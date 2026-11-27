@@ -1,6 +1,8 @@
 import asyncio
+import contextlib
 import json
 import logging
+from typing import Literal
 from uuid import UUID, uuid4
 
 from donke_engine import OnlineGame
@@ -11,7 +13,7 @@ from app.core.platform import Platform
 from app.modules.game.schemas import PlayerView, PlayRequest
 from app.modules.identity.repository import profiles
 from app.modules.matches import bots, settlement
-from app.modules.matches.repository import MatchConflict, MatchRepository
+from app.modules.matches.repository import TURN_LEASE_MS, MatchConflict, MatchRepository
 from app.modules.matches.schemas import (
     Acknowledgement,
     GameSeat,
@@ -215,6 +217,41 @@ class MatchService:
         owner = uuid4().hex
         if not await self.repo.acquire_turn(game_id, owner):
             return
+        renew = asyncio.create_task(self.keep_turn_lease(game_id, owner))
+        try:
+            await self.play_due_turn(game_id, owner)
+        except MatchConflict as error:
+            if error.code not in {"turn_unclaimed", "game_finished", "stale_version"}:
+                await self.defer("turn", game_id, error, owner=owner)
+        except Exception as error:
+            await self.defer("turn", game_id, error, owner=owner)
+        finally:
+            renew.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await renew
+            try:
+                await self.repo.release_turn(game_id, owner)
+            except RedisError as error:
+                logger.warning(
+                    "Turn lease will expire for %s (%s)", game_id, type(error).__name__
+                )
+
+    async def keep_turn_lease(self, game_id: UUID, owner: str) -> None:
+        while True:
+            await asyncio.sleep(TURN_LEASE_MS / 1_000 / 4)
+            try:
+                if not await self.repo.renew_turn(game_id, owner):
+                    return
+            except RedisError as error:
+                logger.warning(
+                    "Could not renew turn lease for %s (%s)",
+                    game_id,
+                    type(error).__name__,
+                )
+                # The commit still checks ownership. A transient failure may
+                # recover before the current lease expires.
+
+    async def play_due_turn(self, game_id: UUID, owner: str) -> None:
         state = await self.repo.get(game_id)
         if not state:
             await self.platform.redis.zrem(
@@ -336,44 +373,47 @@ class MatchService:
             "settled", game_id, retention=self.platform.settings.match_archive_seconds
         )
 
-    async def tick(self) -> None:
-        for room_id in await self.repo.due("unused", lobby=True):
+    async def start_ready_rooms(self) -> None:
+        for room_id in await self.repo.due("rooms"):
             try:
                 await self.start(room_id)
             except Exception as error:
                 await self.defer("room", room_id, error)
-        # Due turns run a few at a time: each game has its own turn lease, so
-        # they are independent, and one slow bot search no longer delays the
-        # deadlines of every other table.
-        limit = asyncio.Semaphore(TURN_CONCURRENCY)
 
-        async def turn(game_id: UUID) -> None:
-            async with limit:
-                try:
-                    await self.on_deadline(game_id)
-                except MatchConflict as exc:
-                    if exc.code not in {
-                        "turn_unclaimed",
-                        "game_finished",
-                        "stale_version",
-                    }:
-                        await self.defer("turn", game_id, exc)
-                except Exception as error:
-                    await self.defer("turn", game_id, error)
-
-        await asyncio.gather(*(turn(game) for game in await self.repo.due("turns")))
+    async def settle_finished(self) -> None:
         for game_id in await self.repo.due("settlement"):
             try:
                 await self.settle(game_id)
             except Exception as error:
                 await self.defer("settlement", game_id, error)
 
-    async def defer(self, work: str, identifier: UUID, error: Exception) -> None:
+    async def tick(self) -> None:
+        """Drive one cycle explicitly for scripts and tests."""
+        await self.start_ready_rooms()
+        limit = asyncio.Semaphore(TURN_CONCURRENCY)
+
+        async def advance(game_id: UUID) -> None:
+            async with limit:
+                await self.on_deadline(game_id)
+
+        await asyncio.gather(
+            *(advance(game_id) for game_id in await self.repo.due("turns"))
+        )
+        await self.settle_finished()
+
+    async def defer(
+        self,
+        work: Literal["room", "turn", "settlement"],
+        identifier: UUID,
+        error: Exception,
+        *,
+        owner: str = "",
+    ) -> None:
         logger.warning(
             "Failed to process %s %s (%s)", work, identifier, type(error).__name__
         )
         try:
-            await self.repo.execute(f"defer_{work}", identifier)
+            await self.repo.execute(f"defer_{work}", identifier, owner=owner)
         except (MatchConflict, RedisError) as retry_error:
             logger.warning(
                 "Could not schedule retry for %s %s (%s)",

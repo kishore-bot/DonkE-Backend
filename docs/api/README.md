@@ -2,13 +2,13 @@
 
 [Project README](../../README.md) · [OpenAPI contract](openapi.json) · [AsyncAPI contract](asyncapi.json) · [Swagger UI on localhost](http://127.0.0.1:8000/docs)
 
-The HTTP contract defines 97 operations across 90 paths. Use the OpenAPI contract for request bodies, response schemas, and authentication requirements.
+Use the OpenAPI contract for the full operation list, request bodies, response schemas, and authentication requirements.
 
 [Platform](#platform) · [Practice](#practice) · [Identity](#identity) · [Rooms](#rooms) · [Matchmaking](#matchmaking) · [Multiplayer](#multiplayer) · [Social](#social) · [Progression](#progression) · [AI](#ai) · [Admin](#admin) · [Admin console](#admin-console) · [Gameplay WebSocket](#gameplay-websocket) · [Rules MCP](#rules-mcp) · [Browser routes](#browser-routes)
 
 ## Gameplay WebSocket
 
-Connect to `WS /api/v1/games/{game_id}/ws` with a player Bearer token. Resume with `?after_sequence=<last_applied_sequence>`.
+Connect to `WS /api/v1/games/{game_id}/ws` with a single-use browser ticket or a player Bearer header. Resume with `?after_sequence=<last_applied_sequence>`.
 
 | Direction | Messages |
 | --- | --- |
@@ -36,8 +36,9 @@ Run `uv run python -m app.modules.ai.mcp_server` for stdio, or add `--http` for 
 | Method | Path | Operation |
 | --- | --- | --- |
 | `GET` | `/api/v1/notice` | Notice |
+| `GET` | `/api/v1/online/health` | Online stores, turn scheduler heartbeat and oldest due turn lag |
 | `GET` | `/healthz` | Health |
-| `GET` | `/ready` | Ready |
+| `GET` | `/ready` | Storage and migration readiness when online is enabled |
 
 ## Practice
 
@@ -82,6 +83,7 @@ Run `uv run python -m app.modules.ai.mcp_server` for stdio, or add `--http` for 
 | Method | Path | Operation |
 | --- | --- | --- |
 | `GET` | `/api/v1/games/{game_id}/replay` | Replay |
+| `POST` | `/api/v1/games/{game_id}/ws-ticket` | Issue one-use browser WebSocket ticket |
 
 ## Social
 

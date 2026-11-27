@@ -2,7 +2,7 @@ import json
 import math
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 from uuid import UUID
 
 from app.core.platform import Platform
@@ -10,6 +10,7 @@ from app.modules.lobby.schemas import Room
 from app.modules.matches.schemas import EventBatch, MatchState
 
 SCRIPT = Path(__file__).with_name("game.lua").read_text(encoding="utf-8")
+TURN_LEASE_MS = 2_000
 
 
 class MatchConflict(Exception):
@@ -98,10 +99,10 @@ class MatchRepository:
             for identifier, fields in cast("list[tuple[str, dict[str, str]]]", records)
         ]
 
-    async def due(self, name: str, *, lobby: bool = False) -> list[UUID]:
+    async def due(self, name: Literal["rooms", "turns", "settlement"]) -> list[UUID]:
         key = (
             f"{self.prefix}:lobby:rooms:ready"
-            if lobby
+            if name == "rooms"
             else self.game_key("index", name)
         )
         raw = await self.redis.zrangebyscore(
@@ -109,12 +110,35 @@ class MatchRepository:
         )
         return [UUID(identifier) for identifier in cast("list[str]", raw)]
 
+    async def oldest_due_turn_ms(self, now: int) -> int | None:
+        entries = cast(
+            "list[tuple[str, float]]",
+            await self.redis.zrangebyscore(
+                self.game_key("index", "turns"),
+                "-inf",
+                now,
+                start=0,
+                num=1,
+                withscores=True,
+            ),
+        )
+        return int(entries[0][1]) if entries else None
+
     async def acquire_turn(self, game_id: UUID, owner: str) -> bool:
         return bool(
             await self.redis.set(
-                self.game_key("lease", game_id), owner, nx=True, px=2000
+                self.game_key("lease", game_id), owner, nx=True, px=TURN_LEASE_MS
             )
         )
+
+    async def renew_turn(self, game_id: UUID, owner: str) -> bool:
+        result = await self.execute(
+            "renew_turn", game_id, owner=owner, ttl_ms=TURN_LEASE_MS
+        )
+        return bool(result["owned"])
+
+    async def release_turn(self, game_id: UUID, owner: str) -> None:
+        await self.execute("release_turn", game_id, owner=owner)
 
     async def connect(self, game_id: UUID, player_id: UUID, owner: str) -> None:
         await self.redis.set(

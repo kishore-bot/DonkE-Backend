@@ -33,8 +33,20 @@ local id = input.game_id
 local state_key = key('game', 'state', id)
 local log = key('game', 'events', id)
 local requests = key('game', 'commands', id)
+local turn_lease = key('game', 'lease', id)
+
+if operation == 'renew_turn' or operation == 'release_turn' then
+    if redis.call('GET', turn_lease) ~= input.owner then return ok({owned = false}) end
+    if operation == 'renew_turn' then
+        redis.call('PEXPIRE', turn_lease, input.ttl_ms)
+    else
+        redis.call('DEL', turn_lease)
+    end
+    return ok({owned = true})
+end
 
 if operation == 'defer_room' or operation == 'defer_turn' or operation == 'defer_settlement' then
+    if operation == 'defer_turn' and redis.call('GET', turn_lease) ~= input.owner then return ok() end
     local index = operation == 'defer_room' and ready or (operation == 'defer_turn' and due or pending)
     local scheduled = redis.call('ZSCORE', index, id)
     if scheduled and tonumber(scheduled) <= now then
@@ -134,8 +146,7 @@ if input.player_id then
     local connection = key('game', 'connection', id .. ':' .. input.player_id)
     if redis.call('GET', connection) ~= input.owner then return fail('connection_replaced') end
 else
-    local lease = key('game', 'lease', id)
-    if redis.call('GET', lease) ~= input.owner or state.deadline_ms > now then return fail('turn_unclaimed') end
+    if redis.call('GET', turn_lease) ~= input.owner or state.deadline_ms > now then return fail('turn_unclaimed') end
 end
 
 if input.command then
@@ -164,5 +175,5 @@ if next_state.status == 'finished' then
 else
     redis.call('ZADD', due, next_state.deadline_ms, id)
 end
-if not input.player_id then redis.call('DEL', key('game', 'lease', id)) end
+if not input.player_id then redis.call('DEL', turn_lease) end
 return ok({sequence = next_state.sequence, version = next_state.version})

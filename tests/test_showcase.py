@@ -200,22 +200,32 @@ def test_demo_seed_is_guarded_and_idempotent(settings, demo_settings, tmp_path):
 def test_matchmaking_survives_store_disconnects(monkeypatch):
     platform = MagicMock()
     platform.settings = Settings(_env_file=None, matchmaking_poll_seconds=0.001)
-    poll = AsyncMock(side_effect=[ConnectionRefusedError, 0])
-    monkeypatch.setattr(matchmaking, "match_once", poll)
 
     async def check():
         stop = asyncio.Event()
+        poll = AsyncMock(side_effect=[ConnectionRefusedError, 0])
 
-        async def tick():
+        async def match(lobby):
+            result = await poll(lobby)
             stop.set()
+            return result
 
-        worker = AsyncMock()
-        worker.tick = tick
+        worker = MagicMock()
+        worker.start_ready_rooms = AsyncMock()
+        worker.settle_finished = AsyncMock()
+        worker.repo.due = AsyncMock(return_value=[])
+        worker.repo.now_ms = AsyncMock(return_value=0)
+        worker.platform = platform
+        platform.redis.set = AsyncMock()
+        monkeypatch.setattr(matchmaking, "match_once", match)
         monkeypatch.setattr(matchmaking, "MatchService", lambda _: worker)
         await asyncio.wait_for(matchmaking.run(platform, stop), timeout=1)
+        assert poll.await_count == 2
+        worker.start_ready_rooms.assert_awaited()
+        worker.settle_finished.assert_awaited()
+        platform.redis.set.assert_awaited()
 
     asyncio.run(check())
-    assert poll.await_count == 2
 
 
 @pytest.mark.integration

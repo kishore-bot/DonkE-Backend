@@ -1690,6 +1690,30 @@
         "title": "MySeason",
         "type": "object"
       },
+      "OnlineHealth": {
+        "properties": {
+          "heartbeat_age_ms": {
+            "title": "Heartbeat Age Ms",
+            "type": "integer"
+          },
+          "oldest_due_turn_lag_ms": {
+            "title": "Oldest Due Turn Lag Ms",
+            "type": "integer"
+          },
+          "status": {
+            "const": "ok",
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "heartbeat_age_ms",
+          "oldest_due_turn_lag_ms"
+        ],
+        "title": "OnlineHealth",
+        "type": "object"
+      },
       "PartyView": {
         "properties": {
           "id": {
@@ -7657,6 +7681,48 @@
           }
         },
         "summary": "Notice",
+        "tags": [
+          "Platform"
+        ]
+      }
+    },
+    "/api/v1/online/health": {
+      "get": {
+        "description": "Check online storage and the game worker, and report due turn lag.",
+        "operationId": "online_status_api_v1_online_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnlineHealth"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Online Status",
         "tags": [
           "Platform"
         ]

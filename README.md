@@ -91,7 +91,7 @@ Set `DONKE_POSTGRES_DSN`, `DONKE_REDIS_DSN`, and `DONKE_AUTH_SECRET` in `.env`. 
 | [OpenAPI JSON](docs/api/openapi.json) | Version-controlled HTTP contract with request, response, and authentication schemas. |
 | [AsyncAPI JSON](docs/api/asyncapi.json) | Gameplay WebSocket contract with command, acknowledgment, event, and reconnect schemas. |
 
-The gameplay socket is `WS /api/v1/games/{game_id}/ws`. Authenticate with the player Bearer token and reconnect with `?after_sequence=<last_applied_sequence>`. The server replays missed public events and sends a private snapshot for the player's seat. [Multiplayer protocol](docs/MULTIPLAYER.md)
+The gameplay socket is `WS /api/v1/games/{game_id}/ws`. Use a single-use ticket in a browser or a player Bearer header in a native client. Reconnect with `?after_sequence=<last_applied_sequence>` to replay missed public events and get a private snapshot for the player's seat. [Multiplayer protocol](docs/MULTIPLAYER.md)
 
 ## Architecture
 
@@ -114,6 +114,7 @@ flowchart LR
 ```
 
 - **Real-time state.** One Redis Lua commit checks the game version and stores the move, acknowledgment, event batch, and next deadline together. Redis Streams let clients fetch events after a known sequence, and sorted sets let workers fetch due turns without scanning active matches.
+- **Game worker.** Independent polls handle matchmaking, room starts, turns and settlement. `/api/v1/online/health` reports heartbeat age and due turn lag. [High-level and low-level design](docs/STUDY_NOTES.md)
 - **Durable history.** PostgreSQL settles completed games, rankings, and rewards transactionally. A composite index on `(player_id, finished_at DESC)` supports recent player history and head-to-head lookups over match participants.
 - **Bots and coaching.** Rust runs rules and Monte Carlo move scoring. Post-match coaching replays decisions through the engine. The rules coach blends BM25 with pgvector retrieval when embeddings are configured and cites curated answers. Text and voice requests run outside the turn protocol.
 

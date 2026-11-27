@@ -7,6 +7,7 @@ import json
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, Literal, cast
 from uuid import UUID, uuid4
 
@@ -27,6 +28,7 @@ QUEUE_SCORE = 50
 WINDOW_DAYS = 30
 BATCH = 3
 LEASE_SECONDS = 300
+CLAIM = Path(__file__).with_name("claim_analysis.lua").read_text(encoding="utf-8")
 
 
 def pending_key(platform: Platform) -> str:
@@ -137,20 +139,16 @@ async def analyse_ranked(platform: Platform, game_id: UUID) -> int:
 
 
 async def claim_pending(platform: Platform, limit: int = BATCH) -> list[str]:
-    """Lease up to `limit` due ranked matches so only one job takes each."""
-    redis = platform.redis
-    key = pending_key(platform)
-    now = datetime.now(UTC).timestamp()
+    """Lease up to `limit` due matches and set their retry times atomically."""
+    if limit <= 0:
+        return []
     pending = cast(
         "list[str | bytes]",
-        await redis.zrangebyscore(key, "-inf", now, start=0, num=limit),
+        await platform.redis.execute_command(
+            "EVAL", CLAIM, 1, pending_key(platform), limit, LEASE_SECONDS * 1_000
+        ),
     )
-    claimed = []
-    for raw in pending:
-        game = raw.decode() if isinstance(raw, bytes) else raw
-        if await redis.set(f"{key}:lease:{game}", "1", nx=True, ex=LEASE_SECONDS):
-            claimed.append(game)
-    return claimed
+    return [item.decode() if isinstance(item, bytes) else item for item in pending]
 
 
 async def run_analysis(platform: Platform, game: str) -> int:

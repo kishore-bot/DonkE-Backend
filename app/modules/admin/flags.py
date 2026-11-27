@@ -1,8 +1,7 @@
 """Runtime flags: a short allowlist of settings operators can change live.
 
-Postgres is the source of truth. Every write mirrors the full set to one Redis
-hash, which hot paths read; a missing hash is rebuilt from Postgres. Secrets,
-URLs and timers are deliberately not flags.
+Postgres is the source of truth. Writes invalidate the Redis hash, and reads
+rebuild it from committed overrides. Secrets, URLs and timers are not flags.
 """
 
 import json
@@ -89,6 +88,17 @@ LOADED = "__loaded"
 # The Redis copy is a cache, never the source of truth: it expires, so a
 # missed invalidation (Redis down mid-write) heals within this many seconds.
 CACHE_SECONDS = 30
+PUBLISH = """
+if (redis.call('GET', KEYS[2]) or '0') ~= ARGV[1] then return 0 end
+redis.call('DEL', KEYS[1])
+redis.call('HSET', KEYS[1], unpack(ARGV, 3))
+redis.call('EXPIRE', KEYS[1], ARGV[2])
+return 1
+"""
+
+
+def generation_key(platform: Platform) -> str:
+    return f"{cache_key(platform)}:generation"
 
 
 async def overrides_in(db: AsyncSession) -> dict[str, Any]:
@@ -105,25 +115,13 @@ async def stored(platform: Platform) -> dict[str, Any]:
         return {**defaults(platform), **await overrides_in(db)}
 
 
-async def publish(platform: Platform, db: AsyncSession) -> dict[str, Any]:
-    """Cache only the overrides, so changed settings defaults still apply."""
-    overrides = await overrides_in(db)
-    key = cache_key(platform)
-    mapping = {name: json.dumps(value) for name, value in overrides.items()}
-    async with platform.redis.pipeline(transaction=True) as pipe:
-        pipe.delete(key)
-        pipe.hset(key, mapping={LOADED: "1", **mapping})
-        pipe.expire(key, CACHE_SECONDS)
-        await pipe.execute()
-    return {**defaults(platform), **overrides}
-
-
 async def invalidate(platform: Platform) -> None:
-    """Drop the cache after a committed write; the next read rebuilds it.
-    Deleting (not rewriting) means a slow writer can never overwrite a
-    newer snapshot. If Redis is unreachable the cache expires on its own."""
+    """Invalidate both the hash and any refresh that started before this write."""
     try:
-        await platform.redis.delete(cache_key(platform))
+        async with platform.redis.pipeline(transaction=True) as pipe:
+            pipe.incr(generation_key(platform))
+            pipe.delete(cache_key(platform))
+            await pipe.execute()
     except RedisError:
         logger.warning(
             "Flag cache invalidation failed; it expires in %ss", CACHE_SECONDS
@@ -143,9 +141,29 @@ async def current(platform: Platform) -> dict[str, Any]:
 
 
 async def refresh(platform: Platform) -> dict[str, Any]:
-    """Mirror committed flags to Redis. Call after the write transaction."""
+    """Publish overrides only if the generation stayed stable across the read."""
+    redis = platform.redis
+    generation = await redis.get(generation_key(platform)) or "0"
     async with platform.sessions() as db:
-        return await publish(platform, db)
+        overrides = await overrides_in(db)
+    fields = [LOADED, "1"]
+    for name, value in overrides.items():
+        fields.extend((name, json.dumps(value)))
+    published = await redis.execute_command(
+        "EVAL",
+        PUBLISH,
+        2,
+        cache_key(platform),
+        generation_key(platform),
+        generation,
+        CACHE_SECONDS,
+        *fields,
+    )
+    if not published:
+        # A concurrent write advanced the generation. Read in a fresh session
+        # without retrying publication or returning the superseded snapshot.
+        return await stored(platform)
+    return {**defaults(platform), **overrides}
 
 
 async def set_flag(
