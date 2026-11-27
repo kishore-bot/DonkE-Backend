@@ -60,9 +60,9 @@ RULES = (
     ),
     Rule(
         "vettu",
-        "cut vettu penalty pickup take pile highest off suit വെട്ട് എടുക്കുക "
+        "strike cut vettu penalty pickup take pile highest off suit വെട്ട് എടുക്കുക "
         "வெட்டு வெட்டினால் वेट्टू काट कट ವೆಟ್ಟು ಕತ್ತರಿಸಿದರೆ వెట్టు కట్",
-        "A Vettu ends the trick immediately. The highest card of the led suit takes the entire pile and leads next.",
+        "A Strike ends the trick immediately. The highest card of the led suit takes the entire pile and leads next.",
         "വെട്ടിയാൽ ആ കളി ഉടൻ തീരും. ആദ്യം ഇട്ട ഇനത്തിലെ ഏറ്റവും വലിയ ചീട്ടിട്ടയാൾ ചീട്ടുകൾ എടുത്ത് അടുത്ത കളി തുടങ്ങും.",
         {
             "ta": "வெட்டு வந்தால் சுற்று உடனே முடியும். முதலில் போடப்பட்ட வகையில் மிக உயர்ந்த அட்டையைப் போட்டவர் மேசையிலுள்ள எல்லா அட்டைகளையும் எடுத்து அடுத்த சுற்றைத் தொடங்குவார்.",

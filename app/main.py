@@ -36,6 +36,7 @@ from app.modules.matches.router import router as matches_router
 from app.modules.progression.router import router as progress_router
 from app.modules.social.router import landing as join_landing
 from app.modules.social.router import router as social_router
+from app.modules.story.cue_routes import router as cue_router
 from app.modules.story.router import router as story_router
 
 logger = logging.getLogger(__name__)
@@ -106,6 +107,7 @@ def create_app(
         join_landing,
         ai_router,
         story_router,
+        cue_router,
     ):
         app.include_router(router)
 

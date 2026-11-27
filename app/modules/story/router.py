@@ -1,16 +1,21 @@
+import asyncio
 from datetime import UTC, datetime
+from dataclasses import replace
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ConfigDict, Field
+from redis.exceptions import RedisError
 from starlette.concurrency import run_in_threadpool
 
 from app.core.errors import AppError
-from app.core.rate_limit import client_host
+from app.core.rate_limit import client_host, limit
+from app.modules.ai.index import ranked_rules
+from app.modules.ai.router import AI
 from app.modules.game.repository import StoryPin
-from app.modules.game.router import Service
+from app.modules.game.router import AccessToken, Service
 from app.modules.game.schemas import PracticeCreated
 from app.modules.identity.router import (
     CurrentPlayer,
@@ -22,6 +27,7 @@ from app.modules.lobby.router import Writes
 from app.modules.progression.models import SeasonCharacter
 from app.modules.progression.season_content import CharacterPreview
 from app.modules.progression.service import active_manifest
+from app.modules.story.coach import DuelCoach, explain
 from app.modules.story.progression import (
     StoryProgress,
     StoryResult,
@@ -41,10 +47,12 @@ class StartDuel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     season_id: UUID
+    adaptive: bool = False
     character_id: str | None = Field(default=None, min_length=1, max_length=40)
 
 
 class StoryAttempt(PracticeCreated):
+    pack_key: str
     rival: str
     character: CharacterPreview
     rewards_eligible: bool
@@ -63,6 +71,7 @@ async def start_duel(
     response: Response,
     practice: Service,
     platform: PlatformDep,
+    gateway: AI,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
 ) -> StoryAttempt:
     player = await current_player(platform, credentials) if credentials else None
@@ -93,12 +102,28 @@ async def start_duel(
     if duel is None:
         raise AppError(404, "story_unavailable", "This season has no story duel")
     seed, rival = duel
+    if body.adaptive and gateway.provider is not None:
+        await limit(platform, "story_rival", client_host(request), 4, 60)
+        try:
+            async with asyncio.timeout(1.25):
+                intent = await gateway.select(
+                    "story_rival",
+                    f"Choose steady or pressure for {rival} in the {manifest.pack.title} card duel.",
+                    {"steady", "pressure"},
+                )
+        except TimeoutError, RedisError:
+            intent = None
+        if intent == "pressure":
+            pin = replace(pin, intent="pressure", intent_source="gemini")
+        elif intent == "steady":
+            pin = replace(pin, intent_source="gemini")
     game = await run_in_threadpool(
         practice.create, 2, client=client_host(request), story=pin, seed=seed
     )
     response.headers["Cache-Control"] = "no-store"
     return StoryAttempt(
         **game.model_dump(),
+        pack_key=pin.pack_key,
         rival=rival,
         character=cast[character_id],
         rewards_eligible=player_id is not None,
@@ -135,3 +160,27 @@ async def claim_awakening(
 ) -> StoryProgress:
     async with platform.sessions.begin() as db:
         return await awaken(db, season_id, player.profile.id, datetime.now(UTC))
+
+
+@router.get("/story/attempts/{game_id}/coach")
+async def story_coach(
+    game_id: UUID,
+    request: Request,
+    response: Response,
+    token: AccessToken,
+    practice: Service,
+    gateway: AI,
+    question: Annotated[str | None, Query(min_length=2, max_length=240)] = None,
+) -> DuelCoach:
+    await limit(gateway.platform, "story_coach", client_host(request), 15, 60)
+    pin, duel = await run_in_threadpool(practice.story_decision, game_id, token)
+    response.headers["Cache-Control"] = "no-store"
+    if question is None:
+        return await run_in_threadpool(explain, pin, duel)
+    rules = await ranked_rules(gateway, question)
+    if not rules:
+        return DuelCoach(
+            answer="I could not find evidence for that question in the game rules."
+        )
+    rule = rules[0]
+    return DuelCoach(answer=rule.en, citation=f"rule:{rule.source}")

@@ -10,6 +10,12 @@ Both packs use original demo characters and the existing frontend GLBs for previ
 
 The progression slice adds a first escape receipt worth 20 coins and 40 season points, awarded once per player and season. The result screen confirms it with the account and attempt credentials. A player who cleared the duel, selected a character and reached 300 season points can unlock that character's final form. Packed seasons use three seven-day buckets and keep a three-day awakening claim window after close. Older seasons retain calendar-week progression. The remaining sections include future contracts for story persistence, broader match settlement and audio assets.
 
+## Story AI and approved dialogue
+
+The story result links to a read-only coach that requires the finished attempt capability. It rescores the rival's first choice with at least two legal cards and returns the played card, candidate count and estimated escape rates. A rules question retrieves a curated citation or abstains. The optional adaptive rival asks Gemini for one of two intents before dealing. An unavailable or slow model falls back to the stable Rust policy. Awakening progress names the missing character selection, clear and points requirements.
+
+In the admin console, **Season cues** creates a draft for a pack, character and Strike or victory scene. Each advance invokes the LangGraph generation node for one language and stores its result in PostgreSQL. An editor can correct the pair and publish it. The existing voice worker renders approved lines, and public playback prefers English, then Japanese with English captions. A missing clip can be queued again after cache expiry. The authored fallback pair lets the workflow finish without a provider. Native prompt-cache comparisons, a full KAG graph and inter-agent localization remain planned.
+
 ## 1. Season identity, time and durable rewards
 
 | Current code and behavior | Change required |

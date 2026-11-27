@@ -128,6 +128,9 @@ Run `uv run python -m app.modules.ai.mcp_server` for stdio, or add `--http` for 
 | `POST` | `/api/v1/seasons/{season_id}/me/awakening` | Claim the chosen character's final form |
 | `POST` | `/api/v1/story/attempts` | Open a seeded story duel |
 | `POST` | `/api/v1/story/attempts/{game_id}/result` | Confirm the finished duel and read its reward receipt |
+| `GET` | `/api/v1/story/attempts/{game_id}/coach` | Read engine evidence or a cited rule for a finished attempt |
+| `GET` | `/api/v1/story/cues/{pack_key}/{character_id}/{moment}` | Read published captions and available audio language |
+| `GET` | `/api/v1/story/cues/{pack_key}/{character_id}/{moment}/audio/{locale}` | Read published cue audio |
 | `GET` | `/api/v1/seasons/{season_id}/board` | Board |
 | `POST` | `/api/v1/seasons/{season_id}/bonus/{tier}/claim` | Claim Bonus |
 | `POST` | `/api/v1/seasons/{season_id}/tiers/{tier}/claim` | Claim Tier |

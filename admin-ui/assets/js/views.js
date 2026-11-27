@@ -241,6 +241,35 @@ async function ai({ refresh }) {
     ], usage)));
 }
 
+async function seasonCues({ refresh }) {
+  const rows = await api.get("/admin/season-cues");
+  const create = () => act("Create a seasonal cue", [
+    { name: "pack_key", label: "Pack key", placeholder: "grimoire-awakening-v1", maxlength: 80 },
+    { name: "character_id", label: "Character ID", placeholder: "ashblade", maxlength: 40 },
+    { name: "moment", label: "Scene", options: [["strike", "Strike"], ["victory", "Victory"]], value: "strike" },
+  ], (value) => api.post("/admin/season-cues", value), refresh, "Cue created");
+  const actions = { english: "Draft English", japanese: "Draft Japanese", review: "Review and publish" };
+  const advance = (cue) => {
+    const fields = cue.stage === "review" ? [
+      { name: "en", label: "English", value: cue.en, maxlength: 180 },
+      { name: "ja", label: "Japanese", value: cue.ja, maxlength: 180 },
+    ] : [];
+    return act(actions[cue.stage], fields, (value) => api.post(
+      `/admin/season-cues/${cue.id}/advance`, { ...value, stage: cue.stage },
+    ), refresh, cue.stage === "review" ? "Cue published" : "Draft saved");
+  };
+  return h("div", {}, header("Season cues", h("button", { class: "primary", onclick: create }, "New cue")),
+    h("div", { class: "card" }, table([
+      { label: "Pack and character", render: (cue) => `${cue.pack_key} · ${cue.character_id}` },
+      { label: "Scene", render: (cue) => cue.moment },
+      { label: "English", render: (cue) => cue.en ?? "—" },
+      { label: "Japanese", render: (cue) => cue.ja ?? "—" },
+      { label: "Status", render: (cue) => actions[cue.stage]
+        ? h("button", { onclick: () => advance(cue) }, actions[cue.stage])
+        : badge("published", "ok") },
+    ], rows)));
+}
+
 async function users({ admin, refresh }) {
   const rows = await api.get("/admin/users");
   const roles = [["viewer", "Viewer"], ["moderator", "Moderator"], ["admin", "Admin"]];
@@ -310,6 +339,7 @@ export const VIEWS = {
   store: { title: "Store", render: store },
   flags: { title: "Runtime flags", render: flags },
   ai: { title: "AI", render: ai, roles: ADMIN },
+  "season-cues": { title: "Season cues", render: seasonCues, roles: ADMIN },
   users: { title: "Admin users", render: users, roles: ADMIN },
   audit: { title: "Audit log", render: audit, roles: ADMIN },
   security: { title: "Security", render: security },

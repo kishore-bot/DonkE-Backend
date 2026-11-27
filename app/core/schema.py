@@ -34,6 +34,8 @@ from app.modules.social.models import (
     PlayerReport,
 )
 
+from app.modules.story.models import SeasonCue
+
 # Import all mapped tables for both migration drift checks and startup on an expanded schema.
 MAPPED_MODELS = (
     AdminAudit,
@@ -68,6 +70,7 @@ MAPPED_MODELS = (
     PartyInvite,
     PartyMember,
     RuleEmbedding,
+    SeasonCue,
 )
 
 

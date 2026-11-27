@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -20,11 +21,26 @@ CLEAR_COINS = 20
 AWAKENING_POINTS = 300
 
 
+type Requirement = Literal["choose_character", "clear_duel", "earn_points"]
+
+
+def requirements(selected: bool, cleared: bool, points: int) -> list[Requirement]:
+    missing: list[Requirement] = []
+    if not selected:
+        missing.append("choose_character")
+    if not cleared:
+        missing.append("clear_duel")
+    if points < AWAKENING_POINTS:
+        missing.append("earn_points")
+    return missing
+
+
 class StoryProgress(BaseModel):
     cleared: bool
     points: int
     target: int = AWAKENING_POINTS
     awakened_character_id: str | None
+    missing: list[Requirement]
 
 
 class StoryResult(BaseModel):
@@ -37,10 +53,16 @@ class StoryResult(BaseModel):
 async def progress(db: AsyncSession, season_id: UUID, player_id: UUID) -> StoryProgress:
     story = await db.get(SeasonStoryProgress, (season_id, player_id))
     player = await db.get(SeasonPlayer, (season_id, player_id))
+    character = await db.get(SeasonCharacter, (season_id, player_id))
     return StoryProgress(
         cleared=story is not None,
         points=player.points if player else 0,
         awakened_character_id=story.awakened_character_id if story else None,
+        missing=[]
+        if story and story.awakened_character_id
+        else requirements(
+            character is not None, story is not None, player.points if player else 0
+        ),
     )
 
 
@@ -109,17 +131,16 @@ async def awaken(
     selection = await db.get(
         SeasonCharacter, (season_id, player_id), with_for_update=True
     )
-    if (
-        story is None
-        or player is None
-        or player.points < AWAKENING_POINTS
-        or selection is None
+    if requirements(
+        selection is not None, story is not None, player.points if player else 0
     ):
         raise AppError(
             409,
             "awakening_locked",
             "Choose a character, clear the duel and earn 300 season points",
         )
+    assert story is not None
+    assert selection is not None
     story.awakened_character_id = selection.character_id
     await db.flush()
     return await progress(db, season_id, player_id)

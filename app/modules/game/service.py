@@ -81,7 +81,7 @@ class PracticeService:
         try:
             # Bots may play before the human's first turn: outside the table lock.
             game = (
-                SeededDuel(OnlineGame.seeded(2, seed), seed)
+                SeededDuel(OnlineGame.seeded(2, seed), seed, intent=story.intent)
                 if story
                 else PracticeGame(seats, level, iterations=200)
             )
@@ -139,6 +139,16 @@ class PracticeService:
             if view.outcome is None:
                 raise AppError(409, "story_in_progress", "Finish the story duel first")
             return story, 0 in view.escape_order
+
+    def story_decision(self, game_id: UUID, token: str) -> tuple[StoryPin, SeededDuel]:
+        with self.repository.lock:
+            session = self._session(game_id, token)
+        with session.lock:
+            if session.story is None or not isinstance(session.game, SeededDuel):
+                raise AppError(404, "story_not_found", "Story attempt not found")
+            if not session.finished:
+                raise AppError(409, "story_in_progress", "Finish the story duel first")
+            return session.story, session.game
 
     def hint(self, game_id: UUID, token: str) -> PracticeHint:
         with self.repository.lock:

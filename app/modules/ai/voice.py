@@ -41,6 +41,12 @@ class Voice:
         )
         return result["status"]
 
+    async def available(self, text: str, language: str, voice: str) -> bool:
+        identifier = self.identifier(text, language, voice)
+        return bool(
+            await self.redis.exists(self.gateway.key(f"media:voice:clip:{identifier}"))
+        )
+
     async def clip(self, text: str, language: str, voice: str) -> bytes | None:
         identifier = self.identifier(text, language, voice)
         data = await self.redis.get(self.gateway.key(f"media:voice:clip:{identifier}"))

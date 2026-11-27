@@ -261,6 +261,56 @@
         "title": "AdminUpdate",
         "type": "object"
       },
+      "AdvanceCue": {
+        "additionalProperties": false,
+        "properties": {
+          "en": {
+            "anyOf": [
+              {
+                "maxLength": 180,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "En"
+          },
+          "ja": {
+            "anyOf": [
+              {
+                "maxLength": 180,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ja"
+          },
+          "reason": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "english",
+              "japanese",
+              "review"
+            ],
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "reason"
+        ],
+        "title": "AdvanceCue",
+        "type": "object"
+      },
       "AllSafeOutcome": {
         "properties": {
           "reason": {
@@ -907,6 +957,122 @@
         "title": "CosmeticGrant",
         "type": "object"
       },
+      "CreateCue": {
+        "additionalProperties": false,
+        "properties": {
+          "character_id": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Character Id",
+            "type": "string"
+          },
+          "moment": {
+            "$ref": "#/components/schemas/Moment"
+          },
+          "pack_key": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Pack Key",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 120,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pack_key",
+          "character_id",
+          "moment",
+          "reason"
+        ],
+        "title": "CreateCue",
+        "type": "object"
+      },
+      "CueView": {
+        "properties": {
+          "character_id": {
+            "title": "Character Id",
+            "type": "string"
+          },
+          "en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "En"
+          },
+          "en_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "En Source"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "ja": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ja"
+          },
+          "ja_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ja Source"
+          },
+          "moment": {
+            "title": "Moment",
+            "type": "string"
+          },
+          "pack_key": {
+            "title": "Pack Key",
+            "type": "string"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "pack_key",
+          "character_id",
+          "moment",
+          "stage",
+          "en",
+          "ja",
+          "en_source",
+          "ja_source"
+        ],
+        "title": "CueView",
+        "type": "object"
+      },
       "Dashboard": {
         "properties": {
           "active_games": {
@@ -1015,6 +1181,40 @@
           "seat"
         ],
         "title": "DonkeyOutcome",
+        "type": "object"
+      },
+      "DuelCoach": {
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RivalEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "answer"
+        ],
+        "title": "DuelCoach",
         "type": "object"
       },
       "ErrorBody": {
@@ -1651,6 +1851,13 @@
         ],
         "title": "MatchRow",
         "type": "object"
+      },
+      "Moment": {
+        "enum": [
+          "strike",
+          "victory"
+        ],
+        "type": "string"
       },
       "MoveScore": {
         "properties": {
@@ -2401,6 +2608,34 @@
         "title": "ProfileUpdate",
         "type": "object"
       },
+      "PublicCue": {
+        "properties": {
+          "audio_locale": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VoiceLocale"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "caption": {
+            "title": "Caption",
+            "type": "string"
+          },
+          "japanese": {
+            "title": "Japanese",
+            "type": "string"
+          }
+        },
+        "required": [
+          "caption",
+          "japanese"
+        ],
+        "title": "PublicCue",
+        "type": "object"
+      },
       "PublicReplay": {
         "description": "A finished match as players may see it: public events only.",
         "properties": {
@@ -2769,6 +3004,14 @@
         "title": "ReportView",
         "type": "object"
       },
+      "Requirement": {
+        "enum": [
+          "choose_character",
+          "clear_duel",
+          "earn_points"
+        ],
+        "type": "string"
+      },
       "Resolve": {
         "additionalProperties": false,
         "properties": {
@@ -2808,6 +3051,43 @@
           "attempt_token"
         ],
         "title": "ResultRequest",
+        "type": "object"
+      },
+      "RivalEvidence": {
+        "properties": {
+          "best_safe_rate": {
+            "title": "Best Safe Rate",
+            "type": "number"
+          },
+          "candidate_count": {
+            "title": "Candidate Count",
+            "type": "integer"
+          },
+          "card": {
+            "$ref": "#/components/schemas/Card"
+          },
+          "intent": {
+            "title": "Intent",
+            "type": "string"
+          },
+          "played_safe_rate": {
+            "title": "Played Safe Rate",
+            "type": "number"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "intent",
+          "source",
+          "card",
+          "candidate_count",
+          "played_safe_rate",
+          "best_safe_rate"
+        ],
+        "title": "RivalEvidence",
         "type": "object"
       },
       "RivalView": {
@@ -3421,6 +3701,11 @@
       "StartDuel": {
         "additionalProperties": false,
         "properties": {
+          "adaptive": {
+            "default": false,
+            "title": "Adaptive",
+            "type": "boolean"
+          },
           "character_id": {
             "anyOf": [
               {
@@ -3562,6 +3847,10 @@
             "title": "Game Id",
             "type": "string"
           },
+          "pack_key": {
+            "title": "Pack Key",
+            "type": "string"
+          },
           "rewards_eligible": {
             "title": "Rewards Eligible",
             "type": "boolean"
@@ -3579,6 +3868,7 @@
           "events",
           "game_id",
           "access_token",
+          "pack_key",
           "rival",
           "character",
           "rewards_eligible"
@@ -3603,6 +3893,13 @@
             "title": "Cleared",
             "type": "boolean"
           },
+          "missing": {
+            "items": {
+              "$ref": "#/components/schemas/Requirement"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
           "points": {
             "title": "Points",
             "type": "integer"
@@ -3616,7 +3913,8 @@
         "required": [
           "cleared",
           "points",
-          "awakened_character_id"
+          "awakened_character_id",
+          "missing"
         ],
         "title": "StoryProgress",
         "type": "object"
@@ -3910,6 +4208,13 @@
         ],
         "title": "Vettu",
         "type": "object"
+      },
+      "VoiceLocale": {
+        "enum": [
+          "en",
+          "ja"
+        ],
+        "type": "string"
       },
       "VoiceOption": {
         "properties": {
@@ -5903,6 +6208,248 @@
         "summary": "Resolve Report",
         "tags": [
           "Admin console"
+        ]
+      }
+    },
+    "/api/v1/admin/season-cues": {
+      "get": {
+        "operationId": "list_cues_api_v1_admin_season_cues_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CueView"
+                  },
+                  "title": "Response List Cues Api V1 Admin Season Cues Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "List Cues",
+        "tags": [
+          "Season cues"
+        ]
+      },
+      "post": {
+        "operationId": "create_cue_api_v1_admin_season_cues_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCue"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CueView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Create Cue",
+        "tags": [
+          "Season cues"
+        ]
+      }
+    },
+    "/api/v1/admin/season-cues/{cue_id}/advance": {
+      "post": {
+        "operationId": "advance_cue_api_v1_admin_season_cues__cue_id__advance_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cue_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Cue Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Request-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdvanceCue"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CueView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Advance Cue",
+        "tags": [
+          "Season cues"
         ]
       }
     },
@@ -10389,6 +10936,82 @@
         ]
       }
     },
+    "/api/v1/story/attempts/{game_id}/coach": {
+      "get": {
+        "operationId": "story_coach_api_v1_story_attempts__game_id__coach_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "question",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 240,
+                  "minLength": 2,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Question"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuelCoach"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Story Coach",
+        "tags": [
+          "Story"
+        ]
+      }
+    },
     "/api/v1/story/attempts/{game_id}/result": {
       "post": {
         "operationId": "story_result_api_v1_story_attempts__game_id__result_post",
@@ -10454,6 +11077,160 @@
         "summary": "Story Result",
         "tags": [
           "Story"
+        ]
+      }
+    },
+    "/api/v1/story/cues/{pack_key}/{character_id}/{moment}": {
+      "get": {
+        "operationId": "public_cue_api_v1_story_cues__pack_key___character_id___moment__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_key",
+            "required": true,
+            "schema": {
+              "title": "Pack Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "moment",
+            "required": true,
+            "schema": {
+              "enum": [
+                "strike",
+                "victory"
+              ],
+              "title": "Moment",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCue"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Public Cue",
+        "tags": [
+          "Season cues"
+        ]
+      }
+    },
+    "/api/v1/story/cues/{pack_key}/{character_id}/{moment}/audio/{locale}": {
+      "get": {
+        "operationId": "cue_audio_api_v1_story_cues__pack_key___character_id___moment__audio__locale__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_key",
+            "required": true,
+            "schema": {
+              "title": "Pack Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "character_id",
+            "required": true,
+            "schema": {
+              "title": "Character Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "moment",
+            "required": true,
+            "schema": {
+              "enum": [
+                "strike",
+                "victory"
+              ],
+              "title": "Moment",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "locale",
+            "required": true,
+            "schema": {
+              "enum": [
+                "en",
+                "ja"
+              ],
+              "title": "Locale",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Cue Audio",
+        "tags": [
+          "Season cues"
         ]
       }
     },

@@ -1,12 +1,13 @@
 from collections import Counter, OrderedDict, deque
 from dataclasses import dataclass, field
 from threading import Lock
+from typing import Literal
 from uuid import UUID
 
 from donke_engine import PracticeGame
 
 from app.modules.game.schemas import Card, GameUpdate
-from app.modules.game.seeded import SeededDuel
+from app.modules.game.seeded import RivalIntent, SeededDuel
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,6 +24,8 @@ class StoryPin:
     pack_key: str
     character_id: str
     player_id: UUID | None
+    intent: RivalIntent = "steady"
+    intent_source: Literal["gemini", "engine"] = "engine"
 
 
 @dataclass(slots=True)

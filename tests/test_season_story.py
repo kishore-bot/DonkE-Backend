@@ -9,6 +9,7 @@ from test_online import headers, profile, sign_in
 from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.platform import open_platform
+from app.modules.ai.provider import Selected
 from app.modules.progression import router as season_routes
 from app.modules.progression.models import Season, SeasonDay, SeasonPlayer
 from app.modules.progression.schemas import SeasonCreate
@@ -93,6 +94,25 @@ def test_seeded_story_call_first_clear_and_final_form(client, settings, monkeypa
         assert attempt["view"] == guest["view"]
         assert attempt["character"]["id"] == "ashblade"
         assert guest["rewards_eligible"] is False
+
+        class RivalProvider:
+            async def select(self, task, prompt):
+                assert task == "story_rival"
+                assert "The Arena Keeper" in prompt
+                return Selected("pressure")
+
+        with monkeypatch.context() as fake:
+            fake.setattr(client.app.state.gateway, "provider", RivalProvider())
+            adaptive = client.post(
+                start_path, json={"season_id": str(season.id), "adaptive": True}
+            )
+            assert adaptive.status_code == 201
+            trial = client.app.state.practice.repository.sessions[
+                UUID(adaptive.json()["game_id"])
+            ]
+            assert trial.story.intent == "pressure"
+            assert trial.story.intent_source == "gemini"
+
         turn_path = f"/api/v1/practice/{attempt['game_id']}/plays"
         result_path = f"/api/v1/story/attempts/{attempt['game_id']}/result"
         result_request = {"attempt_token": attempt["access_token"]}
@@ -105,6 +125,8 @@ def test_seeded_story_call_first_clear_and_final_form(client, settings, monkeypa
             client.post(result_path, json=result_request, headers=auth).status_code
             == 409
         )
+        coach_path = f"/api/v1/story/attempts/{attempt['game_id']}/coach"
+        assert client.get(coach_path, headers=capability).status_code == 409
         saw_success = False
         move = 0
         while attempt["view"]["outcome"] is None:
@@ -130,6 +152,29 @@ def test_seeded_story_call_first_clear_and_final_form(client, settings, monkeypa
             )
             move += 1
         assert saw_success and 0 in attempt["view"]["escape_order"]
+        assert client.get(coach_path, headers=other).status_code == 404
+        evidence = client.get(coach_path, headers=capability).json()
+        assert evidence["citation"] == "rival-first-choice"
+        assert evidence["evidence"]["candidate_count"] >= 2
+        assert set(evidence["evidence"]) == {
+            "intent",
+            "source",
+            "card",
+            "candidate_count",
+            "played_safe_rate",
+            "best_safe_rate",
+        }
+        answer = client.get(
+            coach_path, headers=capability, params={"question": "What is a Strike?"}
+        ).json()
+        assert answer["citation"] == "rule:vettu"
+        assert (
+            client.get(
+                coach_path, headers=capability, params={"question": "tomato gardening"}
+            ).json()["citation"]
+            is None
+        )
+
         now = end + timedelta(minutes=1)
         for _ in range(2):
             assert client.post(
@@ -142,6 +187,10 @@ def test_seeded_story_call_first_clear_and_final_form(client, settings, monkeypa
             }
         assert client.get("/api/v1/store/wallet", headers=auth).json() == {"coins": 20}
         assert client.get(f"{base}/story", headers=auth).json()["points"] == 40
+        assert client.get(f"{base}/story", headers=auth).json()["missing"] == [
+            "earn_points"
+        ]
+
         assert client.post(f"{base}/awakening", headers=auth).status_code == 409
         asyncio.run(prepare_points())
         for _ in range(2):

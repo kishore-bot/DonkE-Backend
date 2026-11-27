@@ -3,6 +3,7 @@ import argparse
 from mcp.server import MCPServer
 
 from app.modules.ai.knowledge import RULES, sources
+from app.modules.progression.season_content import PACKS
 
 server = MCPServer(
     "DonkE Rules", description="Read-only tools for the DonkE Kazhutha rules"
@@ -23,6 +24,13 @@ def kazhutha_rule(source: str) -> dict[str, str]:
     """Look up a specific rule by the ID from a rules search."""
     rule = next((rule for rule in RULES if rule.source == source), None)
     return {"source": rule.source, "en": rule.en, "ml": rule.ml} if rule else {}
+
+
+@server.tool()
+def season_pack(pack_key: str) -> dict:
+    """Read the public cast and presentation metadata for a versioned season pack."""
+    pack = PACKS.get(pack_key)
+    return pack.model_dump(mode="json") if pack else {}
 
 
 if __name__ == "__main__":
