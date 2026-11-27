@@ -6,7 +6,9 @@
 
 Run `alembic upgrade head` before deploying the new API. An administrator uses the existing `POST /api/v1/admin/seasons` with `pack_key` set to `grimoire-awakening-v1` or `skybound-voyage-v1` and a 21-day UTC window. The window must start at midnight UTC. Existing seasons without a pack continue through the existing progression endpoints. The new public manifest returns null if the active window has no published pack. Each player can read and save their current season character through the authenticated GET and PUT routes at `/api/v1/seasons/{season_id}/me/character`.
 
-Both packs use original demo characters and the existing frontend GLBs for previews. The first slice covers the public cast and authenticated selection. The remaining sections describe planned story encounters, matches and settlement changes.
+Both packs use original demo characters and the existing frontend GLBs for previews. The first slice covers the public cast and authenticated selection. The story slice adds an authored seeded duel per pack and permits a single public Strike call, submitted atomically with a legal lead. Ordinary moves, hints, and versioned retries reuse the practice API. Story sessions are process-local and expire under the practice retention policy.
+
+The progression slice adds a first escape receipt worth 20 coins and 40 season points, awarded once per player and season. The result screen confirms it with the account and attempt credentials. A player who cleared the duel, selected a character and reached 300 season points can unlock that character's final form. Packed seasons use three seven-day buckets and keep a three-day awakening claim window after close. Older seasons retain calendar-week progression. The remaining sections include future contracts for story persistence, broader match settlement and audio assets.
 
 ## 1. Season identity, time and durable rewards
 

@@ -124,6 +124,10 @@ Run `uv run python -m app.modules.ai.mcp_server` for stdio, or add `--http` for 
 | `GET` | `/api/v1/seasons/active/manifest` | Public active anime pack and cast |
 | `GET` | `/api/v1/seasons/{season_id}/me/character` | Read the player's character choice |
 | `PUT` | `/api/v1/seasons/{season_id}/me/character` | Save the player's character choice |
+| `GET` | `/api/v1/seasons/{season_id}/me/story` | Read first-clear and awakening progress |
+| `POST` | `/api/v1/seasons/{season_id}/me/awakening` | Claim the chosen character's final form |
+| `POST` | `/api/v1/story/attempts` | Open a seeded story duel |
+| `POST` | `/api/v1/story/attempts/{game_id}/result` | Confirm the finished duel and read its reward receipt |
 | `GET` | `/api/v1/seasons/{season_id}/board` | Board |
 | `POST` | `/api/v1/seasons/{season_id}/bonus/{tier}/claim` | Claim Bonus |
 | `POST` | `/api/v1/seasons/{season_id}/tiers/{tier}/claim` | Claim Tier |

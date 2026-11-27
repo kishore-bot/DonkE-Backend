@@ -82,8 +82,24 @@ class GameFinished(BaseModel):
     outcome: Outcome
 
 
+class StrikeCalled(BaseModel):
+    event: Literal["strike_called"]
+    target: Literal[1]
+
+
+class StrikeCallResolved(BaseModel):
+    event: Literal["strike_call_resolved"]
+    success: bool
+
+
 Event = Annotated[
-    CardPlayed | TrickDiscarded | Vettu | PlayerEscaped | GameFinished,
+    CardPlayed
+    | TrickDiscarded
+    | Vettu
+    | PlayerEscaped
+    | GameFinished
+    | StrikeCalled
+    | StrikeCallResolved,
     Field(discriminator="event"),
 ]
 
@@ -102,6 +118,9 @@ class PlayerView(BaseModel):
 class GameUpdate(BaseModel):
     view: PlayerView
     events: list[Event]
+    can_call_strike: bool | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class PracticeRequest(BaseModel):
@@ -134,3 +153,7 @@ class PlayRequest(BaseModel):
     request_id: UUID
     expected_version: int = Field(ge=0, strict=True)
     card: Card
+
+
+class PracticePlayRequest(PlayRequest):
+    call_strike: bool = Field(default=False, strict=True)

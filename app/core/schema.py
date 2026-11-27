@@ -20,6 +20,7 @@ from app.modules.progression.models import (
     SeasonCharacter,
     SeasonDay,
     SeasonPlayer,
+    SeasonStoryProgress,
     Wallet,
     WeeklyPlayer,
 )
@@ -48,6 +49,7 @@ MAPPED_MODELS = (
     Season,
     SeasonCharacter,
     SeasonPlayer,
+    SeasonStoryProgress,
     Wallet,
     WeeklyPlayer,
     PlayerStats,

@@ -1308,6 +1308,17 @@
       },
       "GameUpdate": {
         "properties": {
+          "can_call_strike": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Can Call Strike"
+          },
           "events": {
             "items": {
               "discriminator": {
@@ -1315,6 +1326,8 @@
                   "card_played": "#/components/schemas/CardPlayed",
                   "game_finished": "#/components/schemas/GameFinished",
                   "player_escaped": "#/components/schemas/PlayerEscaped",
+                  "strike_call_resolved": "#/components/schemas/StrikeCallResolved",
+                  "strike_called": "#/components/schemas/StrikeCalled",
                   "trick_discarded": "#/components/schemas/TrickDiscarded",
                   "vettu": "#/components/schemas/Vettu"
                 },
@@ -1335,6 +1348,12 @@
                 },
                 {
                   "$ref": "#/components/schemas/GameFinished"
+                },
+                {
+                  "$ref": "#/components/schemas/StrikeCalled"
+                },
+                {
+                  "$ref": "#/components/schemas/StrikeCallResolved"
                 }
               ]
             },
@@ -1889,31 +1908,6 @@
         "title": "PlayLimitOutcome",
         "type": "object"
       },
-      "PlayRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "card": {
-            "$ref": "#/components/schemas/Card"
-          },
-          "expected_version": {
-            "minimum": 0.0,
-            "title": "Expected Version",
-            "type": "integer"
-          },
-          "request_id": {
-            "format": "uuid",
-            "title": "Request Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "request_id",
-          "expected_version",
-          "card"
-        ],
-        "title": "PlayRequest",
-        "type": "object"
-      },
       "PlayerDetail": {
         "properties": {
           "coins": {
@@ -2158,6 +2152,17 @@
             "title": "Access Token",
             "type": "string"
           },
+          "can_call_strike": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Can Call Strike"
+          },
           "events": {
             "items": {
               "discriminator": {
@@ -2165,6 +2170,8 @@
                   "card_played": "#/components/schemas/CardPlayed",
                   "game_finished": "#/components/schemas/GameFinished",
                   "player_escaped": "#/components/schemas/PlayerEscaped",
+                  "strike_call_resolved": "#/components/schemas/StrikeCallResolved",
+                  "strike_called": "#/components/schemas/StrikeCalled",
                   "trick_discarded": "#/components/schemas/TrickDiscarded",
                   "vettu": "#/components/schemas/Vettu"
                 },
@@ -2185,6 +2192,12 @@
                 },
                 {
                   "$ref": "#/components/schemas/GameFinished"
+                },
+                {
+                  "$ref": "#/components/schemas/StrikeCalled"
+                },
+                {
+                  "$ref": "#/components/schemas/StrikeCallResolved"
                 }
               ]
             },
@@ -2235,6 +2248,36 @@
           "options"
         ],
         "title": "PracticeHint",
+        "type": "object"
+      },
+      "PracticePlayRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "call_strike": {
+            "default": false,
+            "title": "Call Strike",
+            "type": "boolean"
+          },
+          "card": {
+            "$ref": "#/components/schemas/Card"
+          },
+          "expected_version": {
+            "minimum": 0.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_version",
+          "card"
+        ],
+        "title": "PracticePlayRequest",
         "type": "object"
       },
       "PracticeRequest": {
@@ -2749,6 +2792,22 @@
           "reason"
         ],
         "title": "Resolve",
+        "type": "object"
+      },
+      "ResultRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_token": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Attempt Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attempt_token"
+        ],
+        "title": "ResultRequest",
         "type": "object"
       },
       "RivalView": {
@@ -3359,6 +3418,34 @@
         "title": "Standing",
         "type": "object"
       },
+      "StartDuel": {
+        "additionalProperties": false,
+        "properties": {
+          "character_id": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Id"
+          },
+          "season_id": {
+            "format": "uuid",
+            "title": "Season Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season_id"
+        ],
+        "title": "StartDuel",
+        "type": "object"
+      },
       "StoreItem": {
         "properties": {
           "available": {
@@ -3407,6 +3494,198 @@
           "owners"
         ],
         "title": "StoreItem",
+        "type": "object"
+      },
+      "StoryAttempt": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "can_call_strike": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Can Call Strike"
+          },
+          "character": {
+            "$ref": "#/components/schemas/CharacterPreview"
+          },
+          "events": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "card_played": "#/components/schemas/CardPlayed",
+                  "game_finished": "#/components/schemas/GameFinished",
+                  "player_escaped": "#/components/schemas/PlayerEscaped",
+                  "strike_call_resolved": "#/components/schemas/StrikeCallResolved",
+                  "strike_called": "#/components/schemas/StrikeCalled",
+                  "trick_discarded": "#/components/schemas/TrickDiscarded",
+                  "vettu": "#/components/schemas/Vettu"
+                },
+                "propertyName": "event"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CardPlayed"
+                },
+                {
+                  "$ref": "#/components/schemas/TrickDiscarded"
+                },
+                {
+                  "$ref": "#/components/schemas/Vettu"
+                },
+                {
+                  "$ref": "#/components/schemas/PlayerEscaped"
+                },
+                {
+                  "$ref": "#/components/schemas/GameFinished"
+                },
+                {
+                  "$ref": "#/components/schemas/StrikeCalled"
+                },
+                {
+                  "$ref": "#/components/schemas/StrikeCallResolved"
+                }
+              ]
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          },
+          "rewards_eligible": {
+            "title": "Rewards Eligible",
+            "type": "boolean"
+          },
+          "rival": {
+            "title": "Rival",
+            "type": "string"
+          },
+          "view": {
+            "$ref": "#/components/schemas/PlayerView"
+          }
+        },
+        "required": [
+          "view",
+          "events",
+          "game_id",
+          "access_token",
+          "rival",
+          "character",
+          "rewards_eligible"
+        ],
+        "title": "StoryAttempt",
+        "type": "object"
+      },
+      "StoryProgress": {
+        "properties": {
+          "awakened_character_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Awakened Character Id"
+          },
+          "cleared": {
+            "title": "Cleared",
+            "type": "boolean"
+          },
+          "points": {
+            "title": "Points",
+            "type": "integer"
+          },
+          "target": {
+            "default": 300,
+            "title": "Target",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cleared",
+          "points",
+          "awakened_character_id"
+        ],
+        "title": "StoryProgress",
+        "type": "object"
+      },
+      "StoryResult": {
+        "properties": {
+          "coins": {
+            "title": "Coins",
+            "type": "integer"
+          },
+          "escaped": {
+            "title": "Escaped",
+            "type": "boolean"
+          },
+          "first_clear": {
+            "title": "First Clear",
+            "type": "boolean"
+          },
+          "points": {
+            "title": "Points",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "escaped",
+          "first_clear",
+          "coins",
+          "points"
+        ],
+        "title": "StoryResult",
+        "type": "object"
+      },
+      "StrikeCallResolved": {
+        "properties": {
+          "event": {
+            "const": "strike_call_resolved",
+            "title": "Event",
+            "type": "string"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "event",
+          "success"
+        ],
+        "title": "StrikeCallResolved",
+        "type": "object"
+      },
+      "StrikeCalled": {
+        "properties": {
+          "event": {
+            "const": "strike_called",
+            "title": "Event",
+            "type": "string"
+          },
+          "target": {
+            "const": 1,
+            "title": "Target",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "event",
+          "target"
+        ],
+        "title": "StrikeCalled",
         "type": "object"
       },
       "Suit": {
@@ -8511,7 +8790,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PlayRequest"
+                "$ref": "#/components/schemas/PracticePlayRequest"
               }
             }
           },
@@ -9411,6 +9690,64 @@
         ]
       }
     },
+    "/api/v1/seasons/{season_id}/me/awakening": {
+      "post": {
+        "operationId": "claim_awakening_api_v1_seasons__season_id__me_awakening_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "season_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Season Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryProgress"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Claim Awakening",
+        "tags": [
+          "Story"
+        ]
+      }
+    },
     "/api/v1/seasons/{season_id}/me/character": {
       "get": {
         "operationId": "selected_character_api_v1_seasons__season_id__me_character_get",
@@ -9532,6 +9869,64 @@
         "summary": "Choose Character",
         "tags": [
           "Progression"
+        ]
+      }
+    },
+    "/api/v1/seasons/{season_id}/me/story": {
+      "get": {
+        "operationId": "get_progress_api_v1_seasons__season_id__me_story_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "season_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Season Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryProgress"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Get Progress",
+        "tags": [
+          "Story"
         ]
       }
     },
@@ -9935,6 +10330,130 @@
         "summary": "Equip",
         "tags": [
           "Progression"
+        ]
+      }
+    },
+    "/api/v1/story/attempts": {
+      "post": {
+        "operationId": "start_duel_api_v1_story_attempts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartDuel"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryAttempt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Start Duel",
+        "tags": [
+          "Story"
+        ]
+      }
+    },
+    "/api/v1/story/attempts/{game_id}/result": {
+      "post": {
+        "operationId": "story_result_api_v1_story_attempts__game_id__result_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResultRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Story Result",
+        "tags": [
+          "Story"
         ]
       }
     },

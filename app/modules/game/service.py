@@ -6,7 +6,7 @@ from time import monotonic
 from typing import Literal
 from uuid import UUID, uuid4
 
-from donke_engine import PracticeGame
+from donke_engine import OnlineGame, PracticeGame
 
 from app.core.config import Settings
 from app.core.errors import AppError
@@ -14,13 +14,15 @@ from app.modules.game.repository import (
     PracticeRepository,
     PracticeSession,
     RecordedPlay,
+    StoryPin,
 )
+from app.modules.game.seeded import SeededDuel
 from app.modules.game.schemas import (
     GameUpdate,
     MoveScore,
-    PlayRequest,
     PracticeCreated,
     PracticeHint,
+    PracticePlayRequest,
 )
 
 
@@ -49,7 +51,11 @@ class PracticeService:
                 429, "rate_limited", "Too many practice matches. Wait a minute"
             )
         creating = self.repository.creating
-        mine = sum(1 for session in sessions.values() if session.client == client)
+        mine = sum(
+            1
+            for session in sessions.values()
+            if session.client == client and not session.finished
+        )
         if mine + creating[client] >= self.settings.practice_sessions_per_client:
             raise AppError(
                 429, "practice_limit", "Finish one of your practice matches first"
@@ -66,12 +72,19 @@ class PracticeService:
         seats: int,
         level: Literal["easy", "medium", "hard"] = "medium",
         client: str = "unknown",
+        *,
+        story: StoryPin | None = None,
+        seed: int = 0,
     ) -> PracticeCreated:
         with self.repository.lock:
             self._admit(client, monotonic())
         try:
             # Bots may play before the human's first turn: outside the table lock.
-            game = PracticeGame(seats, level, iterations=200)
+            game = (
+                SeededDuel(OnlineGame.seeded(2, seed), seed)
+                if story
+                else PracticeGame(seats, level, iterations=200)
+            )
             update = GameUpdate.model_validate_json(game.snapshot())
             game_id, token = uuid4(), token_urlsafe(32)
             session = PracticeSession(
@@ -79,12 +92,14 @@ class PracticeService:
                 token_digest=sha256(token.encode()).digest(),
                 expires_at=monotonic() + self.settings.practice_session_ttl_seconds,
                 client=client,
+                story=story,
             )
             response = PracticeCreated(
                 game_id=game_id,
                 access_token=token,
                 view=update.view,
                 events=update.events,
+                can_call_strike=update.can_call_strike,
             )
         except BaseException:
             with self.repository.lock:
@@ -111,6 +126,20 @@ class PracticeService:
             raise AppError(404, "practice_not_found", "Practice match not found")
         return session
 
+    def story_result(
+        self, game_id: UUID, token: str, player_id: UUID
+    ) -> tuple[StoryPin, bool]:
+        with self.repository.lock:
+            session = self._session(game_id, token)
+        with session.lock:
+            story = session.story
+            if story is None or story.player_id != player_id:
+                raise AppError(404, "story_not_found", "Story attempt not found")
+            view = GameUpdate.model_validate_json(session.game.snapshot()).view
+            if view.outcome is None:
+                raise AppError(409, "story_in_progress", "Finish the story duel first")
+            return story, 0 in view.escape_order
+
     def hint(self, game_id: UUID, token: str) -> PracticeHint:
         with self.repository.lock:
             game = self._session(game_id, token).game
@@ -126,15 +155,18 @@ class PracticeService:
                 self._session(game_id, token).game.snapshot()
             )
 
-    def play(self, game_id: UUID, token: str, command: PlayRequest) -> GameUpdate:
+    def play(
+        self, game_id: UUID, token: str, command: PracticePlayRequest
+    ) -> GameUpdate:
         with self.repository.lock:
             session = self._session(game_id, token)
         with session.lock:
             previous = session.plays.get(command.request_id)
             if previous is not None:
-                if (previous.version, previous.card) != (
+                if (previous.version, previous.card, previous.call_strike) != (
                     command.expected_version,
                     command.card,
+                    command.call_strike,
                 ):
                     raise AppError(
                         409,
@@ -146,10 +178,24 @@ class PracticeService:
                 raise AppError(
                     409, "stale_version", "Get the latest view before playing"
                 )
+            if command.call_strike and not isinstance(session.game, SeededDuel):
+                raise AppError(
+                    409,
+                    "strike_call_unavailable",
+                    "Strike calls are available in story duels",
+                )
             try:
-                next_game, result = session.game.play(command.card.model_dump_json())
+                card = command.card.model_dump_json()
+                if isinstance(session.game, SeededDuel):
+                    next_game, result = session.game.play(card, command.call_strike)
+                else:
+                    next_game, result = session.game.play(card)
             except ValueError as exc:
                 code = str(exc)
+                if code == "strike_call_unavailable":
+                    raise AppError(
+                        409, code, "You can call once before leading a story trick"
+                    ) from exc
                 if code == "game_finished":
                     raise AppError(409, code, "This match has finished") from exc
                 if code == "illegal_card":
@@ -158,7 +204,8 @@ class PracticeService:
 
             update = GameUpdate.model_validate_json(result)
             session.plays[command.request_id] = RecordedPlay(
-                command.expected_version, command.card, update
+                command.expected_version, command.card, update, command.call_strike
             )
             session.game = next_game
+            session.finished = update.view.outcome is not None
             return update

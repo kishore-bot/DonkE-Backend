@@ -72,8 +72,11 @@ CHALLENGES = {
 }
 
 
-def week_start(now: datetime) -> date:
+def week_start(now: datetime, season: Season | None = None) -> date:
     day = now.astimezone(UTC).date()
+    if season is not None and season.pack_key is not None:
+        start = season.starts_at.astimezone(UTC).date()
+        return day - timedelta(days=(day - start).days % 7)
     return day - timedelta(days=day.weekday())
 
 
@@ -294,7 +297,11 @@ TIER_REWARDS = {10: "card_back", 20: "title", 25: "emote", 30: "frame"}
 
 async def streak_stars(db: AsyncSession, season_id: UUID, player: UUID) -> int:
     """Weeks in the season with at least STREAK_DAYS distinct play days."""
+    season = await db.get(Season, season_id)
     week = func.date_trunc("week", SeasonDay.day)
+    if season is not None and season.pack_key is not None:
+        start = season.starts_at.astimezone(UTC).date()
+        week = func.floor((SeasonDay.day - start) / 7)
     weeks = (
         select(week)
         .where(SeasonDay.season_id == season_id, SeasonDay.player_id == player)
@@ -471,7 +478,7 @@ async def on_match(
         weekly = insert(WeeklyPlayer).values(
             season_id=season.id,
             player_id=player,
-            week=week_start(now),
+            week=week_start(now, season),
             games=1,
             escapes=escaped,
             cuts=cuts,
@@ -589,7 +596,7 @@ class ProgressionService:
             if season is None:
                 return None
             progress = await db.get(SeasonPlayer, (season.id, player))
-            week = week_start(now)
+            week = week_start(now, season)
             weekly = await db.get(WeeklyPlayer, (season.id, player, week))
             refs = set(
                 await db.scalars(
@@ -645,6 +652,7 @@ class ProgressionService:
                         claimed=f"bonus:{season.id}:{player}:{tier}" in refs,
                     )
                     for tier, (needed, slot) in BONUS_TRACK.items()
+                    if season.pack_key is None or needed <= 3
                 ],
                 weekly=[
                     ChallengeView(
@@ -686,7 +694,9 @@ class ProgressionService:
                     await own(db, player, f"tier:{season_id}:{tier}:{slot}")
                 return credited
             if bonus is not None:
-                if bonus not in BONUS_TRACK:
+                if bonus not in BONUS_TRACK or (
+                    season.pack_key is not None and BONUS_TRACK[bonus][0] > 3
+                ):
                     raise AppError(404, "bonus_not_found", "Bonus tier not found")
                 needed, slot = BONUS_TRACK[bonus]
                 if await streak_stars(db, season.id, player) < needed:
@@ -704,7 +714,7 @@ class ProgressionService:
             if challenge not in CHALLENGES:
                 raise AppError(404, "challenge_not_found", "Challenge not found")
             _, attribute, target, points = CHALLENGES[challenge]
-            week = week_start(now)
+            week = week_start(now, season)
             weekly = await db.get(WeeklyPlayer, (season.id, player, week))
             if progress is None or getattr(weekly, attribute, 0) < target:
                 raise AppError(

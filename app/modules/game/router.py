@@ -8,9 +8,9 @@ from app.core.errors import AppError, ErrorResponse
 from app.core.rate_limit import client_host
 from app.modules.game.schemas import (
     GameUpdate,
-    PlayRequest,
     PracticeCreated,
     PracticeHint,
+    PracticePlayRequest,
     PracticeRequest,
 )
 from app.modules.game.service import PracticeService
@@ -80,7 +80,7 @@ def hint(
 )
 def play(
     game_id: UUID,
-    body: PlayRequest,
+    body: PracticePlayRequest,
     response: Response,
     token: AccessToken,
     service: Service,
