@@ -4,17 +4,17 @@ from time import monotonic
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, Response, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 from redis.exceptions import RedisError
 
-from app.core.errors import AppError
+from app.core.errors import AppError, ErrorResponse
 from app.core.platform import Platform
 from app.core.rate_limit import limit
 from app.modules.game.schemas import PlayRequest
 from app.modules.identity.router import CurrentPlayer, PlatformDep
 from app.modules.identity.service import IdentityService, Principal
-from app.modules.matches import settlement
+from app.modules.matches import settlement, socket_tickets
 from app.modules.matches.repository import MatchConflict
 from app.modules.matches.schemas import PublicReplay
 from app.modules.matches.service import MatchService, position
@@ -212,6 +212,28 @@ async def socket_loop(
                 await pending
 
 
+class SocketTicket(BaseModel):
+    ticket: str
+
+
+@router.post(
+    "/{game_id}/ws-ticket",
+    responses={
+        401: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+        429: {"model": ErrorResponse},
+    },
+)
+async def issue_socket_ticket(
+    game_id: UUID, player: CurrentPlayer, platform: PlatformDep, response: Response
+) -> SocketTicket:
+    """Mint a single-use browser ticket for a seated player. Expires in 30 seconds."""
+    await MatchService(platform).load(game_id, player.profile.id)
+    await limit(platform, "ws_ticket", str(player.profile.id), 30, 60)
+    response.headers["Cache-Control"] = "no-store"
+    return SocketTicket(ticket=await socket_tickets.issue(platform, game_id, player))
+
+
 @router.websocket("/{game_id}/ws")
 async def multiplayer(
     websocket: WebSocket,
@@ -220,18 +242,33 @@ async def multiplayer(
 ) -> None:
     platform: Platform | None = websocket.app.state.platform
     scheme, _, token = websocket.headers.get("authorization", "").partition(" ")
-    if platform is None or scheme.lower() != "bearer" or not token:
+    if platform is None:
         await websocket.close(code=4401)
         return
+    subprotocol = None
     try:
-        principal = await IdentityService(platform).authenticate(token)
+        if scheme.lower() == "bearer" and token:
+            principal = await IdentityService(platform).authenticate(token)
+        else:
+            transport = "https" if websocket.url.scheme == "wss" else "http"
+            principal = await socket_tickets.redeem(
+                platform,
+                game_id,
+                websocket.scope.get("subprotocols", []),
+                websocket.headers.getlist("origin"),
+                f"{transport}://{websocket.url.netloc}",
+            )
+            subprotocol = socket_tickets.PROTOCOL
         player_id = principal.profile.id
         service = MatchService(platform)
         state = await service.load(game_id, player_id)
     except AppError as exc:
         await websocket.close(code=4401 if exc.status == 401 else 4404)
         return
-    await websocket.accept()
+    except RedisError, TimeoutError:
+        await websocket.close(code=1013)
+        return
+    await websocket.accept(subprotocol=subprotocol)
     if after_sequence > state.sequence:
         await websocket.close(code=4409, reason="invalid_sequence")
         return

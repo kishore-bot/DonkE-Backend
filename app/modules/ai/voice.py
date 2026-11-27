@@ -4,10 +4,18 @@ from hashlib import sha256
 from pathlib import Path
 from uuid import uuid4
 
+from app.modules.admin import flags
 from app.modules.ai.gateway import Gateway
 
 SCRIPT = Path(__file__).with_name("voice.lua").read_text(encoding="utf-8")
 VOICES = {"kore": "Kore", "puck": "Puck", "leda": "Leda", "aoede": "Aoede"}
+
+
+async def enabled(gateway: Gateway) -> bool:
+    if gateway.provider is None:
+        return False
+    values = await flags.current(gateway.platform)
+    return values["ai_enabled"] and values["commentary_enabled"]
 
 
 class Voice:
@@ -39,6 +47,8 @@ class Voice:
         return base64.b64decode(data) if data else None
 
     async def tick(self) -> bool:
+        if not await enabled(self.gateway):
+            return False
         owner = uuid4().hex
         job = await self.execute(
             "claim",

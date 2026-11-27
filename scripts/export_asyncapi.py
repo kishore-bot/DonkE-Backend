@@ -60,7 +60,15 @@ def contract() -> dict[str, Any]:
                 "parameters": {
                     "game_id": {"description": "UUID assigned to the ready room"}
                 },
-                "description": "Authenticate with the Authorization Bearer header. Resume with the after_sequence query parameter.",
+                "description": (
+                    "Authenticate with the Authorization Bearer header, or redeem a "
+                    "single-use ticket from POST /api/v1/games/{game_id}/ws-ticket "
+                    "using the donke.v1 and ticket.<value> WebSocket subprotocols. "
+                    "The server negotiates donke.v1 for ticket connections. "
+                    "Browser requests must originate from the configured public base "
+                    "URL or, when unset, the request's own origin. "
+                    "Resume with the after_sequence query parameter."
+                ),
                 "messages": {
                     name: {"$ref": f"#/components/messages/{name}"} for name in messages
                 },

@@ -105,17 +105,14 @@ async def line(
     digest = sha256(f"1:{game_id}:{sequence}:{language}:{model}".encode()).hexdigest()
     key = gateway.key(f"commentary:{digest}")
     redis = gateway.platform.redis
-    if stored := await redis.get(key):
-        return Commentary.model_validate_json(stored), True
     plain = Commentary(language=language, text=facts, source="script")
     live = await flags.current(gateway.platform)
+    if not live["commentary_enabled"]:
+        return plain, True
+    if stored := await redis.get(key):
+        return Commentary.model_validate_json(stored), True
     shared_budget = live["ai_text_daily_calls"]
-    if (
-        gateway.provider is None
-        or shared_budget == 0
-        or not live["ai_enabled"]
-        or not live["commentary_enabled"]
-    ):
+    if gateway.provider is None or shared_budget == 0 or not live["ai_enabled"]:
         return plain, True
     player_budget = max(1, min(30, shared_budget // 5))
     today = datetime.now(UTC).date()

@@ -32,6 +32,7 @@ class MatchState(BaseModel):
     started_ms: int
     limit_ms: int
     deadline_ms: int
+    turn_opened_ms: int | None = None
     turn: int | None
     outcome: dict[str, Any] | None = None
 

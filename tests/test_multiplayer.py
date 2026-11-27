@@ -280,3 +280,50 @@ def test_established_socket_outlives_access_token_and_closes_on_logout(
             with pytest.raises(WebSocketDisconnect) as closed:
                 socket.receive_json()
             assert closed.value.code == 1009
+
+
+def test_browser_ticket_negotiates_subprotocol_and_cannot_be_replayed(settings):
+    config = settings.model_copy(update={"room_start_seconds": 0})
+    with prepare_match(config) as client:
+        players = [headers(sign_in(client)) for _ in range(2)]
+        stranger = headers(sign_in(client))
+        _, room_id = ready_room(client, players)
+
+        async def start():
+            async with open_platform(config) as platform:
+                return await MatchService(platform).start(room_id)
+
+        game_id = asyncio.run(start())
+        assert game_id is not None
+        path = f"/api/v1/games/{game_id}"
+        assert client.post(path + "/ws-ticket", headers=stranger).status_code == 404
+        response = client.post(path + "/ws-ticket", headers=players[0], json={})
+        assert response.status_code == 200
+        assert response.headers["cache-control"] == "no-store"
+        protocols = ["donke.v1", "ticket." + response.json()["ticket"]]
+        with (
+            pytest.raises(WebSocketDisconnect),
+            client.websocket_connect(
+                path + "/ws",
+                headers={"Origin": "http://elsewhere.example"},
+                subprotocols=protocols,
+            ),
+        ):
+            pass
+        with client.websocket_connect(
+            path + "/ws",
+            headers={"Origin": "http://testserver"},
+            subprotocols=protocols,
+        ) as socket:
+            assert socket.accepted_subprotocol == "donke.v1"
+            assert socket.receive_json()["type"] == "events"
+            assert socket.receive_json()["type"] == "state_sync"
+        with (
+            pytest.raises(WebSocketDisconnect),
+            client.websocket_connect(
+                path + "/ws",
+                headers={"Origin": "http://testserver"},
+                subprotocols=protocols,
+            ),
+        ):
+            pass

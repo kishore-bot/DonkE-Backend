@@ -1,4 +1,4 @@
-from collections import deque
+from collections import Counter, OrderedDict, deque
 from dataclasses import dataclass, field
 from threading import Lock
 from uuid import UUID
@@ -31,4 +31,5 @@ class PracticeRepository:
         # Guards the session table only; never held while bots think.
         self.lock = Lock()
         self.sessions: dict[UUID, PracticeSession] = {}
-        self.created: dict[str, deque[float]] = {}
+        self.created: OrderedDict[str, deque[float]] = OrderedDict()
+        self.creating: Counter[str] = Counter()

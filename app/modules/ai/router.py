@@ -25,7 +25,7 @@ from app.modules.ai.schemas import (
     ReindexRequest,
     VoiceStatus,
 )
-from app.modules.ai.voice import Voice
+from app.modules.ai.voice import Voice, enabled as voice_enabled
 from app.modules.identity.router import CurrentPlayer, PlatformDep
 from app.modules.identity.schemas import DEFAULT_VOICE, VOICES, Language, VoiceId
 from app.modules.matches.settlement import read_replay
@@ -74,7 +74,7 @@ async def voice(
     result, finalized = await line(
         gateway, game_id, player.profile.id, sequence, player.profile.language
     )
-    if gateway.provider is None:
+    if not await voice_enabled(gateway):
         return VoiceStatus(status="disabled")
     if not finalized:
         return VoiceStatus(status="pending")
@@ -141,7 +141,7 @@ async def preview(
     voice_id: VoiceId, player: CurrentPlayer, gateway: AI
 ) -> Response | VoiceStatus:
     """A short sample line in the player's language. Poll until `ready`."""
-    if gateway.provider is None:
+    if not await voice_enabled(gateway):
         return VoiceStatus(status="disabled")
     language = player.profile.language
     voice = Voice(gateway)

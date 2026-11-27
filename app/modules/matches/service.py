@@ -61,7 +61,6 @@ class MatchService:
         if room.status != "ready":
             return None
         game = OnlineGame(len(room.seats))
-        now = await self.repo.now_ms()
         game_id = uuid4()
         seats = [GameSeat(**seat.model_dump()) for seat in room.seats]
         humans = [seat.player_id for seat in seats if seat.player_id and not seat.bot]
@@ -81,6 +80,7 @@ class MatchService:
                     "player_id": str(seats[rival].rival_of),
                 }
             )
+        now = await self.repo.now_ms()
         state = MatchState(
             id=game_id,
             room_id=room.id,
@@ -91,6 +91,7 @@ class MatchService:
             started_ms=now,
             turn=game.turn,
             deadline_ms=now,
+            turn_opened_ms=now,
             limit_ms=now + self.platform.settings.match_minutes * 60_000,
         )
         state.deadline_ms = self.deadline(state, now)
@@ -165,14 +166,17 @@ class MatchService:
             events = json.loads(game.play(seat, command.card.model_dump_json()))
         except ValueError as exc:
             raise MatchConflict(str(exc)) from exc
-        # Think time feeds fair-play review: how long the turn was open.
-        turn_opened = state.deadline_ms - round(
-            self.platform.settings.turn_seconds * 1000
-        )
-        think_ms = max(0, await self.repo.now_ms() - turn_opened)
-        for event in events:
-            if event.get("event") == "card_played":
-                event["think_ms"] = think_ms
+        # A legacy capped turn has no recoverable opening time.
+        turn_opened = state.turn_opened_ms
+        if turn_opened is None and state.deadline_ms < state.limit_ms:
+            turn_opened = state.deadline_ms - max(
+                1, round(self.platform.settings.turn_seconds * 1000)
+            )
+        if turn_opened is not None:
+            think_ms = max(0, await self.repo.now_ms() - turn_opened)
+            for event in events:
+                if event.get("event") == "card_played":
+                    event["think_ms"] = think_ms
         state.seats[seat].consecutive_timeouts = 0
         return await self.commit_play(
             state,
@@ -278,7 +282,9 @@ class MatchService:
         **context: str | int | bool,
     ) -> Acknowledgement:
         state.native, state.turn = game.snapshot(), game.turn
-        state.deadline_ms = self.deadline(state, await self.repo.now_ms())
+        now = await self.repo.now_ms()
+        state.turn_opened_ms = now
+        state.deadline_ms = self.deadline(state, now)
         if state.turn is None:
             state.status = "finished"
             state.outcome = next(

@@ -506,19 +506,19 @@ async def admin_users(
 @router.post("/users", status_code=201)
 async def create_admin_user(
     body: AdminCreate,
-    platform: PlatformDep,
     cookie: Cookie,
     admin: Admin,
     csrf: CsrfToken = None,
     request_id: RequestId = None,
 ) -> AdminProfile:
-    # Check the caller (role + CSRF) and audit the request before creating.
-    async with admin_write(
-        platform, cookie, csrf, request_id, "create_admin", body.reason
-    ):
-        pass
-    return await admin.create_account(
-        body.username, body.password, body.role, request_id or uuid4()
+    return await admin.create_console_account(
+        body.username,
+        body.password,
+        body.role,
+        cookie=cookie,
+        csrf=csrf,
+        request_id=request_id,
+        reason=body.reason,
     )
 
 

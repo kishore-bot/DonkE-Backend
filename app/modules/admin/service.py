@@ -48,29 +48,50 @@ class AdminService:
     async def create_account(
         self, username: str, password: str, role: Role, request_id: UUID
     ) -> AdminProfile:
+        async with self.platform.sessions.begin() as db:
+            account = await self._insert_account(db, username, password, role)
+            db.add(
+                AdminAudit(
+                    admin_id=account.id,
+                    action="create_account",
+                    reason="Operator CLI",
+                    request_id=request_id,
+                )
+            )
+            return AdminProfile.model_validate(account)
+
+    async def create_console_account(
+        self,
+        username: str,
+        password: str,
+        role: Role,
+        *,
+        cookie: str | None,
+        csrf: str | None,
+        request_id: UUID | None,
+        reason: str,
+    ) -> AdminProfile:
+        async with admin_write(
+            self.platform, cookie, csrf, request_id, "create_admin", reason
+        ) as db:
+            account = await self._insert_account(db, username, password, role)
+            return AdminProfile.model_validate(account)
+
+    async def _insert_account(
+        self, db: AsyncSession, username: str, password: str, role: Role
+    ) -> AdminUser:
         password_hash = await to_thread.run_sync(
             HASHER.hash, password, limiter=self.limiter
         )
+        account = AdminUser(username=username, password_hash=password_hash, role=role)
+        db.add(account)
         try:
-            async with self.platform.sessions.begin() as db:
-                account = AdminUser(
-                    username=username, password_hash=password_hash, role=role
-                )
-                db.add(account)
-                await db.flush()
-                db.add(
-                    AdminAudit(
-                        admin_id=account.id,
-                        action="create_account",
-                        reason="Operator CLI",
-                        request_id=request_id,
-                    )
-                )
-                return AdminProfile.model_validate(account)
+            await db.flush()
         except IntegrityError as exc:
             raise AppError(
                 409, "admin_username_taken", "Admin username already exists"
             ) from exc
+        return account
 
     async def second_factor(self, user: AdminUser, code: str | None) -> None:
         if not user.totp_enabled or user.totp_secret is None:
