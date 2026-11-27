@@ -580,42 +580,17 @@
         "title": "CatalogItem",
         "type": "object"
       },
-      "ChallengeView": {
+      "ChallengeLink": {
         "properties": {
-          "claimed": {
-            "title": "Claimed",
-            "type": "boolean"
-          },
-          "key": {
-            "title": "Key",
-            "type": "string"
-          },
-          "points": {
-            "title": "Points",
-            "type": "integer"
-          },
-          "progress": {
-            "title": "Progress",
-            "type": "integer"
-          },
-          "target": {
-            "title": "Target",
-            "type": "integer"
-          },
-          "title": {
-            "title": "Title",
+          "code": {
+            "title": "Code",
             "type": "string"
           }
         },
         "required": [
-          "key",
-          "title",
-          "progress",
-          "target",
-          "points",
-          "claimed"
+          "code"
         ],
-        "title": "ChallengeView",
+        "title": "ChallengeLink",
         "type": "object"
       },
       "CharacterPreview": {
@@ -1685,10 +1660,6 @@
       },
       "InviteLink": {
         "properties": {
-          "app_link": {
-            "title": "App Link",
-            "type": "string"
-          },
           "code": {
             "title": "Code",
             "type": "string"
@@ -1705,7 +1676,6 @@
         "required": [
           "code",
           "url",
-          "app_link",
           "expires_in"
         ],
         "title": "InviteLink",
@@ -1951,7 +1921,7 @@
           },
           "weekly": {
             "items": {
-              "$ref": "#/components/schemas/ChallengeView"
+              "$ref": "#/components/schemas/app__modules__progression__schemas__ChallengeView"
             },
             "title": "Weekly",
             "type": "array"
@@ -3645,6 +3615,27 @@
         "title": "SessionTokens",
         "type": "object"
       },
+      "SharedResult": {
+        "additionalProperties": false,
+        "properties": {
+          "escaped": {
+            "title": "Escaped",
+            "type": "boolean"
+          },
+          "plays": {
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Plays",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "escaped",
+          "plays"
+        ],
+        "title": "SharedResult",
+        "type": "object"
+      },
       "SituationStats": {
         "properties": {
           "decisions": {
@@ -4296,6 +4287,76 @@
           "coins"
         ],
         "title": "WalletView",
+        "type": "object"
+      },
+      "app__modules__progression__schemas__ChallengeView": {
+        "properties": {
+          "claimed": {
+            "title": "Claimed",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "points": {
+            "title": "Points",
+            "type": "integer"
+          },
+          "progress": {
+            "title": "Progress",
+            "type": "integer"
+          },
+          "target": {
+            "title": "Target",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "progress",
+          "target",
+          "points",
+          "claimed"
+        ],
+        "title": "ChallengeView",
+        "type": "object"
+      },
+      "app__modules__story__challenge__ChallengeView": {
+        "properties": {
+          "character": {
+            "$ref": "#/components/schemas/CharacterPreview"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "pack_title": {
+            "title": "Pack Title",
+            "type": "string"
+          },
+          "result": {
+            "$ref": "#/components/schemas/SharedResult"
+          },
+          "rival": {
+            "title": "Rival",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pack_title",
+          "rival",
+          "character",
+          "result",
+          "expires_at"
+        ],
+        "title": "ChallengeView",
         "type": "object"
       }
     },
@@ -9805,7 +9866,7 @@
     },
     "/api/v1/rooms/{room_id}/link": {
       "post": {
-        "description": "A shareable one-hour link (WhatsApp friendly) and app deep link.",
+        "description": "Create a one-hour invitation to join through the browser.",
         "operationId": "invite_link_api_v1_rooms__room_id__link_post",
         "parameters": [
           {
@@ -11075,6 +11136,174 @@
           }
         ],
         "summary": "Story Result",
+        "tags": [
+          "Story"
+        ]
+      }
+    },
+    "/api/v1/story/attempts/{game_id}/share": {
+      "post": {
+        "operationId": "share_attempt_api_v1_story_attempts__game_id__share_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeLink"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Share Attempt",
+        "tags": [
+          "Story"
+        ]
+      }
+    },
+    "/api/v1/story/challenges/{code}": {
+      "get": {
+        "operationId": "story_challenge_api_v1_story_challenges__code__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "maxLength": 768,
+              "minLength": 48,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__modules__story__challenge__ChallengeView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Story Challenge",
+        "tags": [
+          "Story"
+        ]
+      }
+    },
+    "/api/v1/story/challenges/{code}/attempts": {
+      "post": {
+        "operationId": "play_challenge_api_v1_story_challenges__code__attempts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "maxLength": 768,
+              "minLength": 48,
+              "pattern": "^[A-Za-z0-9_.-]+$",
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryAttempt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Play Challenge",
         "tags": [
           "Story"
         ]

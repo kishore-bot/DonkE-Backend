@@ -423,8 +423,7 @@ class SocialService:
         base = (self.platform.settings.public_base_url or request_origin).rstrip("/")
         return InviteLink(
             code=code,
-            url=f"{base}/join/{code}",
-            app_link=f"donke://join/{code}",
+            url=f"{base}/?invite={code}",
             expires_in=live.LINK_SECONDS,
         )
 

@@ -27,10 +27,10 @@ def test_chat_text_is_cleaned_masked_and_bounded():
         assert error.value.code == "invalid_message"
 
 
-def test_join_landing_page_links_into_the_app():
+def test_join_landing_page_links_into_the_web_lobby():
     with TestClient(create_app()) as plain:
         page = plain.get("/join/Ab3_-x9Z")
-        assert page.status_code == 200 and 'href="donke://join/Ab3_-x9Z"' in page.text
+        assert page.status_code == 200 and 'href="/?invite=Ab3_-x9Z"' in page.text
         assert "frame-ancestors 'none'" in page.headers["content-security-policy"]
         assert plain.get("/join/<script>").status_code in {404, 422}
 
@@ -195,9 +195,8 @@ def test_room_invites_links_and_in_match_emotes(settings):
         link = client.post(
             f"/api/v1/rooms/{room['id']}/link", headers=headers(host)
         ).json()
-        assert link["app_link"] == f"donke://join/{link['code']}"
         # No public_base_url configured: the link uses the request's origin.
-        assert link["url"] == f"http://testserver/join/{link['code']}"
+        assert link["url"] == f"http://testserver/?invite={link['code']}"
         joined = client.post(
             f"/api/v1/invites/{link['code']}/join", headers=headers(stranger)
         )

@@ -127,6 +127,9 @@ def test_seeded_story_call_first_clear_and_final_form(client, settings, monkeypa
         )
         coach_path = f"/api/v1/story/attempts/{attempt['game_id']}/coach"
         assert client.get(coach_path, headers=capability).status_code == 409
+        share_path = f"/api/v1/story/attempts/{attempt['game_id']}/share"
+        assert client.post(share_path, headers=capability).status_code == 409
+
         saw_success = False
         move = 0
         while attempt["view"]["outcome"] is None:
@@ -176,6 +179,24 @@ def test_seeded_story_call_first_clear_and_final_form(client, settings, monkeypa
         )
 
         now = end + timedelta(minutes=1)
+        assert client.post(share_path, headers=other).status_code == 404
+        shared = client.post(share_path, headers=capability)
+        assert shared.status_code == 200
+        code = shared.json()["code"]
+        challenge_path = f"/api/v1/story/challenges/{code}"
+        card = client.get(challenge_path).json()
+        assert card["result"] == {"escaped": True, "plays": attempt["view"]["version"]}
+        assert set(card) == {"pack_title", "rival", "character", "result", "expires_at"}
+        bad = f"/api/v1/story/challenges/invalid.{code.split('.', 1)[1]}"
+        assert client.get(bad).status_code == 404
+        replay = client.post(challenge_path + "/attempts", headers=other)
+        assert replay.status_code == 201, replay.text
+        replay = replay.json()
+        assert replay["view"] == guest["view"]
+        assert replay["game_id"] != guest["game_id"]
+        assert replay["access_token"] != result_request["attempt_token"]
+        assert replay["rewards_eligible"] is False
+
         for _ in range(2):
             assert client.post(
                 result_path, json=result_request, headers=auth

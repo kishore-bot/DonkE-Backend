@@ -29,7 +29,7 @@ Run `uv run python -m app.modules.ai.mcp_server` for stdio, or add `--http` for 
 | `GET` | `/redoc` | ReDoc |
 | `GET` | `/openapi.json` | Live HTTP schema |
 | `GET` | `/admin/` | Operator console |
-| `GET` | `/join/{code}` | Shared room invite landing page |
+| `GET` | `/join/{code}` | Legacy room invite link to the web lobby |
 
 ## Platform
 
@@ -129,6 +129,9 @@ Run `uv run python -m app.modules.ai.mcp_server` for stdio, or add `--http` for 
 | `POST` | `/api/v1/story/attempts` | Open a seeded story duel |
 | `POST` | `/api/v1/story/attempts/{game_id}/result` | Confirm the finished duel and read its reward receipt |
 | `GET` | `/api/v1/story/attempts/{game_id}/coach` | Read engine evidence or a cited rule for a finished attempt |
+| `POST` | `/api/v1/story/attempts/{game_id}/share` | Create a 30-day browser challenge for a finished duel |
+| `GET` | `/api/v1/story/challenges/{code}` | Show the public matchup and result summary |
+| `POST` | `/api/v1/story/challenges/{code}/attempts` | Start the shared opening deal as an unranked replay |
 | `GET` | `/api/v1/story/cues/{pack_key}/{character_id}/{moment}` | Read published captions and available audio language |
 | `GET` | `/api/v1/story/cues/{pack_key}/{character_id}/{moment}/audio/{locale}` | Read published cue audio |
 | `GET` | `/api/v1/seasons/{season_id}/board` | Board |

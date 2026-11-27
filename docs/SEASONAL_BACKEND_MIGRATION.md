@@ -64,3 +64,9 @@ All paths below are **proposals** relative to `/api/v1`. Preserve the current pl
 3. Enable settlement, three act buckets and final-form grants. Test day 7/8, day 14/15, day 21/22, delayed settlement, double claims and character-switch races with real PostgreSQL and Redis. Include old-format fixtures.
 4. Add share/rematch, squad contributions and evidence-backed coach. Test recipient privacy and replay the same authored branch with the pinned rival.
 5. Rehearse season rotation with two distinct anime packs, then deploy authoring and evaluation tools. Extend the existing multiplayer, progression, AI, voice and privacy tests and regenerate HTTP and socket contracts from implementation before enabling clients. [Existing tests](../tests) · [HTTP exporter](../scripts/export_openapi.py) · [Socket exporter](../scripts/export_asyncapi.py)
+
+## Shared story challenge and mobile release
+
+A finished story attempt can issue a signed 30-day challenge after checking the attempt capability. The share carries only the versioned setting, character, rival policy and public result summary. A recipient starts a fresh guest attempt at the same opening and can compare results. Links stay usable after season rollover while the corresponding authored pack and signing key remain available. No season or ranked rewards are attached to shared replays.
+
+New room invites use the website query route. Existing `/join/{code}` bookmarks still serve a browser landing page. The approved frontend shell now uses browser layout, controls and a rules dialog with CSS, and its lockfile omits the native compatibility dependency. Host the frontend and forward `/api/v1` with WebSocket upgrades on the same origin. Provision a 21-day pack through the admin API for the story demo. Physical-device rendering and audio measurements remain release checks.

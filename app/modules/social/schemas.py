@@ -31,7 +31,6 @@ class Together(BaseModel):
 class InviteLink(BaseModel):
     code: str
     url: str
-    app_link: str
     expires_in: int
 
 

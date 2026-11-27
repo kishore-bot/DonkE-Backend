@@ -4,7 +4,7 @@ from dataclasses import replace
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, Path, Query, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ConfigDict, Field
 from redis.exceptions import RedisError
@@ -27,6 +27,13 @@ from app.modules.lobby.router import Writes
 from app.modules.progression.models import SeasonCharacter
 from app.modules.progression.season_content import CharacterPreview
 from app.modules.progression.service import active_manifest
+from app.modules.story.challenge import (
+    ChallengeLink,
+    ChallengeView,
+    challenge_character,
+    challenge_link,
+    read_challenge,
+)
 from app.modules.story.coach import DuelCoach, explain
 from app.modules.story.progression import (
     StoryProgress,
@@ -41,6 +48,13 @@ AUTHORED_DUELS = {
     "grimoire-awakening-v1": (5, "The Arena Keeper"),
     "skybound-voyage-v1": (41, "The Storm Captain"),
 }
+
+
+def authored_duel(pack_key: str) -> tuple[int, str]:
+    duel = AUTHORED_DUELS.get(pack_key)
+    if duel is None:
+        raise AppError(404, "story_unavailable", "This season has no story duel")
+    return duel
 
 
 class StartDuel(BaseModel):
@@ -58,10 +72,37 @@ class StoryAttempt(PracticeCreated):
     rewards_eligible: bool
 
 
+ChallengeCode = Annotated[
+    str, Path(min_length=48, max_length=768, pattern=r"^[A-Za-z0-9_.-]+$")
+]
+
+
 class ResultRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     attempt_token: str = Field(min_length=1, max_length=128, repr=False)
+
+
+async def open_attempt(
+    practice: Service,
+    request: Request,
+    response: Response,
+    pin: StoryPin,
+    character: CharacterPreview,
+    seed: int,
+    rival: str,
+) -> StoryAttempt:
+    game = await run_in_threadpool(
+        practice.create, 2, client=client_host(request), story=pin, seed=seed
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return StoryAttempt(
+        **game.model_dump(),
+        pack_key=pin.pack_key,
+        rival=rival,
+        character=character,
+        rewards_eligible=pin.player_id is not None,
+    )
 
 
 @router.post("/story/attempts", status_code=201)
@@ -98,10 +139,7 @@ async def start_duel(
                 "Character is unavailable in this season",
             )
         pin = StoryPin(manifest.season_id, manifest.pack_key, character_id, player_id)
-    duel = AUTHORED_DUELS.get(pin.pack_key)
-    if duel is None:
-        raise AppError(404, "story_unavailable", "This season has no story duel")
-    seed, rival = duel
+    seed, rival = authored_duel(pin.pack_key)
     if body.adaptive and gateway.provider is not None:
         await limit(platform, "story_rival", client_host(request), 4, 60)
         try:
@@ -117,16 +155,57 @@ async def start_duel(
             pin = replace(pin, intent="pressure", intent_source="gemini")
         elif intent == "steady":
             pin = replace(pin, intent_source="gemini")
-    game = await run_in_threadpool(
-        practice.create, 2, client=client_host(request), story=pin, seed=seed
+    return await open_attempt(
+        practice, request, response, pin, cast[character_id], seed, rival
     )
+
+
+@router.post("/story/attempts/{game_id}/share")
+async def share_attempt(
+    game_id: UUID,
+    token: AccessToken,
+    practice: Service,
+    platform: PlatformDep,
+    request: Request,
+    response: Response,
+) -> ChallengeLink:
+    await limit(platform, "story_share", client_host(request), 15, 60)
+    pin, duel = await run_in_threadpool(practice.story_decision, game_id, token)
     response.headers["Cache-Control"] = "no-store"
-    return StoryAttempt(
-        **game.model_dump(),
-        pack_key=pin.pack_key,
-        rival=rival,
-        character=cast[character_id],
-        rewards_eligible=player_id is not None,
+    return challenge_link(platform, pin, duel)
+
+
+@router.get("/story/challenges/{code}")
+async def story_challenge(
+    code: ChallengeCode,
+    platform: PlatformDep,
+    response: Response,
+) -> ChallengeView:
+    pin = read_challenge(platform, code)
+    title, character = challenge_character(pin)
+    response.headers["Cache-Control"] = "no-store"
+    return ChallengeView(
+        pack_title=title,
+        rival=authored_duel(pin.pack_key)[1],
+        character=character,
+        result=pin.result,
+        expires_at=pin.exp,
+    )
+
+
+@router.post("/story/challenges/{code}/attempts", status_code=201)
+async def play_challenge(
+    code: ChallengeCode,
+    practice: Service,
+    platform: PlatformDep,
+    request: Request,
+    response: Response,
+) -> StoryAttempt:
+    pin = read_challenge(platform, code)
+    _, character = challenge_character(pin)
+    seed, rival = authored_duel(pin.pack_key)
+    return await open_attempt(
+        practice, request, response, pin.story(), character, seed, rival
     )
 
 

@@ -1,4 +1,5 @@
 import re
+from html import escape
 from typing import Annotated
 from uuid import UUID
 
@@ -140,7 +141,7 @@ async def room_invites(player: CurrentPlayer, social: Social) -> list[live.RoomI
 async def invite_link(
     room_id: UUID, request: Request, player: CurrentPlayer, social: Social
 ) -> InviteLink:
-    """A shareable one-hour link (WhatsApp friendly) and app deep link."""
+    """Create a one-hour invitation to join through the browser."""
     await limit(social.platform, "invite_link", str(player.profile.id), 10, 600)
     origin = f"{request.url.scheme}://{request.url.netloc}"
     return await social.invite_link(player.profile, room_id, origin)
@@ -205,16 +206,17 @@ LANDING = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Join my Kazhutha table</title></head>
 <body><h1>Join my Kazhutha table</h1>
-<p><a href="donke://join/{code}">Open in the DonkE app</a></p>
-<p>No app yet? Install DonkE, then open this link again.</p></body></html>"""
+<p><a href="{url}">Open the DonkE lobby</a></p></body></html>"""
 
 
 @landing.get("/join/{code}", response_class=HTMLResponse, include_in_schema=False)
-async def join_landing(code: Code) -> HTMLResponse:
+async def join_landing(code: Code, request: Request) -> HTMLResponse:
     if not re.fullmatch(r"[A-Za-z0-9_-]{8}", code):
         raise AppError(404, "invite_not_found", "Invite not found")
+    platform = request.app.state.platform
+    base = platform.settings.public_base_url if platform is not None else ""
     return HTMLResponse(
-        LANDING.format(code=code),
+        LANDING.format(url=escape(f"{base}/?invite={code}", quote=True)),
         headers={
             "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
             "Cache-Control": "no-store",

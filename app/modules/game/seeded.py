@@ -48,10 +48,13 @@ class SeededDuel:
 
     @property
     def version(self) -> int:
-        return json.loads(self.game.view(0))["version"]
+        return self.player_view()["version"]
+
+    def player_view(self) -> dict:
+        return json.loads(self.game.view(0))
 
     def snapshot(self) -> str:
-        view = json.loads(self.game.view(0))
+        view = self.player_view()
         return json.dumps(
             {
                 "view": view,
@@ -72,7 +75,7 @@ class SeededDuel:
         return self.game.evaluate(0, iterations, self.seed)
 
     def play(self, card: str, call_strike: bool) -> tuple[SeededDuel, str]:
-        if call_strike and not self.available(json.loads(self.game.view(0))):
+        if call_strike and not self.available(self.player_view()):
             raise ValueError("strike_call_unavailable")
         game = OnlineGame.restore(self.game.snapshot())
         events = json.loads(game.play(0, card))
