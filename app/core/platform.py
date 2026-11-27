@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 from fastapi import Request
 from redis.asyncio import Redis
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -15,8 +14,6 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import Settings
 from app.core.errors import AppError
-
-SCHEMA_HEAD = "20261127_story_emotes"
 
 
 class Base(DeclarativeBase):
@@ -31,26 +28,16 @@ class Platform:
     redis: Redis
 
     async def ready(self) -> None:
-        async with self.engine.connect() as connection:
-            versions = set(
-                await connection.scalars(
-                    text("SELECT version_num FROM alembic_version")
-                )
-            )
-            if not versions:
-                raise AppError(
-                    503, "schema_unavailable", "Online storage has not been initialized"
-                )
-            if versions != {SCHEMA_HEAD}:
-                # Imported here: app.core.schema imports every module's models.
-                from app.core.schema import has_required_schema  # noqa: PLC0415
+        # Imported here because the schema loads every model that extends Base.
+        from app.core.schema import has_required_schema  # noqa: PLC0415
 
-                if not await connection.run_sync(has_required_schema):
-                    raise AppError(
-                        503,
-                        "schema_mismatch",
-                        "Online storage needs the application migration",
-                    )
+        async with self.engine.connect() as connection:
+            if not await connection.run_sync(has_required_schema):
+                raise AppError(
+                    503,
+                    "schema_mismatch",
+                    "Online storage does not have the required tables and pgvector",
+                )
         await self.redis.ping()
 
 

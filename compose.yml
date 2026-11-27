@@ -58,9 +58,9 @@ services:
       interval: 2s
       timeout: 2s
       retries: 20
-  migrate:
+  db-init:
     <<: *backend
-    command: ["python", "-m", "scripts.wait_for_storage", "--migrate", "alembic", "upgrade", "head"]
+    command: ["alembic", "upgrade", "head"]
     depends_on:
       postgres:
         condition: service_healthy

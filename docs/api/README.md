@@ -38,7 +38,7 @@ Run `uv run python -m app.modules.ai.mcp_server` for stdio, or add `--http` for 
 | `GET` | `/api/v1/notice` | Notice |
 | `GET` | `/api/v1/online/health` | Online stores, turn scheduler heartbeat and oldest due turn lag |
 | `GET` | `/healthz` | Health |
-| `GET` | `/ready` | Storage and migration readiness when online is enabled |
+| `GET` | `/ready` | PostgreSQL schema and Redis readiness when online is enabled |
 
 ## Practice
 

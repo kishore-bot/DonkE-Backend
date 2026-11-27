@@ -12,13 +12,13 @@ bash scripts/podman-dev.sh up
 bash scripts/podman-dev.sh smoke
 ```
 
-The script selects the Podman Compose provider even when another provider is present. It starts PostgreSQL and Redis, runs the migration to completion, and starts Granian and the workers. A plain `podman compose up` also starts the migration, and the API and workers wait for the database schema and Redis. The smoke command writes short-lived player tokens to Linux temporary files and removes those files when it exits. Demo seeding is an operator CLI guarded by `DONKE_DEMO_MODE`.
+The script selects the Podman Compose provider even when another provider is present. It starts PostgreSQL and Redis, initializes the schema, and starts Granian and the workers. A plain `podman compose up` also starts the Alembic upgrade, and the API and workers wait for the required schema and Redis. The smoke command writes short-lived player tokens to Linux temporary files and removes those files when it exits. Demo seeding is an operator CLI guarded by `DONKE_DEMO_MODE`.
 
 Run `bash scripts/podman-dev.sh ps` or `bash scripts/podman-dev.sh logs` to inspect the stack. The `down` command preserves database volumes.
 
 ## Run the demo with local services
 
-With a dedicated local PostgreSQL database and Redis, use the [online foundation settings](ONLINE_FOUNDATION.md). Migrate, then start the API and matchmaking worker. Keep `DONKE_DEMO_MODE=true` in the seed command's environment.
+With a dedicated local PostgreSQL database and Redis, use the [online foundation settings](ONLINE_FOUNDATION.md). Run `uv run --locked alembic upgrade head`, then start the API and matchmaking worker. Keep `DONKE_DEMO_MODE=true` in the seed command's environment.
 
 ```sh
 sessions_dir="$(mktemp -d)"
@@ -47,10 +47,10 @@ flowchart LR
     API -->|optional coaching and commentary| Gemini
 ```
 
-A move and its acknowledgements, events, and next deadline share one Redis commit. A worker settles the finished game once in PostgreSQL. The stream and private snapshots support reconnect, and the participant-only replay is read from PostgreSQL after settlement. If Redis loses a live match state, the next lobby access releases that room's seat reservations and clears its worker indexes. Readiness accepts the expected migration head or a schema with all the tables and column types this release requires.
+A move and its acknowledgements, events, and next deadline share one Redis commit. A worker settles the finished game once in PostgreSQL. The stream and private snapshots support reconnect, and the participant-only replay is read from PostgreSQL after settlement. If Redis loses a live match state, the next lobby access releases that room's seat reservations and clears its worker indexes. Readiness checks the required PostgreSQL tables, column types and pgvector.
 
 ## Release evidence
 
-The [offline scorecard](AI_EVAL.md) covers rule lookup and abstention, Vettu facts in six locales, and native game completion across seat counts. The [OpenAPI](api/openapi.json) and [AsyncAPI](api/asyncapi.json) exports document the client contracts. CI checks both exports, the scorecard, migrations, service tests and the Podman smoke workflow. Live Google sign-in and Gemini quality require credentials and a separate provider run.
+The [offline scorecard](AI_EVAL.md) covers rule lookup and abstention, Vettu facts in six locales, and native game completion across seat counts. The [OpenAPI](api/openapi.json) and [AsyncAPI](api/asyncapi.json) exports document the client contracts. CI checks both exports, the scorecard, the Alembic baseline, service tests and the Podman smoke workflow. Live Google sign-in and Gemini quality require credentials and a separate provider run.
 
 [Podman Compose provider selection](https://docs.podman.io/en/latest/markdown/podman-compose.1.html)

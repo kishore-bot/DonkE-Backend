@@ -86,4 +86,3 @@ ignore = [
 # Google SDKs load only when a Gemini key is configured.
 "app/modules/ai/provider.py" = ["PLC0415"]
 "scripts/**" = ["S603", "S607"]
-"migrations/**" = ["E501"]

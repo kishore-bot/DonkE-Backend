@@ -160,7 +160,7 @@ What we take from `donkey_backend`, what we change, and what we add. See [PLAN.m
 | Metrics, Sentry, logging redaction | ✅ | | `app/core/` |
 | Health `/healthz`, `/ready` | ✅ | | `health_route.py` |
 | OpenAPI + AsyncAPI export (KMP contract) | ✅ | | `scripts/export_api_docs.py` |
-| Alembic migrations | 🔧 | Fresh baseline for kept tables | `alembic/` |
+| Alembic baseline | ✅ | Creates the current development schema | `migrations/versions/0001_initial.py` |
 | Containers | 🔧 | Docker → **Podman** (`podman compose`, Containerfile) | `Dockerfile`, `docker-compose*.yml` |
 | CI (ruff, pyright, deptry, cargo test, pytest, API drift) | 🔧 | Podman, crate split | `.github/workflows/ci.yml` |
 | Tests | 🔧 | Drop tests for removed features | `tests/` |

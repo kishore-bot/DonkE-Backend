@@ -1,4 +1,4 @@
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
 
 from app.core.platform import Base
@@ -41,7 +41,7 @@ from app.modules.social.models import (
 
 from app.modules.story.models import SeasonCue
 
-# Import all mapped tables for both migration drift checks and startup on an expanded schema.
+# Register the complete schema for Alembic and readiness.
 MAPPED_MODELS = (
     AdminAudit,
     AdminSession,
@@ -117,4 +117,4 @@ def has_required_schema(connection: Connection) -> bool:
                 and column.get("computed") is None
             ):
                 return False
-    return True
+    return bool(connection.scalar(text("SELECT to_regtype('vector') IS NOT NULL")))

@@ -15,7 +15,7 @@ from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.config import Settings
 from app.core.errors import AppError
-from app.core.platform import SCHEMA_HEAD, Platform, open_platform
+from app.core.platform import Platform, open_platform
 from app.core.schema import has_required_schema
 from app.modules.identity.service import IdentityService
 from app.modules.lobby.repository import LobbyRepository
@@ -38,15 +38,15 @@ from scripts.seed_demo import (
 )
 
 
-def test_schema_head_and_readiness_reject_outdated_database():
+def test_alembic_starts_with_the_initial_schema():
     config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
-    migrations = ScriptDirectory.from_config(config)
-    assert migrations.get_heads() == [SCHEMA_HEAD]
+    assert ScriptDirectory.from_config(config).get_bases() == ["0001_initial"]
 
+
+def test_readiness_checks_required_schema_before_redis():
     async def check():
         engine = MagicMock()
         connection = engine.connect.return_value.__aenter__.return_value
-        connection.scalars = AsyncMock(return_value=["20261120_platform"])
         connection.run_sync = AsyncMock(return_value=False)
         redis = AsyncMock()
         platform = Platform(Settings(_env_file=None), engine, MagicMock(), redis)
@@ -55,7 +55,7 @@ def test_schema_head_and_readiness_reject_outdated_database():
         assert captured.value.code == "schema_mismatch"
         assert captured.value.status == 503
         redis.ping.assert_not_awaited()
-        connection.scalars.return_value = ["20261121_future"]
+        connection.run_sync.assert_awaited_once_with(has_required_schema)
         connection.run_sync.return_value = True
         await platform.ready()
         redis.ping.assert_awaited_once()
@@ -265,9 +265,9 @@ def test_missing_game_releases_all_room_reservations(settings):
     asyncio.run(check())
 
 
-@pytest.mark.parametrize("migration_code", [0, 7])
-def test_podman_launcher_pins_provider_and_waits_for_migrations(
-    tmp_path, migration_code
+@pytest.mark.parametrize("init_code", [0, 7])
+def test_podman_launcher_pins_provider_and_waits_for_schema_initialization(
+    tmp_path, init_code
 ):
     log = tmp_path / "commands"
     provider = tmp_path / "podman-compose"
@@ -278,7 +278,7 @@ def test_podman_launcher_pins_provider_and_waits_for_migrations(
     podman = tmp_path / "podman"
     podman.write_text(
         '#!/bin/sh\nprintf "podman %s %s\n" "$PODMAN_COMPOSE_PROVIDER" "$*" >> "$PODMAN_TEST_LOG"\n'
-        'case " $* " in *" run --rm migrate "*) exit "$PODMAN_TEST_MIGRATION_CODE";; esac\n',
+        'case " $* " in *" run --rm db-init "*) exit "$PODMAN_TEST_INIT_CODE";; esac\n',
         encoding="utf-8",
     )
     for command in (podman, provider):
@@ -288,7 +288,7 @@ def test_podman_launcher_pins_provider_and_waits_for_migrations(
         "PATH": f"{tmp_path}:{os.environ['PATH']}",
         "PODMAN_COMPOSE_PROVIDER": "unexpected-provider",
         "PODMAN_TEST_LOG": str(log),
-        "PODMAN_TEST_MIGRATION_CODE": str(migration_code),
+        "PODMAN_TEST_INIT_CODE": str(init_code),
     }
     source = Path(__file__).resolve().parents[1] / "scripts/podman-dev.sh"
     launcher = tmp_path / "scripts/podman-dev.sh"
@@ -297,7 +297,7 @@ def test_podman_launcher_pins_provider_and_waits_for_migrations(
     (tmp_path / ".env").touch()
     (tmp_path / ".env.dev").touch()
     result = subprocess.run(["bash", str(launcher), "up"], env=env, check=False)
-    assert result.returncode == migration_code
+    assert result.returncode == init_code
     commands = log.read_text().splitlines()
     assert commands[0] == "provider --env-file .env.dev --file compose.yml config"
     assert all(
@@ -309,13 +309,13 @@ def test_podman_launcher_pins_provider_and_waits_for_migrations(
     stores = next(
         i for i, line in enumerate(commands) if line.endswith("up -d postgres redis")
     )
-    migration = next(
-        i for i, line in enumerate(commands) if line.endswith("run --rm migrate")
+    schema_init = next(
+        i for i, line in enumerate(commands) if line.endswith("run --rm db-init")
     )
-    assert stores < migration
-    assert any("pg_isready" in line for line in commands[stores:migration])
-    assert any("redis-cli ping" in line for line in commands[stores:migration])
+    assert stores < schema_init
+    assert any("pg_isready" in line for line in commands[stores:schema_init])
+    assert any("redis-cli ping" in line for line in commands[stores:schema_init])
     assert any(
         line.endswith("up -d app matchmaking jobs scheduler voice")
-        for line in commands[migration:]
-    ) == (migration_code == 0)
+        for line in commands[schema_init:]
+    ) == (init_code == 0)

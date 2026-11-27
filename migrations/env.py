@@ -1,6 +1,7 @@
 import asyncio
 
 from alembic import context
+from sqlalchemy import text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
@@ -10,8 +11,17 @@ from app.core.schema import Base
 
 
 def migrate(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=Base.metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=Base.metadata,
+        compare_server_default=True,
+    )
     with context.begin_transaction():
+        connection.execute(
+            text(
+                "SELECT pg_advisory_xact_lock(hashtextextended('donke.schema.init', 0))"
+            )
+        )
         context.run_migrations()
 
 

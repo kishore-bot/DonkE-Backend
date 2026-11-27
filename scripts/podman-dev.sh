@@ -44,7 +44,7 @@ case "${1:-up}" in
         podman build --file Containerfile --tag localhost/donke-backend:dev .
         compose up -d postgres redis
         wait_for_stores
-        compose run --rm migrate
+        compose run --rm db-init
         compose up -d app matchmaking jobs scheduler voice
         ;;
     smoke)

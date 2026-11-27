@@ -64,7 +64,7 @@ bash scripts/podman-dev.sh up
 curl --fail http://127.0.0.1:8000/ready
 ```
 
-The launcher builds the image, waits for PostgreSQL and Redis, runs Alembic, then starts the API and background workers. The stores stay on the internal network. Use `bash scripts/podman-dev.sh down` to stop the stack and retain its data volumes.
+The launcher builds the image, waits for PostgreSQL and Redis, runs the Alembic baseline, then starts the API and background workers. The stores stay on the internal network. Use `bash scripts/podman-dev.sh down` to stop the stack and retain its data volumes.
 
 [Podman Compose documentation](https://docs.podman.io/en/latest/markdown/podman-compose.1.html)
 
@@ -78,9 +78,11 @@ The online API listens on port `8000` on all WSL interfaces. Use the Windows hos
 <details>
 <summary>Use an existing PostgreSQL and Redis setup</summary>
 
-Set `DONKE_POSTGRES_DSN`, `DONKE_REDIS_DSN`, and `DONKE_AUTH_SECRET` in `.env`. Run `uv run alembic upgrade head`, start Granian as shown above, and run `uv run python -m app.workers.matchmaking` in a separate terminal. See the [online setup guide](docs/ONLINE_FOUNDATION.md) for identity, admin accounts, and storage requirements.
+Set `DONKE_POSTGRES_DSN`, `DONKE_REDIS_DSN`, and `DONKE_AUTH_SECRET` in `.env`. Run `uv run --locked alembic upgrade head`, start Granian as shown above, and run `uv run python -m app.workers.matchmaking` in a separate terminal. See the [online setup guide](docs/ONLINE_FOUNDATION.md) for identity, admin accounts, and storage requirements.
 
 </details>
+
+The baseline creates the full schema and enables pgvector on an empty development database. Repeated upgrades preserve data after the baseline is applied. See the [database setup guide](docs/ONLINE_FOUNDATION.md#database-setup) if your development database already contains DonkE tables.
 
 ## API reference
 
@@ -126,7 +128,7 @@ flowchart LR
 | Head-to-head, latest 200 shared matches | 76.7 ms | 2.04 ms |
 | Admin history, latest 10 matches | 73.5 ms | 0.053 ms |
 
-Values are median database execution times from 20 warm runs per query on local PostgreSQL 18.7. The before and after queries returned the same ordered match IDs. [Participant-index migration](migrations/versions/20261121_match_players.py)
+Values are median database execution times from 20 warm runs per query on local PostgreSQL 18.7. The before and after queries returned the same ordered match IDs. [Participant index](app/modules/matches/models.py)
 
 </details>
 
@@ -164,7 +166,7 @@ uv run python -m scripts.evaluate --check
 uv run pytest -q
 ```
 
-For integration tests, point `TEST_POSTGRES_DSN` and `TEST_REDIS_DSN` at disposable stores. CI also exercises migration round trips and the Podman smoke flow.
+Initialize a disposable PostgreSQL database with `uv run --locked alembic upgrade head`, then point `TEST_POSTGRES_DSN` and `TEST_REDIS_DSN` at the test stores. CI verifies the migration round trip, schema drift, and the Podman smoke flow.
 
 </details>
 

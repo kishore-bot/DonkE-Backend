@@ -38,16 +38,16 @@ jobs:
           podman run -d --name donke-test-pg -p 127.0.0.1:55432:5432 -e POSTGRES_PASSWORD=synthetic docker.io/pgvector/pgvector:0.8.7-pg18
           podman run -d --name donke-test-redis -p 127.0.0.1:56379:6379 docker.io/library/redis:8-alpine
           timeout 45s sh -c 'until podman exec donke-test-pg pg_isready -h 127.0.0.1 -U postgres && podman exec donke-test-redis redis-cli ping; do sleep 1; done'
-      - name: Migration round trip
+      - name: Verify the Alembic baseline
         env:
           DONKE_POSTGRES_DSN: postgresql+asyncpg://postgres:synthetic@127.0.0.1:55432/postgres
           DONKE_REDIS_DSN: redis://127.0.0.1:56379/0
           DONKE_AUTH_SECRET: synthetic-ci-key-with-at-least-32-bytes
         run: |
-          uv run alembic upgrade head
-          uv run alembic check
-          uv run alembic downgrade base
-          uv run alembic upgrade head
+          uv run --locked alembic upgrade head
+          uv run --locked alembic check
+          uv run --locked alembic downgrade base
+          uv run --locked alembic upgrade head
       - name: API and integration tests
         env:
           TEST_POSTGRES_DSN: postgresql+asyncpg://postgres:synthetic@127.0.0.1:55432/postgres
