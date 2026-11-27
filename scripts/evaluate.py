@@ -20,7 +20,7 @@ from app.modules.progression.calendar import window_open
 from app.modules.story.awakening import requirements, resolve_path
 from app.modules.story.coach import explain
 from app.modules.story.lines import FALLBACK, valid
-from app.modules.story.router import authored_duel
+from app.modules.story.chapters import chapter_for
 
 QUESTIONS = (
     ("Which card opens the first trick?", "opening"),
@@ -144,7 +144,8 @@ def cue_checks() -> list[Check]:
 
 def sample_trace() -> dict:
     pack = "grimoire-awakening-v1"
-    seed, rival = authored_duel(pack)
+    chapter = chapter_for(pack)
+    seed, rival = chapter.seed, chapter.rival
     duel = SeededDuel(OnlineGame.seeded(2, seed), seed)
     escaped = False
     strike = False

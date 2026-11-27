@@ -13,6 +13,7 @@ from app.modules.progression.calendar import CLAIM_GRACE, claim_deadline, window
 from app.modules.progression.models import (
     Season,
     SeasonCharacter,
+    SeasonChapterClear,
     SeasonPlayer,
     SeasonStoryProgress,
 )
@@ -25,9 +26,7 @@ from app.modules.story.awakening import (
     requirements,
     resolve_path,
 )
-
-CLEAR_POINTS = 40
-CLEAR_COINS = 20
+from app.modules.story.chapters import OPENING_CHAPTER, chapter_for
 
 
 class StoryProgress(BaseModel):
@@ -173,6 +172,7 @@ async def settle(
     escaped: bool,
     now: datetime,
 ) -> StoryResult:
+    chapter = chapter_for(pin.pack_key, pin.chapter_id)
     first_clear = False
     if escaped:
         await service.lock_season_schedule(db, read=True)
@@ -180,31 +180,60 @@ async def settle(
         season = await db.get(Season, pin.season_id)
         if season is None or season.pack_key != pin.pack_key:
             raise AppError(409, "season_unavailable", "This season is unavailable")
-        insert_clear = insert(SeasonStoryProgress).values(
-            season_id=pin.season_id, player_id=player_id, clear_game_id=game_id
-        )
-        first_clear_id = await db.scalar(
-            insert_clear.on_conflict_do_nothing().returning(
-                SeasonStoryProgress.clear_game_id
+        row_key = (pin.season_id, player_id)
+        suffix = "" if chapter.id == OPENING_CHAPTER else f":{chapter.id}"
+        if chapter.id == OPENING_CHAPTER:
+            inserted = await db.scalar(
+                insert(SeasonStoryProgress)
+                .values(
+                    season_id=pin.season_id, player_id=player_id, clear_game_id=game_id
+                )
+                .on_conflict_do_nothing()
+                .returning(SeasonStoryProgress.clear_game_id)
             )
-        )
-        if first_clear_id is not None:
+            stored = (
+                await db.get(SeasonStoryProgress, row_key) if inserted is None else None
+            )
+            first_clear = inserted is not None or (
+                stored is not None and stored.clear_game_id == game_id
+            )
+        else:
+            inserted = await db.scalar(
+                insert(SeasonChapterClear)
+                .values(
+                    season_id=pin.season_id,
+                    player_id=player_id,
+                    chapter_id=chapter.id,
+                    game_id=game_id,
+                )
+                .on_conflict_do_nothing()
+                .returning(SeasonChapterClear.game_id)
+            )
+            old = (
+                await db.get(SeasonChapterClear, (*row_key, chapter.id))
+                if inserted is None
+                else None
+            )
+            first_clear = inserted is not None or (
+                old is not None and old.game_id == game_id
+            )
+        if inserted is not None:
             points = insert(SeasonPlayer).values(
-                season_id=pin.season_id, player_id=player_id, points=CLEAR_POINTS
+                season_id=pin.season_id, player_id=player_id, points=chapter.points
             )
             await db.execute(
                 points.on_conflict_do_update(
                     index_elements=[SeasonPlayer.season_id, SeasonPlayer.player_id],
-                    set_={"points": SeasonPlayer.points + CLEAR_POINTS},
+                    set_={"points": SeasonPlayer.points + chapter.points},
                 )
             )
             await service.credit(
-                db, wallet, f"story:{pin.season_id}:{player_id}", "story", CLEAR_COINS
+                db,
+                wallet,
+                f"story:{pin.season_id}:{player_id}{suffix}",
+                "story",
+                chapter.coins,
             )
-            first_clear = True
-        else:
-            stored = await db.get(SeasonStoryProgress, (pin.season_id, player_id))
-            first_clear = stored is not None and stored.clear_game_id == game_id
         if pin.squad_party_id is not None:
             await squad.contribute(
                 db, season, pin.squad_party_id, player_id, game_id, now
@@ -212,8 +241,8 @@ async def settle(
     return StoryResult(
         escaped=escaped,
         first_clear=first_clear,
-        coins=CLEAR_COINS if first_clear else 0,
-        points=CLEAR_POINTS if first_clear else 0,
+        coins=chapter.coins if first_clear else 0,
+        points=chapter.points if first_clear else 0,
     )
 
 

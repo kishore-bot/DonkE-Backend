@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Literal
 
 from donke_engine import OnlineGame
@@ -107,3 +107,28 @@ class SeededDuel:
             self.remaining = 0
             return False
         return None
+
+    def freeze(self) -> dict:
+        return {
+            "native": self.game.snapshot(),
+            "seed": self.seed,
+            "remaining": self.remaining,
+            "intent": self.intent,
+            "decision": asdict(self.decision) if self.decision is not None else None,
+            "events": self.events,
+        }
+
+    @classmethod
+    def restore(cls, snapshot: dict) -> SeededDuel:
+        game = OnlineGame.restore(snapshot["native"])
+        assert game.turn != 1
+        first = snapshot["decision"]
+        duel = cls(
+            game,
+            snapshot["seed"],
+            snapshot["remaining"],
+            intent=snapshot["intent"],
+            decision=RivalDecision(**first) if first else None,
+        )
+        duel.events = snapshot["events"]
+        return duel

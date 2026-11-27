@@ -1,4 +1,3 @@
-import json
 from collections import deque
 from hashlib import sha256
 from secrets import compare_digest, token_urlsafe
@@ -10,6 +9,7 @@ from donke_engine import OnlineGame, PracticeGame
 
 from app.core.config import Settings
 from app.core.errors import AppError
+from app.modules.game.commands import hint_game, play_game, validate_retry
 from app.modules.game.repository import (
     PracticeRepository,
     PracticeSession,
@@ -19,7 +19,6 @@ from app.modules.game.repository import (
 from app.modules.game.seeded import SeededDuel
 from app.modules.game.schemas import (
     GameUpdate,
-    MoveScore,
     PracticeCreated,
     PracticeHint,
     PracticePlayRequest,
@@ -126,20 +125,6 @@ class PracticeService:
             raise AppError(404, "practice_not_found", "Practice match not found")
         return session
 
-    def story_result(
-        self, game_id: UUID, token: str, player_id: UUID
-    ) -> tuple[StoryPin, bool]:
-        with self.repository.lock:
-            session = self._session(game_id, token)
-        with session.lock:
-            story = session.story
-            if story is None or story.player_id != player_id:
-                raise AppError(404, "story_not_found", "Story attempt not found")
-            view = GameUpdate.model_validate_json(session.game.snapshot()).view
-            if view.outcome is None:
-                raise AppError(409, "story_in_progress", "Finish the story duel first")
-            return story, 0 in view.escape_order
-
     def story_decision(self, game_id: UUID, token: str) -> tuple[StoryPin, SeededDuel]:
         with self.repository.lock:
             session = self._session(game_id, token)
@@ -153,11 +138,7 @@ class PracticeService:
     def hint(self, game_id: UUID, token: str) -> PracticeHint:
         with self.repository.lock:
             game = self._session(game_id, token).game
-        options = [
-            MoveScore.model_validate(score)
-            for score in json.loads(game.hint(self.settings.practice_hint_iterations))
-        ]
-        return PracticeHint(best=options[0].card if options else None, options=options)
+        return hint_game(game, self.settings.practice_hint_iterations)
 
     def snapshot(self, game_id: UUID, token: str) -> GameUpdate:
         with self.repository.lock:
@@ -173,49 +154,10 @@ class PracticeService:
         with session.lock:
             previous = session.plays.get(command.request_id)
             if previous is not None:
-                if (previous.version, previous.card, previous.call_strike) != (
-                    command.expected_version,
-                    command.card,
-                    command.call_strike,
-                ):
-                    raise AppError(
-                        409,
-                        "request_id_reused",
-                        "Request ID belongs to a different play",
-                    )
+                validate_retry(previous.command, command)
                 return previous.outcome
-            if command.expected_version != session.game.version:
-                raise AppError(
-                    409, "stale_version", "Get the latest view before playing"
-                )
-            if command.call_strike and not isinstance(session.game, SeededDuel):
-                raise AppError(
-                    409,
-                    "strike_call_unavailable",
-                    "Strike calls are available in story duels",
-                )
-            try:
-                card = command.card.model_dump_json()
-                if isinstance(session.game, SeededDuel):
-                    next_game, result = session.game.play(card, command.call_strike)
-                else:
-                    next_game, result = session.game.play(card)
-            except ValueError as exc:
-                code = str(exc)
-                if code == "strike_call_unavailable":
-                    raise AppError(
-                        409, code, "You can call once before leading a story trick"
-                    ) from exc
-                if code == "game_finished":
-                    raise AppError(409, code, "This match has finished") from exc
-                if code == "illegal_card":
-                    raise AppError(422, code, "This card cannot be played now") from exc
-                raise
-
-            update = GameUpdate.model_validate_json(result)
-            session.plays[command.request_id] = RecordedPlay(
-                command.expected_version, command.card, update, command.call_strike
-            )
+            next_game, update = play_game(session.game, command)
+            session.plays[command.request_id] = RecordedPlay(command, update)
             session.game = next_game
             session.finished = update.view.outcome is not None
             return update

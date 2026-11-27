@@ -8,6 +8,7 @@ from app.modules.ai.coaching import MatchAnalysis
 from app.modules.ai.fair_play import FairPlayCase
 from app.modules.ai.index import RuleEmbedding
 from app.modules.ai.rivals import PlayerRival
+from app.modules.game.models import StoryDuel, StoryDuelCommand
 from app.modules.identity.models import Player, PlayerSession, RefreshToken
 from app.modules.matches.models import MatchPlayer, MatchRecord
 from app.modules.progression.models import (
@@ -18,6 +19,7 @@ from app.modules.progression.models import (
     PlayerStats,
     Season,
     SeasonCharacter,
+    SeasonChapterClear,
     SeasonDay,
     SeasonPlayer,
     SeasonSquad,
@@ -48,10 +50,13 @@ MAPPED_MODELS = (
     RefreshToken,
     MatchRecord,
     MatchPlayer,
+    StoryDuel,
+    StoryDuelCommand,
     CoinLedger,
     Cosmetic,
     Season,
     SeasonCharacter,
+    SeasonChapterClear,
     SeasonPlayer,
     SeasonSquad,
     SeasonSquadMember,

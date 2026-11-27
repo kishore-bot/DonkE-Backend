@@ -6,16 +6,14 @@ from uuid import UUID
 
 from donke_engine import PracticeGame
 
-from app.modules.game.schemas import Card, GameUpdate
+from app.modules.game.schemas import GameUpdate, PracticePlayRequest
 from app.modules.game.seeded import RivalIntent, SeededDuel
 
 
 @dataclass(frozen=True, slots=True)
 class RecordedPlay:
-    version: int
-    card: Card
+    command: PracticePlayRequest
     outcome: GameUpdate
-    call_strike: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +25,7 @@ class StoryPin:
     intent: RivalIntent = "steady"
     intent_source: Literal["gemini", "engine"] = "engine"
     squad_party_id: UUID | None = None
+    chapter_id: str = "trial"
 
 
 @dataclass(slots=True)

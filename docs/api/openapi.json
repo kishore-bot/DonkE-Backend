@@ -672,6 +672,74 @@
         "title": "ChallengeLink",
         "type": "object"
       },
+      "ChapterView": {
+        "properties": {
+          "act": {
+            "title": "Act",
+            "type": "integer"
+          },
+          "chapter_id": {
+            "title": "Chapter Id",
+            "type": "string"
+          },
+          "coins": {
+            "title": "Coins",
+            "type": "integer"
+          },
+          "opens_at": {
+            "format": "date-time",
+            "title": "Opens At",
+            "type": "string"
+          },
+          "points": {
+            "title": "Points",
+            "type": "integer"
+          },
+          "requires": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requires"
+          },
+          "rival": {
+            "title": "Rival",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "cleared",
+              "scheduled",
+              "sign_in",
+              "prerequisite"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chapter_id",
+          "act",
+          "title",
+          "rival",
+          "opens_at",
+          "requires",
+          "coins",
+          "points",
+          "status"
+        ],
+        "title": "ChapterView",
+        "type": "object"
+      },
       "CharacterPreview": {
         "properties": {
           "id": {
@@ -4229,6 +4297,13 @@
             "title": "Adaptive",
             "type": "boolean"
           },
+          "chapter_id": {
+            "default": "trial",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Chapter Id",
+            "type": "string"
+          },
           "character_id": {
             "anyOf": [
               {
@@ -4341,6 +4416,14 @@
             ],
             "title": "Can Call Strike"
           },
+          "chapter_id": {
+            "title": "Chapter Id",
+            "type": "string"
+          },
+          "chapter_title": {
+            "title": "Chapter Title",
+            "type": "string"
+          },
           "character": {
             "$ref": "#/components/schemas/CharacterPreview"
           },
@@ -4402,6 +4485,11 @@
             "title": "Rival",
             "type": "string"
           },
+          "season_id": {
+            "format": "uuid",
+            "title": "Season Id",
+            "type": "string"
+          },
           "view": {
             "$ref": "#/components/schemas/PlayerView"
           }
@@ -4411,7 +4499,10 @@
           "events",
           "game_id",
           "access_token",
+          "season_id",
           "pack_key",
+          "chapter_id",
+          "chapter_title",
           "rival",
           "character",
           "rewards_eligible"
@@ -11498,6 +11589,68 @@
         ]
       }
     },
+    "/api/v1/seasons/{season_id}/story/chapters": {
+      "get": {
+        "operationId": "campaign_api_v1_seasons__season_id__story_chapters_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "season_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Season Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ChapterView"
+                  },
+                  "title": "Response Campaign Api V1 Seasons  Season Id  Story Chapters Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Campaign",
+        "tags": [
+          "Story"
+        ]
+      }
+    },
     "/api/v1/seasons/{season_id}/tiers/{tier}/claim": {
       "post": {
         "operationId": "claim_tier_api_v1_seasons__season_id__tiers__tier__claim_post",
@@ -11969,6 +12122,60 @@
           }
         ],
         "summary": "Start Duel",
+        "tags": [
+          "Story"
+        ]
+      }
+    },
+    "/api/v1/story/attempts/resume": {
+      "get": {
+        "operationId": "resume_story_api_v1_story_attempts_resume_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/StoryAttempt"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Resume Story Api V1 Story Attempts Resume Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Resume Story",
         "tags": [
           "Story"
         ]

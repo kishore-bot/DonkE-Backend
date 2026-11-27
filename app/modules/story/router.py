@@ -17,6 +17,8 @@ from app.modules.ai.router import AI
 from app.modules.game.repository import StoryPin
 from app.modules.game.router import AccessToken, Service
 from app.modules.game.schemas import PracticeCreated
+from app.modules.game.seeded import SeededDuel
+from app.modules.game.story_store import PIN, StoryStore, for_attempt
 from app.modules.identity.router import (
     CurrentPlayer,
     PlatformDep,
@@ -25,7 +27,7 @@ from app.modules.identity.router import (
 )
 from app.modules.lobby.router import Writes
 from app.modules.progression.models import SeasonCharacter, SeasonSquadMember
-from app.modules.progression.season_content import CharacterPreview
+from app.modules.progression.season_content import PACKS, CharacterPreview
 from app.modules.progression.service import active_manifest
 from app.modules.story.challenge import (
     ChallengeLink,
@@ -33,6 +35,15 @@ from app.modules.story.challenge import (
     challenge_character,
     challenge_link,
     read_challenge,
+)
+from app.modules.story.chapters import (
+    CHAPTERS,
+    OPENING_CHAPTER,
+    Chapter,
+    ChapterView,
+    chapter_for,
+    cleared_chapters,
+    describe,
 )
 from app.modules.story.coach import DuelCoach, explain
 from app.modules.story.progression import (
@@ -48,29 +59,22 @@ from app.modules.story.progression import (
 )
 
 router = APIRouter(prefix="/api/v1", tags=["Story"])
-AUTHORED_DUELS = {
-    "grimoire-awakening-v1": (5, "The Arena Keeper"),
-    "skybound-voyage-v1": (41, "The Storm Captain"),
-}
-
-
-def authored_duel(pack_key: str) -> tuple[int, str]:
-    duel = AUTHORED_DUELS.get(pack_key)
-    if duel is None:
-        raise AppError(404, "story_unavailable", "This season has no story duel")
-    return duel
 
 
 class StartDuel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     season_id: UUID
+    chapter_id: str = Field(default=OPENING_CHAPTER, min_length=1, max_length=40)
     adaptive: bool = False
     character_id: str | None = Field(default=None, min_length=1, max_length=40)
 
 
 class StoryAttempt(PracticeCreated):
+    season_id: UUID
     pack_key: str
+    chapter_id: str
+    chapter_title: str
     rival: str
     character: CharacterPreview
     rewards_eligible: bool
@@ -87,26 +91,44 @@ class ResultRequest(BaseModel):
     attempt_token: str = Field(min_length=1, max_length=128, repr=False)
 
 
-async def open_attempt(
-    practice: Service,
-    request: Request,
-    response: Response,
+def story_attempt(
+    game: PracticeCreated,
     pin: StoryPin,
     character: CharacterPreview,
-    seed: int,
-    rival: str,
+    chapter: Chapter,
 ) -> StoryAttempt:
-    game = await run_in_threadpool(
-        practice.create, 2, client=client_host(request), story=pin, seed=seed
-    )
-    response.headers["Cache-Control"] = "no-store"
     return StoryAttempt(
         **game.model_dump(),
+        season_id=pin.season_id,
         pack_key=pin.pack_key,
-        rival=rival,
+        chapter_id=chapter.id,
+        chapter_title=chapter.title,
+        rival=chapter.rival,
         character=character,
         rewards_eligible=pin.player_id is not None,
     )
+
+
+@router.get("/seasons/{season_id}/story/chapters")
+async def campaign(
+    season_id: UUID,
+    platform: PlatformDep,
+    response: Response,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
+) -> list[ChapterView]:
+    player = await current_player(platform, credentials) if credentials else None
+    player_id = player.profile.id if player else None
+    now = datetime.now(UTC)
+    async with platform.sessions() as db:
+        manifest = await active_manifest(db, now)
+        if manifest is None or manifest.season_id != season_id:
+            raise AppError(404, "story_unavailable", "This story season is unavailable")
+        cleared = await cleared_chapters(db, season_id, player_id)
+    response.headers["Cache-Control"] = "no-store"
+    return [
+        describe(manifest, chapter, player_id, cleared, now)
+        for chapter in CHAPTERS.get(manifest.pack_key, ())
+    ]
 
 
 @router.post("/story/attempts", status_code=201)
@@ -121,10 +143,19 @@ async def start_duel(
 ) -> StoryAttempt:
     player = await current_player(platform, credentials) if credentials else None
     player_id = player.profile.id if player else None
+    now = datetime.now(UTC)
     async with platform.sessions() as db:
-        manifest = await active_manifest(db, datetime.now(UTC))
+        manifest = await active_manifest(db, now)
         if manifest is None or manifest.season_id != body.season_id:
             raise AppError(409, "season_unavailable", "This season is unavailable")
+        chapter = chapter_for(manifest.pack_key, body.chapter_id)
+        if chapter.requires is not None:
+            cleared = await cleared_chapters(db, manifest.season_id, player_id)
+            status = describe(manifest, chapter, player_id, cleared, now).status
+            if status not in {"ready", "cleared"}:
+                raise AppError(
+                    409, "chapter_locked", "Unlock this chapter on the story map"
+                )
         selection = (
             await db.get(SeasonCharacter, (body.season_id, player_id))
             if player_id
@@ -153,15 +184,23 @@ async def start_duel(
             character_id,
             player_id,
             squad_party_id=squad_member.party_id if squad_member else None,
+            chapter_id=chapter.id,
         )
-    seed, rival = authored_duel(pin.pack_key)
+    if player_id is not None:
+        await limit(
+            platform,
+            "story_start",
+            client_host(request),
+            platform.settings.practice_creates_per_minute,
+            60,
+        )
     if body.adaptive and gateway.provider is not None:
         await limit(platform, "story_rival", client_host(request), 4, 60)
         try:
             async with asyncio.timeout(1.25):
                 intent = await gateway.select(
                     "story_rival",
-                    f"Choose steady or pressure for {rival} in the {manifest.pack.title} card duel.",
+                    f"Choose steady or pressure for {chapter.rival} in the {manifest.pack.title} card duel.",
                     {"steady", "pressure"},
                 )
         except TimeoutError, RedisError:
@@ -170,8 +209,45 @@ async def start_duel(
             pin = replace(pin, intent="pressure", intent_source="gemini")
         elif intent == "steady":
             pin = replace(pin, intent_source="gemini")
-    return await open_attempt(
-        practice, request, response, pin, cast[character_id], seed, rival
+    if player_id is not None:
+        game = await StoryStore(platform).create(pin, chapter.seed)
+    else:
+        game = await run_in_threadpool(
+            practice.create,
+            2,
+            client=client_host(request),
+            story=pin,
+            seed=chapter.seed,
+        )
+    response.headers["Cache-Control"] = "no-store"
+    return story_attempt(game, pin, cast[character_id], chapter)
+
+
+async def finished_duel(
+    practice: Service,
+    platform: PlatformDep,
+    game_id: UUID,
+    token: AccessToken,
+) -> tuple[StoryPin, SeededDuel]:
+    store = for_attempt(platform, game_id, token)
+    if store is not None:
+        return await store.finished(game_id, token)
+    return await run_in_threadpool(practice.story_decision, game_id, token)
+
+
+@router.get("/story/attempts/resume")
+async def resume_story(
+    player: CurrentPlayer, platform: PlatformDep, response: Response
+) -> StoryAttempt | None:
+    response.headers["Cache-Control"] = "no-store"
+    saved = await StoryStore(platform).resume(player.profile.id)
+    if saved is None:
+        return None
+    pin, game = saved
+    pack = PACKS[pin.pack_key]
+    character = next(cast for cast in pack.cast if cast.id == pin.character_id)
+    return story_attempt(
+        game, pin, character, chapter_for(pin.pack_key, pin.chapter_id)
     )
 
 
@@ -185,7 +261,7 @@ async def share_attempt(
     response: Response,
 ) -> ChallengeLink:
     await limit(platform, "story_share", client_host(request), 15, 60)
-    pin, duel = await run_in_threadpool(practice.story_decision, game_id, token)
+    pin, duel = await finished_duel(practice, platform, game_id, token)
     response.headers["Cache-Control"] = "no-store"
     return challenge_link(platform, pin, duel)
 
@@ -201,7 +277,7 @@ async def story_challenge(
     response.headers["Cache-Control"] = "no-store"
     return ChallengeView(
         pack_title=title,
-        rival=authored_duel(pin.pack_key)[1],
+        rival=chapter_for(pin.pack_key, pin.chapter_id).rival,
         character=character,
         result=pin.result,
         expires_at=pin.exp,
@@ -218,10 +294,16 @@ async def play_challenge(
 ) -> StoryAttempt:
     pin = read_challenge(platform, code)
     _, character = challenge_character(pin)
-    seed, rival = authored_duel(pin.pack_key)
-    return await open_attempt(
-        practice, request, response, pin.story(), character, seed, rival
+    chapter = chapter_for(pin.pack_key, pin.chapter_id)
+    game = await run_in_threadpool(
+        practice.create,
+        2,
+        client=client_host(request),
+        story=pin.story(),
+        seed=chapter.seed,
     )
+    response.headers["Cache-Control"] = "no-store"
+    return story_attempt(game, pin.story(), character, chapter)
 
 
 @router.post("/story/attempts/{game_id}/result", dependencies=Writes)
@@ -230,14 +312,23 @@ async def story_result(
     body: ResultRequest,
     player: CurrentPlayer,
     platform: PlatformDep,
-    practice: Service,
+    response: Response,
 ) -> StoryResult:
     player_id = player.profile.id
-    pin, escaped = await run_in_threadpool(
-        practice.story_result, game_id, body.attempt_token, player_id
-    )
+    response.headers["Cache-Control"] = "no-store"
     async with platform.sessions.begin() as db:
-        return await settle(db, pin, player_id, game_id, escaped, datetime.now(UTC))
+        row = await StoryStore(platform).load(
+            db, game_id, body.attempt_token, lock=True, player=player_id
+        )
+        if row.receipt is not None:
+            return StoryResult.model_validate(row.receipt)
+        if not row.finished:
+            raise AppError(409, "story_in_progress", "Finish the story duel first")
+        pin = PIN.validate_python(row.pin)
+        escaped = 0 in SeededDuel.restore(row.duel).player_view()["escape_order"]
+        receipt = await settle(db, pin, player_id, game_id, escaped, datetime.now(UTC))
+        row.receipt = receipt.model_dump(mode="json")
+        return receipt
 
 
 @router.get("/seasons/{season_id}/me/story")
@@ -285,7 +376,7 @@ async def story_coach(
     question: Annotated[str | None, Query(min_length=2, max_length=240)] = None,
 ) -> DuelCoach:
     await limit(gateway.platform, "story_coach", client_host(request), 15, 60)
-    pin, duel = await run_in_threadpool(practice.story_decision, game_id, token)
+    pin, duel = await finished_duel(practice, gateway.platform, game_id, token)
     response.headers["Cache-Control"] = "no-store"
     if question is None:
         return await run_in_threadpool(explain, pin, duel)

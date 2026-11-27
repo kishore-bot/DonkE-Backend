@@ -10,6 +10,7 @@ from app.core.platform import Platform
 from app.modules.game.repository import StoryPin
 from app.modules.game.seeded import RivalIntent, SeededDuel
 from app.modules.progression.season_content import PACKS, CharacterPreview
+from app.modules.story.chapters import OPENING_CHAPTER
 
 AUDIENCE = "donke-story-challenge-v1"
 
@@ -38,12 +39,18 @@ class ChallengePin(BaseModel):
     pack_key: str
     character_id: str
     intent: RivalIntent
+    chapter_id: str = OPENING_CHAPTER
     result: SharedResult
     exp: datetime
 
     def story(self) -> StoryPin:
         return StoryPin(
-            self.season_id, self.pack_key, self.character_id, None, intent=self.intent
+            self.season_id,
+            self.pack_key,
+            self.character_id,
+            None,
+            intent=self.intent,
+            chapter_id=self.chapter_id,
         )
 
 
@@ -62,6 +69,7 @@ def challenge_link(
         pack_key=pin.pack_key,
         character_id=pin.character_id,
         intent=pin.intent,
+        chapter_id=pin.chapter_id,
         result=SharedResult(escaped=0 in view["escape_order"], plays=view["version"]),
         exp=datetime.now(UTC) + timedelta(days=30),
     )

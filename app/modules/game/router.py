@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from starlette.concurrency import run_in_threadpool
 
 from app.core.errors import AppError, ErrorResponse
 from app.core.rate_limit import client_host
@@ -14,6 +15,7 @@ from app.modules.game.schemas import (
     PracticeRequest,
 )
 from app.modules.game.service import PracticeService
+from app.modules.game.story_store import for_attempt
 
 router = APIRouter(prefix="/api/v1/practice", tags=["Practice"])
 bearer = HTTPBearer(auto_error=False)
@@ -58,32 +60,50 @@ def create_practice(
 
 
 @router.get("/{game_id}", responses=AUTH_ERRORS)
-def get_practice(
-    game_id: UUID, response: Response, token: AccessToken, service: Service
+async def get_practice(
+    game_id: UUID,
+    request: Request,
+    response: Response,
+    token: AccessToken,
+    service: Service,
 ) -> GameUpdate:
     response.headers["Cache-Control"] = "no-store"
-    return service.snapshot(game_id, token)
+    store = for_attempt(request.app.state.platform, game_id, token)
+    if store is not None:
+        return await store.snapshot(game_id, token)
+    return await run_in_threadpool(service.snapshot, game_id, token)
 
 
 @router.get("/{game_id}/hint", responses=AUTH_ERRORS)
-def hint(
-    game_id: UUID, response: Response, token: AccessToken, service: Service
+async def hint(
+    game_id: UUID,
+    request: Request,
+    response: Response,
+    token: AccessToken,
+    service: Service,
 ) -> PracticeHint:
     """The engine's view of your current choices. Practice only."""
     response.headers["Cache-Control"] = "no-store"
-    return service.hint(game_id, token)
+    store = for_attempt(request.app.state.platform, game_id, token)
+    if store is not None:
+        return await store.hint(game_id, token)
+    return await run_in_threadpool(service.hint, game_id, token)
 
 
 @router.post(
     "/{game_id}/plays",
     responses={**AUTH_ERRORS, 409: {"model": ErrorResponse}},
 )
-def play(
+async def play(
     game_id: UUID,
     body: PracticePlayRequest,
+    request: Request,
     response: Response,
     token: AccessToken,
     service: Service,
 ) -> GameUpdate:
     response.headers["Cache-Control"] = "no-store"
-    return service.play(game_id, token, body)
+    store = for_attempt(request.app.state.platform, game_id, token)
+    if store is not None:
+        return await store.play(game_id, token, body)
+    return await run_in_threadpool(service.play, game_id, token, body)
