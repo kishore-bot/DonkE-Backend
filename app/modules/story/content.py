@@ -1,27 +1,12 @@
-import re
-from typing import Literal, TypedDict
+from typing import TypedDict
 
-from donke_engine import ChatFilter
 from langgraph.graph import END, START, StateGraph
 from langgraph.runtime import Runtime
 
 from app.modules.ai.gateway import Gateway
+from app.modules.story.lines import FALLBACK, Moment, VoiceLocale, valid
 
-type Moment = Literal["strike", "victory"]
-type VoiceLocale = Literal["en", "ja"]
-
-FALLBACK = {
-    "strike": {
-        "en": "The whole pile is yours.",
-        "ja": "その山札は全部あなたのものだ。",
-    },
-    "victory": {
-        "en": "I made it through. Until next time.",
-        "ja": "切り抜けたぞ。また会おう。",
-    },
-}
 VOICES = {"en": "puck", "ja": "kore"}
-BLOCKED = ChatFilter(["idiot", "hate", "kill", "moron"])
 
 
 class CueState(TypedDict):
@@ -36,22 +21,6 @@ class CueState(TypedDict):
 
 class CueContext(TypedDict):
     gateway: Gateway
-
-
-def valid(candidate: str, locale: VoiceLocale) -> bool:
-    if not candidate or len(candidate) > 180 or len(candidate.splitlines()) != 1:
-        return False
-    if any(character.isdecimal() for character in candidate):
-        return False
-    if BLOCKED.contains(candidate) or re.search(
-        r"https?[:/]|[<>]", candidate, re.IGNORECASE
-    ):
-        return False
-    if locale == "en":
-        return bool(re.search(r"[A-Za-z]", candidate)) and all(
-            character.isascii() for character in candidate if character.isalpha()
-        )
-    return bool(re.search(r"[\u3040-\u30ff]", candidate))
 
 
 async def draft(state: CueState, runtime: Runtime[CueContext]) -> dict[str, str]:

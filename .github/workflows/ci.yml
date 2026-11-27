@@ -19,14 +19,14 @@ jobs:
       - name: Install locked Python dependencies
         env:
           RUSTUP_TOOLCHAIN: "1.96.0"
-        run: uv sync --locked
+        run: uv sync --locked --extra a2a
       - name: Static and engine checks
         env:
           RUSTUP_TOOLCHAIN: "1.96.0"
         run: |
           uv run ruff check .
           uv run ruff format --check app migrations scripts tests typings
-          uv run pyright
+          uv run --extra a2a pyright
           uv run python -m scripts.export_openapi --check
           uv run python -m scripts.export_asyncapi --check
           uv run python -m scripts.evaluate --check
@@ -52,7 +52,7 @@ jobs:
         env:
           TEST_POSTGRES_DSN: postgresql+asyncpg://postgres:synthetic@127.0.0.1:55432/postgres
           TEST_REDIS_DSN: redis://127.0.0.1:56379/0
-        run: uv run pytest -q
+        run: uv run --extra a2a pytest -q
   podman-smoke:
     runs-on: ubuntu-24.04
     timeout-minutes: 35

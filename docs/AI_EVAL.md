@@ -1,12 +1,15 @@
 # Offline evaluation scorecard
 
-Run `uv run python -m scripts.evaluate --check` to reproduce this report. The fixtures use curated rules and deterministic native deals. The commentary check verifies seat and pile numbers in six localized templates.
+Run `uv run python -m scripts.evaluate --check` to reproduce this report. The fixtures cover curated rules, deterministic native deals, localized commentary facts and seasonal progression. Run `uv run python -m scripts.evaluate --trace` for the public data from a seeded story duel.
 
 | Evaluation | Passed | Total |
 | --- | ---: | ---: |
 | Coach source selection and abstention | 12 | 12 |
-| Vettu commentary facts | 6 | 6 |
+| Strike commentary facts | 6 | 6 |
 | Native game completion and card conservation | 16 | 16 |
+| Awakening and grace period | 6 | 6 |
+| English and Japanese scene fallbacks | 4 | 4 |
+| Seeded story trace | 3 | 3 |
 
 ## Coach source selection and abstention
 
@@ -25,7 +28,7 @@ Run `uv run python -m scripts.evaluate --check` to reproduce this report. The fi
 | What is the capital of Norway? | no match | no match |
 | Recommend an avocado recipe | no match | no match |
 
-## Vettu commentary facts
+## Strike commentary facts
 
 | Fixture | Expected | Actual |
 | --- | --- | --- |
@@ -56,3 +59,31 @@ Run `uv run python -m scripts.evaluate --check` to reproduce this report. The fi
 | 5 seats, seed 2026 | finished | finished |
 | 5 seats, seed 8128 | finished | finished |
 | 5 seats, seed 65537 | finished | finished |
+
+## Awakening and grace period
+
+| Fixture | Expected | Actual |
+| --- | --- | --- |
+| No choice during season | ready | ready |
+| Needs points during season | ready | ready |
+| Needs points at close | blocked | blocked |
+| Claim at close | ready | ready |
+| Claim on last grace day | ready | ready |
+| Claim at grace deadline | blocked | blocked |
+
+## English and Japanese scene fallbacks
+
+| Fixture | Expected | Actual |
+| --- | --- | --- |
+| strike · en | valid | valid |
+| strike · ja | valid | valid |
+| victory · en | valid | valid |
+| victory · ja | valid | valid |
+
+## Seeded story trace
+
+| Fixture | Expected | Actual |
+| --- | --- | --- |
+| First clear | escaped | escaped |
+| Public Strike call | landed | landed |
+| Recorded rival evidence | rival-first-choice | rival-first-choice |

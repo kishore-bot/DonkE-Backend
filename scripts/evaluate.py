@@ -4,14 +4,22 @@ import argparse
 import json
 import re
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import get_args
+from uuid import UUID
 
 from donke_engine import OnlineGame
 
 from app.modules.ai.commentary import moment
 from app.modules.ai.knowledge import sources
+from app.modules.game.repository import StoryPin
+from app.modules.game.seeded import SeededDuel
 from app.modules.identity.schemas import Language
+from app.modules.story.awakening import requirements, resolve_path, window_open
+from app.modules.story.coach import explain
+from app.modules.story.lines import FALLBACK, valid
+from app.modules.story.router import authored_duel
 
 QUESTIONS = (
     ("Which card opens the first trick?", "opening"),
@@ -96,11 +104,93 @@ def simulation() -> list[Check]:
     return checks
 
 
+def awakening() -> list[Check]:
+    opens = datetime(2030, 1, 1, tzinfo=UTC)
+    closes = opens + timedelta(days=21)
+    cases = (
+        ("No choice during season", 0, 0, "choose_character", "ready"),
+        ("Needs points during season", 40, 0, "earn_points", "ready"),
+        ("Needs points at close", 40, 21, "earn_points", "blocked"),
+        ("Claim at close", 300, 21, "claim_form", "ready"),
+        ("Claim on last grace day", 300, 23, "claim_form", "ready"),
+        ("Claim at grace deadline", 300, 24, "claim_form", "blocked"),
+    )
+    checks = []
+    for name, points, day, target, expected in cases:
+        now = opens + timedelta(days=day)
+        steps = resolve_path(
+            requirements(points > 0, points > 0, points),
+            opens <= now < closes,
+            window_open(opens, closes, now),
+            False,
+        )
+        step = next(step for step in steps if step.id == target)
+        checks.append(Check(name, expected, step.status))
+    return checks
+
+
+def cue_checks() -> list[Check]:
+    return [
+        Check(
+            f"{kind} · {locale}",
+            "valid",
+            "valid" if valid(line[locale], locale) else "invalid",
+        )
+        for kind, line in FALLBACK.items()
+        for locale in ("en", "ja")
+    ]
+
+
+def sample_trace() -> dict:
+    pack = "grimoire-awakening-v1"
+    seed, rival = authored_duel(pack)
+    duel = SeededDuel(OnlineGame.seeded(2, seed), seed)
+    escaped = False
+    strike = False
+    for move in range(50):
+        view = duel.player_view()
+        if view["outcome"] is not None:
+            escaped = 0 in view["escape_order"]
+            break
+        duel, _ = duel.play(json.dumps(view["legal_moves"][0]), move == 5)
+        strike |= any(
+            event["event"] == "strike_call_resolved" and event["success"]
+            for event in duel.events
+        )
+    pin = StoryPin(UUID(int=0), pack, "ashblade", None)
+    return {
+        "pack": pack,
+        "rival": rival,
+        "escaped": escaped,
+        "strike_call_landed": strike,
+        "public_plays": duel.version,
+        "coach": explain(pin, duel).model_dump(mode="json"),
+    }
+
+
 def scorecard() -> dict[str, list[Check]]:
+    trace = sample_trace()
     return {
         "Coach source selection and abstention": retrieval(),
-        "Vettu commentary facts": commentary(),
+        "Strike commentary facts": commentary(),
         "Native game completion and card conservation": simulation(),
+        "Awakening and grace period": awakening(),
+        "English and Japanese scene fallbacks": cue_checks(),
+        "Seeded story trace": [
+            Check(
+                "First clear", "escaped", "escaped" if trace["escaped"] else "failed"
+            ),
+            Check(
+                "Public Strike call",
+                "landed",
+                "landed" if trace["strike_call_landed"] else "failed",
+            ),
+            Check(
+                "Recorded rival evidence",
+                "rival-first-choice",
+                trace["coach"]["citation"] or "none",
+            ),
+        ],
     }
 
 
@@ -108,7 +198,7 @@ def render(groups: dict[str, list[Check]]) -> str:
     lines = [
         "# Offline evaluation scorecard",
         "",
-        "Run `uv run python -m scripts.evaluate --check` to reproduce this report. The fixtures use curated rules and deterministic native deals. The commentary check verifies seat and pile numbers in six localized templates.",
+        "Run `uv run python -m scripts.evaluate --check` to reproduce this report. The fixtures cover curated rules, deterministic native deals, localized commentary facts and seasonal progression. Run `uv run python -m scripts.evaluate --trace` for the public data from a seeded story duel.",
         "",
         "| Evaluation | Passed | Total |",
         "| --- | ---: | ---: |",
@@ -140,7 +230,13 @@ def main() -> None:
         "--check", action="store_true", help="Verify the checked-in scorecard"
     )
     modes.add_argument("--stdout", action="store_true", help="Print the scorecard")
+    modes.add_argument(
+        "--trace", action="store_true", help="Print the synthetic story trace"
+    )
     args = parser.parse_args()
+    if args.trace:
+        print(json.dumps(sample_trace(), indent=2, ensure_ascii=False))
+        return
     groups = scorecard()
     report = render(groups)
     if args.stdout:
