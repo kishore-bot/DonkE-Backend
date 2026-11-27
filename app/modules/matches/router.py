@@ -16,7 +16,7 @@ from app.modules.identity.router import CurrentPlayer, PlatformDep
 from app.modules.identity.service import IdentityService, Principal
 from app.modules.matches import settlement, socket_tickets
 from app.modules.matches.repository import MatchConflict
-from app.modules.matches.schemas import PublicReplay
+from app.modules.matches.schemas import MatchResult, PublicReplay, RecentMatch
 from app.modules.matches.service import MatchService, position
 from app.modules.social import live
 from app.modules.social.safety import (
@@ -66,6 +66,24 @@ async def replay(
     return PublicReplay.of(
         await settlement.read_replay(platform, game_id, player.profile.id)
     )
+
+
+@router.get("/{game_id}/result")
+async def match_result(
+    game_id: UUID, player: CurrentPlayer, platform: PlatformDep, response: Response
+) -> MatchResult:
+    """Read the authenticated participant's placement and settled rewards."""
+    response.headers["Cache-Control"] = "no-store"
+    return await settlement.read_result(platform, game_id, player.profile.id)
+
+
+@router.get("/results/recent")
+async def recent_results(
+    player: CurrentPlayer, platform: PlatformDep, response: Response
+) -> list[RecentMatch]:
+    """List up to ten recent results for the authenticated participant."""
+    response.headers["Cache-Control"] = "no-store"
+    return await settlement.recent_results(platform, player.profile.id)
 
 
 async def send(socket: WebSocket, data: dict) -> None:

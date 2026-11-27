@@ -55,12 +55,15 @@ async def prune_expired(db: AsyncSession, now: datetime) -> None:
     await db.execute(delete(PlayerSession).where(PlayerSession.expires_at <= now))
 
 
-async def apply_rating(db: AsyncSession, player_id: UUID, delta: int) -> None:
-    await db.execute(
-        update(Player)
-        .where(Player.id == player_id)
-        .values(mmr=func.greatest(0, Player.mmr + delta))
+async def apply_rating(db: AsyncSession, player_id: UUID, delta: int) -> int:
+    before = await db.scalar(
+        select(Player.mmr).where(Player.id == player_id).with_for_update()
     )
+    if before is None:
+        return 0
+    after = max(0, before + delta)
+    await db.execute(update(Player).where(Player.id == player_id).values(mmr=after))
+    return after - before
 
 
 async def profiles(db: AsyncSession, player_ids: list[UUID]) -> dict[UUID, Profile]:

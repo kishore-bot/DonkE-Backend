@@ -9,12 +9,11 @@ from app.core.errors import AppError
 from app.core.platform import Platform
 from app.modules.identity.repository import profiles, reset_ratings
 from app.modules.matches.repository import MatchRepository
-from app.modules.matches.schemas import MatchReplay
+from app.modules.matches.schemas import MatchAdmission, MatchRewards
 from app.modules.progression.analytics import (
     MatchAnalytics,
     SeatStats,
     finishing_ranks,
-    match_analytics,
 )
 from app.modules.progression.catalog import (
     ACHIEVEMENTS,
@@ -122,8 +121,38 @@ async def active_season(db: AsyncSession, now: datetime) -> Season | None:
     )
 
 
+async def lock_season_schedule(db: AsyncSession, *, read: bool = False) -> None:
+    query = (
+        "SELECT pg_advisory_xact_lock_shared(470053)"
+        if read
+        else "SELECT pg_advisory_xact_lock(470053)"
+    )
+    await db.execute(text(query))
+
+
+async def match_admission(
+    db: AsyncSession, now: datetime
+) -> tuple[MatchAdmission, datetime | None]:
+    candidate = await db.scalar(
+        select(Season)
+        .where(Season.ends_at > now, Season.closed_at.is_(None))
+        .order_by(Season.starts_at)
+        .limit(1)
+    )
+    if candidate is not None and candidate.starts_at <= now:
+        return (
+            MatchAdmission(
+                season_id=candidate.id,
+                season_title=candidate.theme,
+                pack_key=candidate.pack_key,
+            ),
+            candidate.ends_at,
+        )
+    return MatchAdmission(season_id=None), candidate.starts_at if candidate else None
+
+
 async def create_season(db: AsyncSession, request: SeasonCreate) -> SeasonInfo:
-    await db.execute(text("SELECT pg_advisory_xact_lock(470052)"))
+    await lock_season_schedule(db)
     overlapping = await db.scalar(
         select(Season.id)
         .where(
@@ -225,7 +254,7 @@ async def own(db: AsyncSession, player: UUID, sku: str) -> None:
 async def close_season(
     db: AsyncSession, matches: MatchRepository, season_id: UUID, now: datetime
 ) -> SeasonInfo:
-    await db.execute(text("SELECT pg_advisory_xact_lock(470053)"))
+    await lock_season_schedule(db)
     season = await db.get(Season, season_id, with_for_update=True)
     if season is None:
         raise AppError(404, "season_not_found", "Season not found")
@@ -234,7 +263,7 @@ async def close_season(
     if now < season.ends_at:
         raise AppError(409, "season_active", "The season has not ended")
     settlement_status = await matches.season_settlement_status(
-        season.starts_at, season.ends_at
+        season.starts_at, season.ends_at, season_id=season.id
     )
     if settlement_status == "active":
         raise AppError(409, "season_active", "The season has not ended")
@@ -405,12 +434,12 @@ async def hidden_skills(db: AsyncSession, players: list[UUID]) -> dict[UUID, Rat
 
 
 async def on_match(
-    db: AsyncSession, replay: MatchReplay, season: Season | None, now: datetime
-) -> None:
+    db: AsyncSession, analytics: MatchAnalytics, season: Season | None, now: datetime
+) -> dict[UUID, MatchRewards]:
     eligible = sorted(
         (
-            (seat.player_id, index)
-            for index, seat in enumerate(replay.seats)
+            (seat.player_id, seat.seat)
+            for seat in analytics.seats
             if seat.player_id is not None and not seat.bot and not seat.forfeited
         ),
     )
@@ -418,8 +447,11 @@ async def on_match(
     entrants = await profiles(db, [player for player, _ in eligible]) if season else {}
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
     next_midnight = midnight + timedelta(days=1)
-    analytics = match_analytics(replay)
-    decided = replay.outcome.get("reason") in {"donkey", "all_safe"}
+    decided = analytics.outcome.get("reason") in {"donkey", "all_safe"}
+    season_time = (
+        min(now, season.ends_at - timedelta(microseconds=1)) if season else now
+    )
+    rewards: dict[UUID, MatchRewards] = {}
     for player, index in eligible:
         wallet = await wallet_lock(db, player)
         seat = analytics.seats[index]
@@ -442,20 +474,22 @@ async def on_match(
         amount = min(
             boosted_coins(10 + 5 * escaped, perks), max(0, 100 - (awarded or 0))
         )
-        if amount:
-            await credit(
-                db,
-                wallet,
-                f"match:{replay.id}:{player}",
-                "match",
-                amount,
-                earned_at=now,
-            )
+        if amount and not await credit(
+            db,
+            wallet,
+            f"match:{analytics.id}:{player}",
+            "match",
+            amount,
+            earned_at=now,
+        ):
+            amount = 0
+        award = rewards[player] = MatchRewards(coins=amount)
         await record_stats(db, wallet, player, seat, now, decided=decided)
         if season is None or player not in entrants:
             continue
         points = 5 + 3 * escaped + 2 * cuts
         bank = bank_share(amount, perks)
+        award.season_points, award.bank_coins = points, bank
         row = insert(SeasonPlayer).values(
             season_id=season.id,
             player_id=player,
@@ -478,7 +512,7 @@ async def on_match(
         weekly = insert(WeeklyPlayer).values(
             season_id=season.id,
             player_id=player,
-            week=week_start(now, season),
+            week=week_start(season_time, season),
             games=1,
             escapes=escaped,
             cuts=cuts,
@@ -499,10 +533,11 @@ async def on_match(
         )
         await db.execute(
             insert(SeasonDay)
-            .values(season_id=season.id, player_id=player, day=now.date())
+            .values(season_id=season.id, player_id=player, day=season_time.date())
             .on_conflict_do_nothing()
         )
     await update_skills(db, analytics)
+    return rewards
 
 
 class ProgressionService:

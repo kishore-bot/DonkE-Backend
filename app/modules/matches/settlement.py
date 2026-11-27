@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import text
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,8 +10,22 @@ from app.core.platform import Platform
 from app.modules.ai import rivals
 from app.modules.identity.repository import apply_rating
 from app.modules.matches.models import MatchPlayer, MatchRecord
-from app.modules.matches.schemas import MatchReplay
-from app.modules.progression.service import active_season, on_match
+from app.modules.matches.repository import MatchRepository
+from app.modules.matches.schemas import (
+    MatchReplay,
+    MatchResult,
+    MatchRewards,
+    RecentMatch,
+    SettledResult,
+    UnsettledResult,
+)
+from app.modules.progression.analytics import SeatStats, match_analytics
+from app.modules.progression.models import Season
+from app.modules.progression.service import (
+    active_season,
+    lock_season_schedule,
+    on_match,
+)
 
 
 def pending_analysis_key(platform: Platform) -> str:
@@ -76,25 +90,105 @@ async def record(db: AsyncSession, replay: MatchReplay, completed: datetime) -> 
         is None
     ):
         return False
-    seated = [
-        {
-            "game_id": replay.id,
-            "player_id": seat.player_id,
-            "seat": index,
-            "finished_at": completed,
-        }
-        for index, seat in enumerate(replay.seats)
-        if seat.player_id is not None
-    ]
+    await lock_season_schedule(db, read=True)
+    if replay.admission is None:
+        season = await active_season(db, completed)
+    elif replay.admission.season_id is None:
+        season = None
+    else:
+        season = await db.get(Season, replay.admission.season_id)
+        if season is None or season.closed_at is not None:
+            raise AppError(
+                409, "admitted_season_unavailable", "Match season is unavailable"
+            )
+    changes = {
+        player_id: await apply_rating(db, player_id, delta)
+        for player_id, delta in sorted(rated_changes(replay).items())
+    }
+    analytics = match_analytics(replay)
+    rewards = await on_match(db, analytics, season, completed)
+    seated = []
+    for seat in analytics.seats:
+        if seat.player_id is None:
+            continue
+        award = rewards.get(seat.player_id, MatchRewards())
+        award.mmr_delta = changes.get(seat.player_id, 0)
+        receipt = participant_receipt(
+            replay, seat, completed, season.id if season else None, award
+        )
+        seated.append(
+            {
+                "game_id": replay.id,
+                "player_id": seat.player_id,
+                "seat": seat.seat,
+                "finished_at": completed,
+                "receipt": receipt.model_dump(mode="json"),
+            }
+        )
     if seated:
-        await db.execute(insert(MatchPlayer).values(seated).on_conflict_do_nothing())
-    await db.execute(text("SELECT pg_advisory_xact_lock_shared(470053)"))
-    season = await active_season(db, completed)
-    for player_id, delta in sorted(rated_changes(replay).items()):
-        await apply_rating(db, player_id, delta)
-    await on_match(db, replay, season, completed)
+        await db.execute(insert(MatchPlayer).values(seated))
     await rivals.record(db, replay)
     return True
+
+
+def participant_receipt(
+    replay: MatchReplay,
+    seat: SeatStats,
+    completed: datetime,
+    season_id: UUID | None = None,
+    rewards: MatchRewards | None = None,
+) -> SettledResult:
+    result = SettledResult(
+        admission=replay.admission,
+        rewarded_season_id=season_id,
+        finished_at=completed,
+        outcome=str(replay.outcome.get("reason") or "finished"),
+        placement="holding",
+        rewards=rewards,
+    )
+    if seat.forfeited:
+        result.placement = "forfeited"
+    elif seat.donkey:
+        result.placement = "donkey"
+    elif seat.place is not None:
+        result.placement, result.place = "escaped", seat.place
+    return result
+
+
+async def read_result(
+    platform: Platform, game_id: UUID, player_id: UUID
+) -> MatchResult:
+    async with platform.sessions() as db:
+        participant = await db.get(MatchPlayer, (game_id, player_id))
+        if participant is not None:
+            if participant.receipt is not None:
+                return SettledResult.model_validate(participant.receipt)
+            record = await db.get(MatchRecord, game_id)
+            if record is not None:
+                replay = MatchReplay.model_validate(record.replay)
+                seat = match_analytics(replay).seats[participant.seat]
+                return participant_receipt(replay, seat, participant.finished_at)
+    state = await MatchRepository(platform).get(game_id)
+    if state is None or not any(seat.player_id == player_id for seat in state.seats):
+        raise AppError(404, "game_not_found", "Match result not found")
+    return UnsettledResult(
+        status="pending" if state.status == "finished" else "in_progress",
+        admission=state.admission,
+    )
+
+
+async def recent_results(platform: Platform, player_id: UUID) -> list[RecentMatch]:
+    async with platform.sessions() as db:
+        rows = await db.execute(
+            select(MatchPlayer.game_id, MatchPlayer.finished_at)
+            .where(MatchPlayer.player_id == player_id)
+            .order_by(MatchPlayer.finished_at.desc(), MatchPlayer.game_id)
+            .limit(10)
+        )
+        return [
+            RecentMatch(game_id=game_id, finished_at=finished_at)
+            for game_id, finished_at in rows
+        ]
 
 
 async def load_replay(platform: Platform, game_id: UUID) -> MatchReplay | None:

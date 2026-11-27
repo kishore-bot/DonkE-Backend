@@ -33,3 +33,4 @@ class MatchPlayer(Base):
     player_id: Mapped[UUID] = mapped_column(primary_key=True)
     seat: Mapped[int]
     finished_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    receipt: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True))

@@ -13,16 +13,30 @@ local ready = key('lobby', 'rooms', 'ready')
 local due = key('game', 'index', 'turns')
 local pending = key('game', 'index', 'settlement')
 local deferred_finishes = key('game', 'index', 'deferred_finishes')
+local admissions = key('game', 'index', 'admissions')
+local function season_matches(season) return key('game', 'season', season) end
+
+local function release_admission(game_id)
+    local season = redis.call('HGET', admissions, game_id)
+    if season and season ~= '' then redis.call('SREM', season_matches(season), game_id) end
+    redis.call('HDEL', admissions, game_id)
+end
 
 if operation == 'season_settlement_status' then
     if now < input.ends_ms then return ok({status = 'active'}) end
-    local upper = '(' .. tostring(input.ends_ms)
-    if redis.call('ZCOUNT', deferred_finishes, input.starts_ms, upper) > 0 then
+    if input.season_id and redis.call('SCARD', season_matches(input.season_id)) > 0 then
         return ok({status = 'pending'})
+    end
+    local upper = '(' .. tostring(input.ends_ms)
+    local function in_legacy_window(game_id)
+        return not input.season_id or redis.call('HEXISTS', admissions, game_id) == 0
+    end
+    for _, game_id in ipairs(redis.call('ZRANGEBYSCORE', deferred_finishes, input.starts_ms, upper)) do
+        if in_legacy_window(game_id) then return ok({status = 'pending'}) end
     end
     -- The pending score is the completion time until the first retry.
     for _, game_id in ipairs(redis.call('ZRANGEBYSCORE', pending, input.starts_ms, upper)) do
-        if not redis.call('ZSCORE', deferred_finishes, game_id) then
+        if in_legacy_window(game_id) and not redis.call('ZSCORE', deferred_finishes, game_id) then
             return ok({status = 'pending'})
         end
     end
@@ -73,6 +87,7 @@ if operation == 'start' then
     if room.status ~= 'ready' or room.revision ~= input.room_revision or room.start_at_ms > now then
         return fail('room_changed')
     end
+    if input.admit_before_ms and now >= input.admit_before_ms then return fail('season_boundary') end
     if redis.call('EXISTS', state_key) == 1 then return fail('game_collision') end
     for _, seat in ipairs(room.seats) do
         if seat.player_id then
@@ -89,6 +104,13 @@ if operation == 'start' then
         if seat.player_id then redis.call('PERSIST', key('lobby', 'member', seat.player_id)) end
     end
     redis.call('SET', state_key, input.state)
+    if type(state.admission) == 'table' then
+        local season = state.admission.season_id
+        if type(season) == 'string' then
+            redis.call('SADD', season_matches(season), id)
+        end
+        redis.call('HSET', admissions, id, type(season) == 'string' and season or '')
+    end
     append(1, input.events)
     redis.call('ZREM', ready, room.id)
     redis.call('ZADD', due, state.deadline_ms, id)
@@ -97,12 +119,21 @@ end
 
 local state = get(state_key)
 
+if operation == 'forget_missing' then
+    if not state and redis.call('GET', turn_lease) == input.owner then
+        redis.call('ZREM', due, id)
+        release_admission(id)
+    end
+    return ok()
+end
+
 if operation == 'prepare_settlement' then
     local scheduled = redis.call('ZSCORE', pending, id)
     if not scheduled then return ok() end
     if not state then
         redis.call('ZREM', pending, id)
         redis.call('ZREM', deferred_finishes, id)
+        release_admission(id)
         return ok()
     end
     if state.status ~= 'finished' then return fail('game_active') end
@@ -116,6 +147,7 @@ if operation == 'settled' then
     if state.status ~= 'finished' then return fail('game_active') end
     if redis.call('ZREM', pending, id) == 0 then return ok() end
     redis.call('ZREM', deferred_finishes, id)
+    release_admission(id)
     for _, seat in ipairs(state.seats) do
         if type(seat.player_id) == 'string' then
             local member_key = key('lobby', 'member', seat.player_id)

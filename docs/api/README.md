@@ -83,6 +83,8 @@ Run `uv run python -m app.modules.ai.mcp_server` for stdio, or add `--http` for 
 | Method | Path | Operation |
 | --- | --- | --- |
 | `GET` | `/api/v1/games/{game_id}/replay` | Replay |
+| `GET` | `/api/v1/games/{game_id}/result` | Read the participant's placement and actual settled rewards, or the settlement status |
+| `GET` | `/api/v1/games/results/recent` | List the signed-in player's ten most recent settled matches |
 | `POST` | `/api/v1/games/{game_id}/ws-ticket` | Issue one-use browser WebSocket ticket |
 
 ## Social

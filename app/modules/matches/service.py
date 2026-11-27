@@ -2,6 +2,8 @@ import asyncio
 import contextlib
 import json
 import logging
+from datetime import UTC, datetime
+from math import ceil
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -21,6 +23,7 @@ from app.modules.matches.schemas import (
     MatchState,
     PublicMatch,
 )
+from app.modules.progression.service import lock_season_schedule, match_admission
 
 logger = logging.getLogger(__name__)
 TURN_CONCURRENCY = 4
@@ -82,32 +85,44 @@ class MatchService:
                     "player_id": str(seats[rival].rival_of),
                 }
             )
-        now = await self.repo.now_ms()
-        state = MatchState(
-            id=game_id,
-            room_id=room.id,
-            mode=room.mode,
-            seats=seats,
-            native=game.snapshot(),
-            opening=game.snapshot(),
-            started_ms=now,
-            turn=game.turn,
-            deadline_ms=now,
-            turn_opened_ms=now,
-            limit_ms=now + self.platform.settings.match_minutes * 60_000,
-        )
-        state.deadline_ms = self.deadline(state, now)
+        opening = game.snapshot()
         try:
-            result = await self.repo.execute(
-                "start",
-                state.id,
-                room_id=str(room.id),
-                room_revision=room.revision,
-                state=state.model_dump_json(),
-                events=json.dumps(opening_events),
-            )
+            async with self.platform.sessions.begin() as db:
+                await lock_season_schedule(db, read=True)
+                now = await self.repo.now_ms()
+                admitted_at = datetime.fromtimestamp(now / 1000, UTC)
+                admission, boundary = await match_admission(db, admitted_at)
+                state = MatchState(
+                    id=game_id,
+                    room_id=room.id,
+                    mode=room.mode,
+                    seats=seats,
+                    native=opening,
+                    opening=opening,
+                    started_ms=now,
+                    turn=game.turn,
+                    deadline_ms=now,
+                    turn_opened_ms=now,
+                    limit_ms=now + self.platform.settings.match_minutes * 60_000,
+                    admission=admission,
+                )
+                state.deadline_ms = self.deadline(state, now)
+                guard = (
+                    {"admit_before_ms": ceil(boundary.timestamp() * 1000)}
+                    if boundary is not None
+                    else {}
+                )
+                result = await self.repo.execute(
+                    "start",
+                    state.id,
+                    room_id=str(room.id),
+                    room_revision=room.revision,
+                    state=state.model_dump_json(),
+                    events=json.dumps(opening_events),
+                    **guard,
+                )
         except MatchConflict as exc:
-            if exc.code in {"room_changed", "room_missing"}:
+            if exc.code in {"room_changed", "room_missing", "season_boundary"}:
                 return None
             raise
         return UUID(result["game_id"])
@@ -136,6 +151,7 @@ class MatchService:
             outcome=state.outcome,
             seats=state.seats,
             view=view,
+            admission=state.admission,
         )
 
     async def play(
@@ -254,9 +270,7 @@ class MatchService:
     async def play_due_turn(self, game_id: UUID, owner: str) -> None:
         state = await self.repo.get(game_id)
         if not state:
-            await self.platform.redis.zrem(
-                self.repo.game_key("index", "turns"), str(game_id)
-            )
+            await self.repo.execute("forget_missing", game_id, owner=owner)
             return
         now = await self.repo.now_ms()
         if state.turn is None or state.status != "active" or state.deadline_ms > now:
@@ -367,6 +381,7 @@ class MatchService:
             outcome=state.outcome,
             events=await self.repo.events(game_id, 0, state.sequence),
             opening=state.opening,
+            admission=state.admission,
         )
         await settlement.persist(self.platform, replay, finished_at=finished_at)
         await self.repo.execute(

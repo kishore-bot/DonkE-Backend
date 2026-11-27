@@ -211,6 +211,17 @@
         "name": "state_sync",
         "payload": {
           "properties": {
+            "admission": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/MatchAdmission"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
             "id": {
               "format": "uuid",
               "title": "Id",
@@ -437,6 +448,56 @@
           "bot"
         ],
         "title": "GameSeat",
+        "type": "object"
+      },
+      "MatchAdmission": {
+        "properties": {
+          "pack_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Pack Key"
+          },
+          "rules_version": {
+            "default": "kazhutha-v1",
+            "title": "Rules Version",
+            "type": "string"
+          },
+          "season_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season Id"
+          },
+          "season_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Season Title"
+          }
+        },
+        "required": [
+          "season_id"
+        ],
+        "title": "MatchAdmission",
         "type": "object"
       },
       "PlayLimitOutcome": {

@@ -1794,6 +1794,54 @@
         "title": "Login",
         "type": "object"
       },
+      "MatchAdmission": {
+        "properties": {
+          "pack_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Key"
+          },
+          "rules_version": {
+            "default": "kazhutha-v1",
+            "title": "Rules Version",
+            "type": "string"
+          },
+          "season_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season Id"
+          },
+          "season_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season Title"
+          }
+        },
+        "required": [
+          "season_id"
+        ],
+        "title": "MatchAdmission",
+        "type": "object"
+      },
       "MatchAnalytics": {
         "properties": {
           "biggest_pile": {
@@ -1853,6 +1901,50 @@
           "seats"
         ],
         "title": "MatchAnalytics",
+        "type": "object"
+      },
+      "MatchResult": {
+        "discriminator": {
+          "mapping": {
+            "in_progress": "#/components/schemas/UnsettledResult",
+            "pending": "#/components/schemas/UnsettledResult",
+            "settled": "#/components/schemas/SettledResult"
+          },
+          "propertyName": "status"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/UnsettledResult"
+          },
+          {
+            "$ref": "#/components/schemas/SettledResult"
+          }
+        ]
+      },
+      "MatchRewards": {
+        "properties": {
+          "bank_coins": {
+            "default": 0,
+            "title": "Bank Coins",
+            "type": "integer"
+          },
+          "coins": {
+            "default": 0,
+            "title": "Coins",
+            "type": "integer"
+          },
+          "mmr_delta": {
+            "default": 0,
+            "title": "Mmr Delta",
+            "type": "integer"
+          },
+          "season_points": {
+            "default": 0,
+            "title": "Season Points",
+            "type": "integer"
+          }
+        },
+        "title": "MatchRewards",
         "type": "object"
       },
       "MatchRow": {
@@ -2741,6 +2833,16 @@
       "PublicReplay": {
         "description": "A finished match as players may see it: public events only.",
         "properties": {
+          "admission": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MatchAdmission"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "events": {
             "items": {
               "$ref": "#/components/schemas/EventBatch"
@@ -2917,6 +3019,26 @@
           "reason"
         ],
         "title": "Reason",
+        "type": "object"
+      },
+      "RecentMatch": {
+        "properties": {
+          "finished_at": {
+            "format": "date-time",
+            "title": "Finished At",
+            "type": "string"
+          },
+          "game_id": {
+            "format": "uuid",
+            "title": "Game Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "game_id",
+          "finished_at"
+        ],
+        "title": "RecentMatch",
         "type": "object"
       },
       "RefreshRequest": {
@@ -3747,6 +3869,85 @@
         "title": "SessionTokens",
         "type": "object"
       },
+      "SettledResult": {
+        "properties": {
+          "admission": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MatchAdmission"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finished_at": {
+            "format": "date-time",
+            "title": "Finished At",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place"
+          },
+          "placement": {
+            "enum": [
+              "escaped",
+              "donkey",
+              "forfeited",
+              "holding"
+            ],
+            "title": "Placement",
+            "type": "string"
+          },
+          "rewarded_season_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rewarded Season Id"
+          },
+          "rewards": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MatchRewards"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "const": "settled",
+            "default": "settled",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "finished_at",
+          "outcome",
+          "placement"
+        ],
+        "title": "SettledResult",
+        "type": "object"
+      },
       "SharedResult": {
         "additionalProperties": false,
         "properties": {
@@ -4318,6 +4519,33 @@
           "pile"
         ],
         "title": "TrickDiscarded",
+        "type": "object"
+      },
+      "UnsettledResult": {
+        "properties": {
+          "admission": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MatchAdmission"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "in_progress",
+              "pending"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "UnsettledResult",
         "type": "object"
       },
       "Vettu": {
@@ -8094,6 +8322,57 @@
         ]
       }
     },
+    "/api/v1/games/results/recent": {
+      "get": {
+        "description": "List up to ten recent results for the authenticated participant.",
+        "operationId": "recent_results_api_v1_games_results_recent_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecentMatch"
+                  },
+                  "title": "Response Recent Results Api V1 Games Results Recent Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Recent Results",
+        "tags": [
+          "Multiplayer"
+        ]
+      }
+    },
     "/api/v1/games/{game_id}/analysis": {
       "get": {
         "description": "Engine review of your real choices in a finished match, with tips.",
@@ -8432,6 +8711,65 @@
           }
         ],
         "summary": "Replay",
+        "tags": [
+          "Multiplayer"
+        ]
+      }
+    },
+    "/api/v1/games/{game_id}/result": {
+      "get": {
+        "description": "Read the authenticated participant's placement and settled rewards.",
+        "operationId": "match_result_api_v1_games__game_id__result_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Match Result",
         "tags": [
           "Multiplayer"
         ]

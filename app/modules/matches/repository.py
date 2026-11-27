@@ -59,15 +59,15 @@ class MatchRepository:
         )
 
     async def season_settlement_status(
-        self, starts_at: datetime, ends_at: datetime
+        self, starts_at: datetime, ends_at: datetime, *, season_id: UUID | None = None
     ) -> str:
-        result = await self._execute(
-            "season_settlement_status",
-            {
-                "starts_ms": math.ceil(starts_at.timestamp() * 1000),
-                "ends_ms": math.ceil(ends_at.timestamp() * 1000),
-            },
-        )
+        args: dict[str, str | int | bool] = {
+            "starts_ms": math.ceil(starts_at.timestamp() * 1000),
+            "ends_ms": math.ceil(ends_at.timestamp() * 1000),
+        }
+        if season_id is not None:
+            args["season_id"] = str(season_id)
+        result = await self._execute("season_settlement_status", args)
         return result["status"]
 
     async def room(self, room_id: UUID) -> Room | None:
