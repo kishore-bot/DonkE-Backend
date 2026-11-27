@@ -8,9 +8,9 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
-from app.modules.admin.router import Admin, Cookie, CsrfToken, RequestId
+from app.modules.admin.dependencies import Admin, Cookie, CsrfToken, RequestId
 from app.modules.admin.service import admin_write
-from app.modules.ai.router import AI
+from app.modules.ai.dependencies import AI
 from app.modules.ai.voice import Voice, enabled
 from app.modules.progression.season_content import PACKS
 from app.modules.story.content import CUE_GRAPH, VOICES

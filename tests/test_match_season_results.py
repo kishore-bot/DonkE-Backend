@@ -20,8 +20,9 @@ from app.modules.matches.schemas import (
     MatchReplay,
 )
 from app.modules.matches.service import MatchService
+from app.modules.progression.calendar import week_start
 from app.modules.progression.models import Season, SeasonDay, SeasonPlayer, WeeklyPlayer
-from app.modules.progression.service import close_season, week_start
+from app.modules.progression.services.seasons import close_season
 
 pytestmark = pytest.mark.integration
 

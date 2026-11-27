@@ -5,9 +5,7 @@ from datetime import UTC, datetime, timedelta
 from hmac import compare_digest, digest
 from uuid import UUID, uuid4
 
-from donke_engine import OnlineGame
 from pydantic import TypeAdapter
-from sqlalchemy import Integer, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
@@ -15,7 +13,7 @@ from app.core.errors import AppError
 from app.core.platform import Platform
 from app.modules.game.commands import hint_game, play_game, validate_retry
 from app.modules.game.models import StoryDuel, StoryDuelCommand
-from app.modules.game.repository import StoryPin
+from app.modules.game.repositories import story
 from app.modules.game.rival_memory import remember
 from app.modules.game.schemas import (
     GameUpdate,
@@ -24,10 +22,10 @@ from app.modules.game.schemas import (
     PracticePlayRequest,
     StoryEvent,
 )
-from app.modules.game.seeded import SeededDuel
+from app.modules.game.seeded import SeededDuel, build_duel
 from app.modules.game.story_rules import public_event
-from app.modules.identity.models import Player
-from app.modules.progression.service import lock_season_schedule
+from app.modules.game.story_state import StoryPin
+from app.modules.progression.services.seasons import lock_season_schedule
 
 PIN = TypeAdapter(StoryPin)
 FINISHED_RETENTION = timedelta(days=1)
@@ -67,20 +65,11 @@ class StoryStore:
         config = self.platform.settings
         async with self.platform.sessions.begin() as db:
             await lock_season_schedule(db, read=True)
-            locked = await db.scalar(
-                select(Player.id).where(Player.id == player).with_for_update()
-            )
-            if locked is None:
+            if not await story.lock_player(db, player):
                 raise unavailable()
             now = datetime.now(UTC)
-            active = await db.scalar(
-                select(func.count(StoryDuel.id)).where(
-                    StoryDuel.player_id == player,
-                    StoryDuel.expires_at > now,
-                    StoryDuel.finished.is_(False),
-                )
-            )
-            if (active or 0) >= config.practice_sessions_per_client:
+            active = await story.count_active(db, player, now)
+            if active >= config.practice_sessions_per_client:
                 raise AppError(
                     429, "practice_limit", "Resume one of your story duels first"
                 )
@@ -120,16 +109,7 @@ class StoryStore:
 
     async def resume(self, player: UUID) -> tuple[StoryPin, PracticeCreated] | None:
         async with self.platform.sessions() as db:
-            row = await db.scalar(
-                select(StoryDuel)
-                .where(
-                    StoryDuel.player_id == player,
-                    StoryDuel.expires_at > datetime.now(UTC),
-                    StoryDuel.receipt.is_(None),
-                )
-                .order_by(StoryDuel.created_at.desc(), StoryDuel.id)
-                .limit(1)
-            )
+            row = await story.latest_attempt(db, player, datetime.now(UTC))
         if row is None:
             return None
         return PIN.validate_python(row.pin), self.response(
@@ -196,11 +176,7 @@ class StoryStore:
         game = SeededDuel.restore(row.duel)
         if "journal" in row.duel:
             return game
-        history = await db.scalars(
-            select(StoryDuelCommand.update)
-            .where(StoryDuelCommand.duel_id == row.id)
-            .order_by(StoryDuelCommand.command["expected_version"].astext.cast(Integer))
-        )
+        history = await story.legacy_updates(db, row.id)
         journal: list[StoryEvent] = []
         for update in history:
             events = update["events"]
@@ -215,18 +191,6 @@ class StoryStore:
         return game
 
 
-def build_duel(seed: int, pin: StoryPin) -> SeededDuel:
-    return SeededDuel(
-        OnlineGame.seeded(2, seed),
-        seed,
-        intent=pin.intent,
-        route=pin.route,
-        rival_budget=pin.rival_budget,
-        rival_avoid_suit=pin.rival_avoid_suit,
-        rival_expert=pin.rival_expert,
-    )
-
-
 def for_attempt(
     platform: Platform | None, game_id: UUID, token: str
 ) -> StoryStore | None:
@@ -234,7 +198,3 @@ def for_attempt(
         return None
     store = StoryStore(platform)
     return store if store.accepts(game_id, token) else None
-
-
-async def prune_expired(db: AsyncSession, now: datetime) -> None:
-    await db.execute(delete(StoryDuel).where(StoryDuel.expires_at <= now))

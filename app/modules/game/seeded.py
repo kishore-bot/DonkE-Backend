@@ -1,13 +1,11 @@
 import json
 from dataclasses import asdict, dataclass
-from typing import Literal
 
 from donke_engine import OnlineGame
 
 from app.modules.game.schemas import StoryEvent, StoryRoute, Suit
 from app.modules.game.story_rules import objective, public_event
-
-type RivalIntent = Literal["steady", "pressure"]
+from app.modules.game.story_state import RivalIntent, StoryPin
 
 
 @dataclass(frozen=True, slots=True)
@@ -248,3 +246,15 @@ class SeededDuel:
         )
         duel.events = snapshot["events"]
         return duel
+
+
+def build_duel(seed: int, pin: StoryPin) -> SeededDuel:
+    return SeededDuel(
+        OnlineGame.seeded(2, seed),
+        seed,
+        intent=pin.intent,
+        route=pin.route,
+        rival_budget=pin.rival_budget,
+        rival_avoid_suit=pin.rival_avoid_suit,
+        rival_expert=pin.rival_expert,
+    )

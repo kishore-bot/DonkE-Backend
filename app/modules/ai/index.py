@@ -1,22 +1,13 @@
 import json
 
-from sqlalchemy import String, select, text
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.errors import AppError
-from app.core.platform import Base
 from app.modules.ai.gateway import Gateway
 from app.modules.ai.knowledge import RULES, Rule, sources
-
-
-class RuleEmbedding(Base):
-    __tablename__ = "rule_embeddings"
-
-    source: Mapped[str] = mapped_column(String(40), primary_key=True)
-    model: Mapped[str] = mapped_column(String(120))
-    vector_json: Mapped[str]
+from app.modules.ai.models import RuleEmbedding
 
 
 async def reindex(gateway: Gateway, db: AsyncSession) -> int:

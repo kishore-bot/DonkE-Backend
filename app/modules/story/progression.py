@@ -7,18 +7,19 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
-from app.modules.game.repository import StoryPin
 from app.modules.game.schemas import StoryObjective
-from app.modules.progression import service, squad
+from app.modules.game.story_state import StoryPin
+from app.modules.progression import squad
 from app.modules.progression.calendar import CLAIM_GRACE, claim_deadline, window_open
 from app.modules.progression.models import (
     Season,
-    SeasonCharacter,
     SeasonChapterClear,
+    SeasonCharacter,
     SeasonPlayer,
     SeasonStoryProgress,
 )
-
+from app.modules.progression.repositories.economy import credit, wallet_lock
+from app.modules.progression.services.seasons import lock_season_schedule
 from app.modules.story.awakening import (
     AWAKENING_POINTS,
     PATH_VERSION,
@@ -180,8 +181,8 @@ async def settle(
     chapter = chapter_for(pin.pack_key, pin.chapter_id)
     first_clear = False
     if escaped and (objective is None or objective.met):
-        await service.lock_season_schedule(db, read=True)
-        wallet = await service.wallet_lock(db, player_id)
+        await lock_season_schedule(db, read=True)
+        wallet = await wallet_lock(db, player_id)
         season = await db.get(Season, pin.season_id)
         if season is None or season.pack_key != pin.pack_key:
             raise AppError(409, "season_unavailable", "This season is unavailable")
@@ -232,7 +233,7 @@ async def settle(
                     set_={"points": SeasonPlayer.points + chapter.points},
                 )
             )
-            await service.credit(
+            await credit(
                 db,
                 wallet,
                 f"story:{pin.season_id}:{player_id}{suffix}",
@@ -261,7 +262,7 @@ async def awaken(
     season = await db.get(Season, season_id)
     if season is None or season.pack_key is None:
         raise AppError(404, "season_not_found", "Season not found")
-    await service.wallet_lock(db, player_id)
+    await wallet_lock(db, player_id)
     story = await db.get(
         SeasonStoryProgress, (season_id, player_id), with_for_update=True
     )

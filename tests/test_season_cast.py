@@ -10,10 +10,10 @@ from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.errors import AppError
 from app.core.platform import open_platform
-from app.modules.progression import router
+from app.modules.progression import clock as season_clock
 from app.modules.progression.models import Season
 from app.modules.progression.schemas import SeasonCreate
-from app.modules.progression.service import active_manifest, create_season
+from app.modules.progression.services.seasons import active_manifest, create_season
 
 
 def season_request(start, key="grimoire-awakening-v1"):
@@ -50,7 +50,7 @@ def test_public_cast_and_authenticated_choice_roll_over(client, settings, monkey
         def now(cls, tz=None):
             return (start + timedelta(hours=12)).astimezone(tz)
 
-    monkeypatch.setattr(router, "datetime", SeasonClock)
+    monkeypatch.setattr(season_clock, "datetime", SeasonClock)
     next_start = start + timedelta(days=21)
     manifest_url = "/api/v1/seasons/active/manifest"
     season_ids = []

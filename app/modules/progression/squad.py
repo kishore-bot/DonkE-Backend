@@ -18,14 +18,9 @@ from app.modules.progression.models import (
     SeasonSquad,
     SeasonSquadMember,
 )
-from app.modules.progression.service import (
-    active_season,
-    credit,
-    lock_season_schedule,
-    own,
-    wallet_lock,
-)
-from app.modules.social.service import members, party_for
+from app.modules.progression.repositories.economy import credit, own, wallet_lock
+from app.modules.progression.services.seasons import active_season, lock_season_schedule
+from app.modules.social.repository import members, party_for
 
 GIFT_COINS = 60
 

@@ -15,13 +15,16 @@ from sqlalchemy import select, text
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.core.platform import Platform, open_platform
+from app.core.schema import check_storage_ready
 from app.modules.identity.repository import find_or_create_player
 from app.modules.identity.schemas import Language, Profile
 from app.modules.identity.service import IdentityService
+from app.modules.lobby.repository import LobbyRepository
+from app.modules.lobby.service import LobbyService
 from app.modules.matches.schemas import EventBatch, GameSeat, MatchReplay
 from app.modules.matches.settlement import persist
 from app.modules.progression.models import Season
-from app.modules.social.service import SocialService
+from app.modules.social.services.friends import FriendsService
 
 DEMO_SUBJECTS: tuple[tuple[str, str, Language], ...] = (
     ("donke-demo:v1:anila", "Demo Anila", "ml"),
@@ -83,7 +86,7 @@ async def seed(platform: Platform) -> list[Profile]:
             "demo_disabled",
             "Enable DONKE_DEMO_MODE on a dedicated demo database first",
         )
-    await platform.ready()
+    await check_storage_ready(platform)
     async with platform.sessions.begin() as db:
         # Use the season scheduling lock so seeding cannot race with admin scheduling.
         await db.execute(text("SELECT pg_advisory_xact_lock(470052)"))
@@ -118,7 +121,8 @@ async def seed(platform: Platform) -> list[Profile]:
                 )
             )
 
-    social = SocialService(platform)
+    lobby = LobbyService(LobbyRepository(platform.redis, platform.settings))
+    social = FriendsService(platform, lobby)
     await social.request(players[0].id, players[1].id)
     # If a demo player started the request in the reverse direction, accept as its recipient.
     edge = next(

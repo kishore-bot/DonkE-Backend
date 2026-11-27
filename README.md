@@ -97,6 +97,8 @@ The gameplay socket is `WS /api/v1/games/{game_id}/ws`. Use a single-use ticket 
 
 ## Architecture
 
+[Backend module layout and FastAPI dependency audit](docs/BACKEND_ARCHITECTURE.md)
+
 ```mermaid
 flowchart LR
     Client["Game client"] <-->|"REST + WebSocket"| API["FastAPI / Granian"]

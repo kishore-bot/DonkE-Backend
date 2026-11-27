@@ -4,6 +4,18 @@ streak bonus track. Pure data and rules; the service applies them."""
 from dataclasses import dataclass
 from datetime import date
 
+CHALLENGES = {
+    "play_three": ("Play three matches", "games", 3, 20),
+    "play_seven": ("Play seven matches", "games", 7, 40),
+    "escape_twice": ("Escape twice", "escapes", 2, 25),
+    "give_three_cuts": ("Give three Strikes", "cuts", 3, 30),
+    "give_eight_cuts": ("Give eight Strikes", "cuts", 8, 45),
+}
+
+
+TIER_REWARDS = {10: "card_back", 20: "title", 25: "emote", 30: "frame"}
+
+
 # (month, day) inclusive. A window may wrap the new year.
 type Window = tuple[tuple[int, int], tuple[int, int]]
 

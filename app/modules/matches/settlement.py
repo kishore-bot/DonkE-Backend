@@ -21,11 +21,8 @@ from app.modules.matches.schemas import (
 )
 from app.modules.progression.analytics import SeatStats, match_analytics
 from app.modules.progression.models import Season
-from app.modules.progression.service import (
-    active_season,
-    lock_season_schedule,
-    on_match,
-)
+from app.modules.progression.services.match_rewards import on_match
+from app.modules.progression.services.seasons import active_season, lock_season_schedule
 
 
 def pending_analysis_key(platform: Platform) -> str:

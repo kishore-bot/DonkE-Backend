@@ -4,9 +4,9 @@ from uuid import UUID, uuid4
 
 from app.core.errors import AppError
 from app.modules.identity.schemas import Profile
-from app.modules.lobby.selection import TableFacts, choose
 from app.modules.lobby.repository import LobbyConflict, LobbyRepository
 from app.modules.lobby.schemas import Mode, QueueStatus, Room
+from app.modules.lobby.selection import TableFacts, choose
 
 MATCH_SEATS = 4
 QUEUES: tuple[tuple[Mode, str], ...] = (

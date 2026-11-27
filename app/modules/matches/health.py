@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from app.core.errors import AppError
 from app.core.platform import Platform
+from app.core.schema import check_storage_ready
 from app.modules.matches.repository import MatchRepository
 
 HEARTBEAT_SECONDS = 10
@@ -26,7 +27,7 @@ async def record_turn_sweep(platform: Platform, redis_time_ms: int) -> None:
 
 
 async def online_health(platform: Platform) -> OnlineHealth:
-    await platform.ready()
+    await check_storage_ready(platform)
     heartbeat = await platform.redis.get(heartbeat_key(platform))
     repo = MatchRepository(platform)
     now = await repo.now_ms()

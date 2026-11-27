@@ -2,42 +2,26 @@ import asyncio
 import contextlib
 import json
 import logging
-from datetime import UTC, datetime
-from math import ceil
 from typing import Literal
 from uuid import UUID, uuid4
 
 from donke_engine import OnlineGame
 from redis.exceptions import RedisError
 
-from app.core.errors import AppError
 from app.core.platform import Platform
 from app.modules.game.schemas import PlayerView, PlayRequest
-from app.modules.identity.repository import profiles
-from app.modules.matches import bots, settlement
+from app.modules.matches import bots
 from app.modules.matches.repository import TURN_LEASE_MS, MatchConflict, MatchRepository
+from app.modules.matches.rules import deadline, position, unavailable
 from app.modules.matches.schemas import (
     Acknowledgement,
-    GameSeat,
-    MatchReplay,
     MatchState,
     PublicMatch,
 )
-from app.modules.progression.service import lock_season_schedule, match_admission
+from app.modules.matches.services.lifecycle import settle_match, start_match
 
 logger = logging.getLogger(__name__)
 TURN_CONCURRENCY = 4
-
-
-def unavailable() -> AppError:
-    return AppError(404, "game_not_found", "Match not found")
-
-
-def position(state: MatchState, player_id: UUID) -> int:
-    for index, seat in enumerate(state.seats):
-        if seat.player_id == player_id:
-            return index
-    raise unavailable()
 
 
 class MatchService:
@@ -45,87 +29,8 @@ class MatchService:
         self.platform = platform
         self.repo = MatchRepository(platform)
 
-    def deadline(self, state: MatchState, now: int) -> int:
-        if state.turn is None:
-            return now
-        config = self.platform.settings
-        delay = (
-            config.bot_turn_seconds
-            if state.seats[state.turn].bot
-            else config.turn_seconds
-        )
-        return min(state.limit_ms, now + max(1, round(delay * 1000)))
-
     async def start(self, room_id: UUID) -> UUID | None:
-        room = await self.repo.room(room_id)
-        if room is None or room.game_id is not None:
-            await self.platform.redis.zrem(
-                f"{self.repo.prefix}:lobby:rooms:ready", str(room_id)
-            )
-            return room.game_id if room is not None else None
-        if room.status != "ready":
-            return None
-        game = OnlineGame(len(room.seats))
-        game_id = uuid4()
-        seats = [GameSeat(**seat.model_dump()) for seat in room.seats]
-        humans = [seat.player_id for seat in seats if seat.player_id and not seat.bot]
-        async with self.platform.sessions() as db:
-            mmrs = {
-                player: profile.mmr
-                for player, profile in (await profiles(db, humans)).items()
-            }
-        rival = bots.assign(seats, mmrs, game_id)
-        opening_events: list[dict] = [{"event": "game_started", "turn": game.turn}]
-        if rival is not None:
-            opening_events.append(
-                {
-                    "event": "rival_joined",
-                    "seat": rival,
-                    "persona": seats[rival].persona,
-                    "player_id": str(seats[rival].rival_of),
-                }
-            )
-        opening = game.snapshot()
-        try:
-            async with self.platform.sessions.begin() as db:
-                await lock_season_schedule(db, read=True)
-                now = await self.repo.now_ms()
-                admitted_at = datetime.fromtimestamp(now / 1000, UTC)
-                admission, boundary = await match_admission(db, admitted_at)
-                state = MatchState(
-                    id=game_id,
-                    room_id=room.id,
-                    mode=room.mode,
-                    seats=seats,
-                    native=opening,
-                    opening=opening,
-                    started_ms=now,
-                    turn=game.turn,
-                    deadline_ms=now,
-                    turn_opened_ms=now,
-                    limit_ms=now + self.platform.settings.match_minutes * 60_000,
-                    admission=admission,
-                )
-                state.deadline_ms = self.deadline(state, now)
-                guard = (
-                    {"admit_before_ms": ceil(boundary.timestamp() * 1000)}
-                    if boundary is not None
-                    else {}
-                )
-                result = await self.repo.execute(
-                    "start",
-                    state.id,
-                    room_id=str(room.id),
-                    room_revision=room.revision,
-                    state=state.model_dump_json(),
-                    events=json.dumps(opening_events),
-                    **guard,
-                )
-        except MatchConflict as exc:
-            if exc.code in {"room_changed", "room_missing", "season_boundary"}:
-                return None
-            raise
-        return UUID(result["game_id"])
+        return await start_match(self.platform, self.repo, room_id)
 
     async def load(self, game_id: UUID, player_id: UUID) -> MatchState:
         state = await self.repo.get(game_id)
@@ -220,7 +125,9 @@ class MatchService:
         state.seats[seat].bot = True
         state.seats[seat].forfeited = True
         if state.turn == seat:
-            state.deadline_ms = self.deadline(state, await self.repo.now_ms())
+            state.deadline_ms = deadline(
+                self.platform.settings, state, await self.repo.now_ms()
+            )
         await self.commit(
             state,
             [{"event": "seat_taken_over", "seat": seat, "reason": "left"}],
@@ -335,7 +242,7 @@ class MatchService:
         state.native, state.turn = game.snapshot(), game.turn
         now = await self.repo.now_ms()
         state.turn_opened_ms = now
-        state.deadline_ms = self.deadline(state, now)
+        state.deadline_ms = deadline(self.platform.settings, state, now)
         if state.turn is None:
             state.status = "finished"
             state.outcome = next(
@@ -367,26 +274,7 @@ class MatchService:
         return Acknowledgement.model_validate(result)
 
     async def settle(self, game_id: UUID) -> None:
-        prepared = await self.repo.prepare_settlement(game_id)
-        if prepared is None:
-            return
-        state, finished_at = prepared
-        if state.outcome is None:
-            raise MatchConflict("outcome_missing")
-        replay = MatchReplay(
-            id=state.id,
-            room_id=state.room_id,
-            mode=state.mode,
-            seats=state.seats,
-            outcome=state.outcome,
-            events=await self.repo.events(game_id, 0, state.sequence),
-            opening=state.opening,
-            admission=state.admission,
-        )
-        await settlement.persist(self.platform, replay, finished_at=finished_at)
-        await self.repo.execute(
-            "settled", game_id, retention=self.platform.settings.match_archive_seconds
-        )
+        await settle_match(self.platform, self.repo, game_id)
 
     async def start_ready_rooms(self) -> None:
         for room_id in await self.repo.due("rooms"):

@@ -9,18 +9,17 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, cast
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from donke_engine import fair_play_stats
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import DateTime, ForeignKey, Index, String, func, select, text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.errors import AppError
-from app.core.platform import Base, Platform
-from app.modules.ai.coaching import MatchAnalysis, Sample, stored_analysis
+from app.core.platform import Platform
+from app.modules.ai.coaching import Sample, stored_analysis
+from app.modules.ai.models import FairPlayCase, MatchAnalysis
 from app.modules.matches.settlement import load_replay, pending_analysis_key
 
 logger = logging.getLogger(__name__)
@@ -33,31 +32,6 @@ CLAIM = Path(__file__).with_name("claim_analysis.lua").read_text(encoding="utf-8
 
 def pending_key(platform: Platform) -> str:
     return pending_analysis_key(platform)
-
-
-class FairPlayCase(Base):
-    __tablename__ = "fair_play_cases"
-    __table_args__ = (
-        Index(
-            "fair_play_one_open",
-            "player_id",
-            unique=True,
-            postgresql_where=text("status = 'open'"),
-        ),
-    )
-
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    player_id: Mapped[UUID] = mapped_column(
-        ForeignKey("players.id", ondelete="CASCADE"), index=True
-    )
-    status: Mapped[str] = mapped_column(String(12), server_default="open")
-    score: Mapped[int]
-    stats: Mapped[dict[str, Any]] = mapped_column(JSONB)
-    note: Mapped[str | None] = mapped_column(String(200))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class CaseView(BaseModel):

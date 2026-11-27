@@ -110,10 +110,10 @@ def test_match_access_and_validation(client):
 
 
 def test_expired_match_capacity_can_be_reused(monkeypatch):
-    from app.modules.game import service
+    from app.modules.game.repositories import practice
 
     now = 0.0
-    monkeypatch.setattr(service, "monotonic", lambda: now)
+    monkeypatch.setattr(practice, "monotonic", lambda: now)
     settings = Settings(practice_max_sessions=1, practice_session_ttl_seconds=1)
     with TestClient(create_app(settings)) as client:
         _, path, headers = create_game(client)

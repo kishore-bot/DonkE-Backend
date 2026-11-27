@@ -17,7 +17,7 @@ from app.modules.matches.schemas import GameSeat
 from app.modules.matches.service import MatchService
 from app.modules.matches.settlement import load_replay, persist
 from app.modules.progression.models import PlayerSkill, Season, SeasonPlayer
-from app.modules.progression.service import close_season
+from app.modules.progression.services.seasons import close_season
 
 pytestmark = pytest.mark.integration
 

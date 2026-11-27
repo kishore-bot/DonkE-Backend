@@ -3,9 +3,9 @@ import json
 from donke_engine import OnlineGame
 from pydantic import BaseModel, Field
 
-from app.modules.game.repository import StoryPin
 from app.modules.game.schemas import Card, StoryEvent
 from app.modules.game.seeded import SeededDuel
+from app.modules.game.story_state import StoryPin
 from app.modules.story.replay import (
     asks_for_private_state,
     at_sequence,

@@ -1,11 +1,8 @@
-from typing import Annotated
+from fastapi import APIRouter, Request, Response
 
-from fastapi import APIRouter, Depends, Request, Response
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-
-from app.core.platform import Platform, get_platform
+from app.core.dependencies import PlatformDep
 from app.core.rate_limit import client_host, limit
-from app.modules.identity.google import GoogleIdentity
+from app.modules.identity.dependencies import CurrentPlayer, Google
 from app.modules.identity.schemas import (
     GoogleSignIn,
     Profile,
@@ -13,31 +10,9 @@ from app.modules.identity.schemas import (
     RefreshRequest,
     SessionTokens,
 )
-from app.modules.identity.service import IdentityService, Principal, unauthorized
-from app.modules.social.live import touch
+from app.modules.identity.service import IdentityService
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Identity"])
-PlatformDep = Annotated[Platform, Depends(get_platform)]
-bearer = HTTPBearer(auto_error=False, scheme_name="PlayerAccess")
-
-
-def get_google(request: Request) -> GoogleIdentity:
-    return request.app.state.google
-
-
-async def current_player(
-    platform: PlatformDep,
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
-) -> Principal:
-    if credentials is None:
-        raise unauthorized()
-    principal = await IdentityService(platform).authenticate(credentials.credentials)
-    # Any authenticated request keeps the player "online" for friends.
-    await touch(platform, principal.profile.id)
-    return principal
-
-
-CurrentPlayer = Annotated[Principal, Depends(current_player)]
 
 
 @router.post("/google")
@@ -46,7 +21,7 @@ async def google_sign_in(
     request: Request,
     response: Response,
     platform: PlatformDep,
-    verifier: Annotated[GoogleIdentity, Depends(get_google)],
+    verifier: Google,
 ) -> SessionTokens:
     await limit(platform, "google", client_host(request), 15, 60)
     response.headers["Cache-Control"] = "no-store"

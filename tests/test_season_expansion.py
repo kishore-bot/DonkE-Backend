@@ -8,9 +8,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
 from test_admin_console import admin_login
-from test_online import TestGoogle
+from test_online import TestGoogle, headers, sign_in
 from test_online import client as client  # noqa: PLC0414
-from test_online import headers, sign_in
 from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.platform import open_platform
@@ -18,8 +17,9 @@ from app.main import create_app
 from app.modules.ai import mcp_server
 from app.modules.progression.models import Season
 from app.modules.progression.schemas import SeasonCreate
-from app.modules.progression.service import create_season
-from app.modules.story import media_routes, router as story_routes
+from app.modules.progression.services.seasons import create_season
+from app.modules.story import dependencies as story_clock
+from app.modules.story import media_routes
 from app.modules.story.models import SeasonCue, SeasonMedia
 
 pytestmark = pytest.mark.integration
@@ -58,7 +58,7 @@ def test_season_objectives_rival_memory_archives_and_scoped_evidence(
         def now(cls, tz=None):
             return now.astimezone(tz)
 
-    monkeypatch.setattr(story_routes, "datetime", Clock)
+    monkeypatch.setattr(story_clock, "datetime", Clock)
 
     async def provision():
         async with open_platform(settings) as platform, platform.sessions.begin() as db:

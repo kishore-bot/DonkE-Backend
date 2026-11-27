@@ -16,14 +16,14 @@ from test_online import settings as settings  # noqa: PLC0414
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.core.platform import Platform, open_platform
-from app.core.schema import has_required_schema
+from app.core.schema import check_storage_ready, has_required_schema
 from app.modules.identity.service import IdentityService
 from app.modules.lobby.repository import LobbyRepository
 from app.modules.lobby.service import LobbyService
 from app.modules.matches.service import MatchService
 from app.modules.matches.settlement import read_replay
 from app.modules.progression.models import Season
-from app.modules.progression.service import ProgressionService
+from app.modules.progression.services.store import StoreService
 from app.workers import matchmaking
 from scripts.demo_smoke import SmokeFailure, cleanup_room, websocket_base
 from scripts.seed_demo import (
@@ -51,13 +51,13 @@ def test_readiness_checks_required_schema_before_redis():
         redis = AsyncMock()
         platform = Platform(Settings(_env_file=None), engine, MagicMock(), redis)
         with pytest.raises(AppError) as captured:
-            await platform.ready()
+            await check_storage_ready(platform)
         assert captured.value.code == "schema_mismatch"
         assert captured.value.status == 503
         redis.ping.assert_not_awaited()
         connection.run_sync.assert_awaited_once_with(has_required_schema)
         connection.run_sync.return_value = True
-        await platform.ready()
+        await check_storage_ready(platform)
         redis.ping.assert_awaited_once()
 
     asyncio.run(check())
@@ -173,7 +173,7 @@ def test_demo_seed_is_guarded_and_idempotent(settings, demo_settings, tmp_path):
                         Season.starts_at <= now, Season.ends_at > now
                     )
                 )
-            wallet = ProgressionService(platform)
+            wallet = StoreService(platform)
             first_coins = [await wallet.balance(profile.id) for profile in first]
             assert all(total >= len(SEEDS) * 10 for total in first_coins)
             second = await seed(platform)

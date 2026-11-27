@@ -13,8 +13,9 @@ from sqlalchemy import select
 from app.core.config import Settings
 from app.core.platform import open_platform
 from app.modules.ai.gateway import open_gateway
-from app.modules.ai.index import RuleEmbedding, ranked_rules
+from app.modules.ai.index import ranked_rules
 from app.modules.ai.knowledge import sources
+from app.modules.ai.models import RuleEmbedding
 from app.modules.game.schemas import StoryEvent
 from app.modules.story.coach import grounded_replay
 

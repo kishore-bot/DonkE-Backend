@@ -27,6 +27,12 @@ EMOTES = frozenset(
 MAX_CHAT = 200
 
 
+def pair(first: UUID, second: UUID) -> tuple[UUID, UUID]:
+    if first == second:
+        raise AppError(422, "self_request", "Choose another player")
+    return (first, second) if first < second else (second, first)
+
+
 def clean(text: str) -> str:
     """Trim, collapse whitespace and mask blocked words."""
     words = " ".join(text.split())

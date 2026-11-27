@@ -9,11 +9,12 @@ from test_online import settings as settings  # noqa: PLC0414
 from test_social_plus import befriend
 
 from app.core.platform import open_platform
-from app.modules.progression import router as season_routes
-from app.modules.progression import service
+from app.modules.progression import clock as season_routes
 from app.modules.progression.models import Season, SeasonDay, SeasonPlayer, WeeklyPlayer
 from app.modules.progression.schemas import SeasonCreate
-from app.modules.story import router as story_routes
+from app.modules.progression.services import season_rewards
+from app.modules.progression.services.seasons import create_season
+from app.modules.story import dependencies as story_clock
 
 pytestmark = pytest.mark.integration
 START = datetime(2042, 6, 1, tzinfo=UTC)
@@ -23,7 +24,7 @@ END = START + timedelta(days=21)
 def create_pack(settings):
     async def create():
         async with open_platform(settings) as platform, platform.sessions.begin() as db:
-            return await service.create_season(
+            return await create_season(
                 db,
                 SeasonCreate(
                     theme="Finale test",
@@ -55,7 +56,7 @@ def test_gifts_from_prior_acts_remain_claimable_during_packed_season_grace(
         def now(cls, tz=None):
             return now.astimezone(tz)
 
-    monkeypatch.setattr(service, "datetime", Clock)
+    monkeypatch.setattr(season_rewards, "datetime", Clock)
     season = create_pack(settings)
     tokens = sign_in(client)
     auth, other = headers(tokens), headers(sign_in(client))
@@ -160,7 +161,7 @@ def test_squad_roster_is_frozen_and_story_clear_and_gift_are_idempotent(
         def now(cls, tz=None):
             return now.astimezone(tz)
 
-    monkeypatch.setattr(story_routes, "datetime", Clock)
+    monkeypatch.setattr(story_clock, "datetime", Clock)
     monkeypatch.setattr(season_routes, "datetime", Clock)
     season = create_pack(settings)
     alice, bob, cara = (sign_in(client) for _ in range(3))

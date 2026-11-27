@@ -10,11 +10,11 @@ from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.platform import open_platform
 from app.modules.game.models import StoryDuel, StoryDuelCommand
-from app.modules.game.story_store import prune_expired
+from app.modules.game.repositories.story import prune_expired
 from app.modules.progression.models import Season
 from app.modules.progression.schemas import SeasonCreate
-from app.modules.progression.service import create_season
-from app.modules.story import router as story_routes
+from app.modules.progression.services.seasons import create_season
+from app.modules.story import dependencies as story_clock
 
 pytestmark = pytest.mark.integration
 NOW = datetime(2045, 1, 1, tzinfo=UTC)
@@ -53,7 +53,7 @@ def test_story_campaign_recovers_moves_and_result_across_api_instances(
         def now(cls, tz=None):
             return now.astimezone(tz)
 
-    monkeypatch.setattr(story_routes, "datetime", Clock)
+    monkeypatch.setattr(story_clock, "datetime", Clock)
 
     async def provision():
         async with open_platform(settings) as platform, platform.sessions.begin() as db:

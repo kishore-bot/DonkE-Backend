@@ -6,30 +6,16 @@ the fallback."""
 from uuid import UUID
 
 from pydantic import BaseModel
-from sqlalchemy import ForeignKey, String
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.platform import Base
 from app.modules.ai.gateway import Gateway
+from app.modules.ai.models import PlayerRival
 from app.modules.ai.prompts import PROMPTS, Source, reword
 from app.modules.identity.schemas import Language
 from app.modules.matches.bots import PERSONA_FLAVOR, PERSONAS, Persona, persona_for
 from app.modules.matches.schemas import MatchReplay
 from app.modules.progression.analytics import finishing_ranks, match_analytics
-
-
-class PlayerRival(Base):
-    __tablename__ = "player_rivals"
-
-    player_id: Mapped[UUID] = mapped_column(
-        ForeignKey("players.id", ondelete="CASCADE"), primary_key=True
-    )
-    persona: Mapped[str] = mapped_column(String(20))
-    games: Mapped[int] = mapped_column(server_default="0")
-    wins: Mapped[int] = mapped_column(server_default="0")
-    losses: Mapped[int] = mapped_column(server_default="0")
 
 
 async def record(db: AsyncSession, replay: MatchReplay) -> None:

@@ -12,7 +12,7 @@ from app.core.errors import AppError
 from app.modules.game.schemas import SceneEmote
 from app.modules.progression.catalog import CATALOG
 from app.modules.progression.models import Cosmetic, SeasonEmote
-from app.modules.progression.service import active_manifest
+from app.modules.progression.services.seasons import active_manifest
 
 
 class EmoteSelection(BaseModel):

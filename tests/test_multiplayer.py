@@ -12,8 +12,8 @@ from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.platform import open_platform
 from app.main import create_app
-from app.modules.matches import router as matches_router
 from app.modules.matches import settlement
+from app.modules.matches.controllers import socket as matches_router
 from app.modules.matches.service import MatchService
 
 pytestmark = pytest.mark.integration

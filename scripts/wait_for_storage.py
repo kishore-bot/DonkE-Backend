@@ -10,13 +10,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.core.platform import open_platform
+from app.core.schema import check_storage_ready
 
 
 async def wait_for_storage() -> None:
     async with asyncio.timeout(120), open_platform(Settings()) as platform:
         while True:
             try:
-                await platform.ready()
+                await check_storage_ready(platform)
             except AppError, OSError, RedisError, SQLAlchemyError:
                 await asyncio.sleep(1)
             else:

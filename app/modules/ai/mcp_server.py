@@ -8,10 +8,9 @@ from app.core.config import Settings
 from app.core.errors import AppError
 from app.core.platform import open_platform
 from app.core.rate_limit import limit
+from app.modules.ai.knowledge import RULES, sources
 from app.modules.game.story_store import StoryStore
 from app.modules.identity.service import IdentityService
-
-from app.modules.ai.knowledge import RULES, sources
 from app.modules.progression.season_content import PACKS
 from app.modules.story.awakening import PATH_VERSION, STEPS
 from app.modules.story.replay import at_sequence, replay_summary

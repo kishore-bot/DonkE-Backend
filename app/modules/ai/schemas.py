@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.modules.identity.schemas import Language
+from app.modules.identity.schemas import Language, VoiceId
 
 
 class Commentary(BaseModel):
@@ -29,3 +29,11 @@ class CoachReply(BaseModel):
 class ReindexRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     reason: str = Field(min_length=3, max_length=120)
+
+
+class VoiceOption(BaseModel):
+    id: VoiceId
+    label: str
+    style: str
+    default_for: list[Language]
+    selected: bool

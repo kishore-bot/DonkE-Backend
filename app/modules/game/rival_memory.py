@@ -7,8 +7,8 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.game.models import StoryRivalMemory
-from app.modules.game.repository import StoryPin
 from app.modules.game.schemas import StoryEvent
+from app.modules.game.story_state import StoryPin
 
 
 async def remember(

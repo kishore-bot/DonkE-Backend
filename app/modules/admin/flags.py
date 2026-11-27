@@ -7,17 +7,16 @@ rebuild it from committed overrides. Secrets, URLs and timers are not flags.
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any, cast
 
 from redis.exceptions import RedisError
-from sqlalchemy import DateTime, String, func, select
-from sqlalchemy.dialects.postgresql import JSONB, insert
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.errors import AppError
-from app.core.platform import Base, Platform
+from app.core.platform import Platform
+from app.modules.admin.models import RuntimeFlag
 
 logger = logging.getLogger(__name__)
 
@@ -37,16 +36,6 @@ FLAGS: dict[str, FlagSpec] = {
     "ai_voice_daily_calls": FlagSpec(int, "Daily Gemini voice call budget", 0, 5000),
     "maintenance_notice": FlagSpec(str, "Banner shown in the app (empty hides it)"),
 }
-
-
-class RuntimeFlag(Base):
-    __tablename__ = "runtime_flags"
-
-    key: Mapped[str] = mapped_column(String(40), primary_key=True)
-    value: Mapped[Any] = mapped_column(JSONB)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
 
 
 def defaults(platform: Platform) -> dict[str, Any]:

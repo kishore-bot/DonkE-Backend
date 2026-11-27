@@ -13,7 +13,7 @@ from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.platform import open_platform
 from app.main import create_app
-from app.modules.ai.coaching import MatchAnalysis, analyse
+from app.modules.ai.coaching import analyse
 from app.modules.ai.fair_play import (
     FairPlayCase,
     Resolve,
@@ -22,7 +22,7 @@ from app.modules.ai.fair_play import (
     review,
     run_analysis,
 )
-from app.modules.ai.rivals import PlayerRival
+from app.modules.ai.models import MatchAnalysis, PlayerRival
 from app.modules.matches import bots
 from app.modules.matches.schemas import GameSeat
 from app.modules.matches.settlement import pending_analysis_key, persist

@@ -17,7 +17,8 @@ from app.core.errors import AppError
 from app.modules.admin import service as admin
 from app.modules.ai import voice
 from app.modules.game import service as practice
-from app.modules.game.repository import PracticeRepository
+from app.modules.game.repositories import practice as practice_store
+from app.modules.game.repositories.practice import PracticeRepository
 from app.modules.game.schemas import PlayRequest
 from app.modules.matches import socket_tickets
 from app.modules.matches.schemas import GameSeat, MatchState
@@ -29,8 +30,8 @@ def test_practice_reserves_capacity_and_prunes_idle_clients(monkeypatch):
     sessions = practice.PracticeService(
         repository, Settings(_env_file=None, practice_sessions_per_client=1)
     )
-    repository.created["old-client"] = deque([0])
-    monkeypatch.setattr(practice, "monotonic", lambda: 120.0)
+    repository._created["old-client"] = deque([0])
+    monkeypatch.setattr(practice_store, "monotonic", lambda: 120.0)
     started, finish = Event(), Event()
     real_game = practice.PracticeGame
 
@@ -47,12 +48,12 @@ def test_practice_reserves_capacity_and_prunes_idle_clients(monkeypatch):
             with pytest.raises(AppError) as rejected:
                 sessions.create(2, "easy", "player")
             assert rejected.value.code == "practice_limit"
-            assert "old-client" not in repository.created
+            assert "old-client" not in repository._created
         finally:
             finish.set()
         first.result(timeout=5)
-    assert not repository.creating
-    assert len(repository.sessions) == 1
+    assert not repository._creating
+    assert len(repository._sessions) == 1
 
 
 def test_practice_releases_reservation_if_creation_fails(monkeypatch):
@@ -68,7 +69,7 @@ def test_practice_releases_reservation_if_creation_fails(monkeypatch):
         patch.setattr(practice, "PracticeGame", fail)
         with pytest.raises(RuntimeError, match="engine failed"):
             sessions.create(2, "easy", "player")
-    assert not repository.creating
+    assert not repository._creating
     assert sessions.create(2, "easy", "player")
 
 

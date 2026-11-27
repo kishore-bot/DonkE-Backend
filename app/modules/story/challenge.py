@@ -7,9 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.core.errors import AppError
 from app.core.platform import Platform
-from app.modules.game.repository import StoryPin
 from app.modules.game.schemas import StoryRoute, Suit
 from app.modules.game.seeded import RivalIntent, SeededDuel
+from app.modules.game.story_state import StoryPin
 from app.modules.progression.season_content import PACKS, CharacterPreview
 from app.modules.story.chapters import OPENING_CHAPTER
 

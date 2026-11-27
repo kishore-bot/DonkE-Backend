@@ -9,13 +9,13 @@ from uuid import UUID
 
 from donke_engine import OnlineGame
 from pydantic import BaseModel
-from sqlalchemy import DateTime, Double, ForeignKey, Index, desc, func, select
-from sqlalchemy.dialects.postgresql import JSONB, insert
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 
 from app.core.errors import AppError
-from app.core.platform import Base, Platform
+from app.core.platform import Platform
 from app.modules.ai.gateway import Gateway
+from app.modules.ai.models import MatchAnalysis
 from app.modules.ai.prompts import PROMPTS, Source, reword
 from app.modules.identity.schemas import Language
 from app.modules.matches.schemas import MatchReplay
@@ -47,26 +47,6 @@ SUITS = {"Spades": "♠", "Hearts": "♥", "Diamonds": "♦", "Clubs": "♣"}
 
 def label(card: dict[str, Any]) -> str:
     return RANKS[card["rank"]] + SUITS[card["suit"]]
-
-
-class MatchAnalysis(Base):
-    __tablename__ = "match_analyses"
-    __table_args__ = (
-        Index("match_analyses_player_recent", "player_id", desc("created_at")),
-    )
-
-    game_id: Mapped[UUID] = mapped_column(
-        ForeignKey("matches.id", ondelete="CASCADE"), primary_key=True
-    )
-    player_id: Mapped[UUID] = mapped_column(
-        ForeignKey("players.id", ondelete="CASCADE"), primary_key=True
-    )
-    decisions: Mapped[int]
-    accuracy: Mapped[float] = mapped_column(Double)
-    payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
-    created_at: Mapped[Any] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
 
 
 class Decision(BaseModel):

@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import DateTime, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.platform import Base
+from app.core.database import Base
 from app.modules.story.lines import Moment
 
 

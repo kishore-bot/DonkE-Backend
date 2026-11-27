@@ -17,7 +17,7 @@ from app.modules.lobby.service import QUEUES, LobbyService
 from app.modules.matches.health import record_turn_sweep
 from app.modules.matches.repository import MatchConflict
 from app.modules.matches.service import TURN_CONCURRENCY, MatchService
-from app.modules.progression.service import hidden_skills
+from app.modules.progression.services.skill_updates import hidden_skills
 from app.modules.social.models import PlayerBlock
 
 logger = logging.getLogger(__name__)

@@ -12,10 +12,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from app.core.config import Settings
+from app.core.dependencies import PlatformDep
 from app.core.errors import AppError
-from app.modules.admin.router import Admin, Cookie, CsrfToken, RequestId
+from app.modules.admin.dependencies import Admin, Cookie, CsrfToken, RequestId
 from app.modules.admin.service import admin_write
-from app.modules.identity.router import PlatformDep
 from app.modules.progression.season_content import PACKS
 from app.modules.story.media import (
     MAX_AUDIO,

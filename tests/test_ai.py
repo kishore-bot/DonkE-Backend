@@ -13,10 +13,10 @@ from app.core.platform import open_platform
 from app.main import create_app
 from app.modules.admin.service import AdminService
 from app.modules.ai import commentary
+from app.modules.ai.controllers.audio import voice as request_voice
 from app.modules.ai.gateway import Gateway
 from app.modules.ai.knowledge import NO_MATCH, sources
 from app.modules.ai.provider import Selected
-from app.modules.ai.router import voice as request_voice
 from app.modules.ai.schemas import VoiceStatus
 from app.modules.ai.voice import Voice
 from app.modules.identity.schemas import Profile

@@ -1,12 +1,16 @@
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
+from fastapi import Path
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.identity.schemas import Profile
 
 Activity = Literal["idle", "queued", "matching", "matched", "room"]
+
+
+InviteCode = Annotated[str, Path(pattern=r"^[A-Za-z0-9_-]{8}$")]
 
 
 class FriendStatus(BaseModel):

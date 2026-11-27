@@ -6,7 +6,7 @@ from sqlalchemy import DateTime, ForeignKey, Index, desc, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.platform import Base
+from app.core.database import Base
 
 
 class MatchRecord(Base):

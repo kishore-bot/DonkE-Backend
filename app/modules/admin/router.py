@@ -1,11 +1,16 @@
-from typing import Annotated
-from uuid import UUID, uuid4
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Header, Request, Response
-from fastapi.security import APIKeyCookie
+from fastapi import APIRouter, Request, Response
 
-from app.core.platform import Platform, get_platform
+from app.core.dependencies import PlatformDep
 from app.core.rate_limit import client_host, limit
+from app.modules.admin.dependencies import (
+    SESSION_COOKIE,
+    Admin,
+    Cookie,
+    CsrfToken,
+    RequestId,
+)
 from app.modules.admin.schemas import (
     AdminLogin,
     AdminProfile,
@@ -14,23 +19,8 @@ from app.modules.admin.schemas import (
     TotpCode,
     TotpSetup,
 )
-from app.modules.admin.service import AdminService
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Admin"])
-SESSION_COOKIE = "__Host-donke-admin"
-Cookie = Annotated[
-    str | None, Depends(APIKeyCookie(name=SESSION_COOKIE, auto_error=False))
-]
-RequestId = Annotated[UUID | None, Header(alias="X-Request-ID")]
-CsrfToken = Annotated[str | None, Header(alias="X-CSRF-Token", max_length=64)]
-PlatformDep = Annotated[Platform, Depends(get_platform)]
-
-
-def get_admin(request: Request, _: PlatformDep) -> AdminService:
-    return request.app.state.admin
-
-
-Admin = Annotated[AdminService, Depends(get_admin)]
 
 
 @router.post("/auth/login")

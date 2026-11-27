@@ -1,13 +1,16 @@
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
 
-from app.core.platform import Base
-from app.modules.admin.flags import RuntimeFlag
-from app.modules.admin.models import AdminAudit, AdminSession, AdminUser
-from app.modules.ai.coaching import MatchAnalysis
-from app.modules.ai.fair_play import FairPlayCase
-from app.modules.ai.index import RuleEmbedding
-from app.modules.ai.rivals import PlayerRival
+from app.core.database import Base
+from app.core.errors import AppError
+from app.core.platform import Platform
+from app.modules.admin.models import AdminAudit, AdminSession, AdminUser, RuntimeFlag
+from app.modules.ai.models import (
+    FairPlayCase,
+    MatchAnalysis,
+    PlayerRival,
+    RuleEmbedding,
+)
 from app.modules.game.models import StoryDuel, StoryDuelCommand, StoryRivalMemory
 from app.modules.identity.models import Player, PlayerSession, RefreshToken
 from app.modules.matches.models import MatchPlayer, MatchRecord
@@ -18,8 +21,8 @@ from app.modules.progression.models import (
     PlayerSkill,
     PlayerStats,
     Season,
-    SeasonCharacter,
     SeasonChapterClear,
+    SeasonCharacter,
     SeasonDay,
     SeasonEmote,
     SeasonPlayer,
@@ -38,7 +41,6 @@ from app.modules.social.models import (
     PlayerMute,
     PlayerReport,
 )
-
 from app.modules.story.models import SeasonCue, SeasonMedia
 
 # Register the complete schema for Alembic and readiness.
@@ -120,3 +122,14 @@ def has_required_schema(connection: Connection) -> bool:
             ):
                 return False
     return bool(connection.scalar(text("SELECT to_regtype('vector') IS NOT NULL")))
+
+
+async def check_storage_ready(platform: Platform) -> None:
+    async with platform.engine.connect() as connection:
+        if not await connection.run_sync(has_required_schema):
+            raise AppError(
+                503,
+                "schema_mismatch",
+                "Online storage does not have the required tables and pgvector",
+            )
+    await platform.redis.ping()

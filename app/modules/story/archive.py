@@ -1,7 +1,7 @@
 """Player-scoped collection and replays of previously cleared chapters."""
 
-from datetime import datetime
 from collections import defaultdict
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
-from app.modules.game.repository import StoryPin
+from app.modules.game.story_state import StoryPin
 from app.modules.progression.models import (
     Season,
     SeasonChapterClear,

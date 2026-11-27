@@ -18,7 +18,7 @@ from app.modules.progression.models import (
     SeasonPlayer,
     Wallet,
 )
-from app.modules.progression.service import streak_stars
+from app.modules.progression.repositories.economy import streak_stars
 
 pytestmark = pytest.mark.integration
 

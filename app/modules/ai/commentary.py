@@ -10,7 +10,7 @@ from app.modules.ai.schemas import Commentary
 from app.modules.identity.schemas import Language
 from app.modules.matches import settlement
 from app.modules.matches.repository import MatchRepository
-from app.modules.matches.service import position
+from app.modules.matches.rules import position
 
 RESERVE_REACTION = """
 if redis.call('EXISTS', KEYS[1], KEYS[2]) > 0 then return 0 end

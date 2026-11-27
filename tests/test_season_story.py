@@ -10,11 +10,13 @@ from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.platform import open_platform
 from app.modules.ai.provider import Selected
-from app.modules.progression import router as season_routes
+from app.modules.progression import clock as season_routes
+from app.modules.progression.calendar import week_start
 from app.modules.progression.models import Season, SeasonDay, SeasonPlayer
+from app.modules.progression.repositories.economy import streak_stars
 from app.modules.progression.schemas import SeasonCreate
-from app.modules.progression.service import create_season, streak_stars, week_start
-from app.modules.story import router as story_routes
+from app.modules.progression.services.seasons import create_season
+from app.modules.story import dependencies as story_clock
 
 
 @pytest.mark.integration
@@ -28,7 +30,7 @@ def test_seeded_story_call_first_clear_and_final_form(client, settings, monkeypa
         def now(cls, tz=None):
             return now.astimezone(tz)
 
-    monkeypatch.setattr(story_routes, "datetime", Clock)
+    monkeypatch.setattr(story_clock, "datetime", Clock)
     monkeypatch.setattr(season_routes, "datetime", Clock)
 
     async def arrange():
@@ -124,9 +126,10 @@ def test_seeded_story_call_first_clear_and_final_form(client, settings, monkeypa
                 start_path, json={"season_id": str(season.id), "adaptive": True}
             )
             assert adaptive.status_code == 201
-            trial = client.app.state.practice.repository.sessions[
-                UUID(adaptive.json()["game_id"])
-            ]
+            attempt_data = adaptive.json()
+            trial = client.app.state.practice.repository.get(
+                UUID(attempt_data["game_id"]), attempt_data["access_token"]
+            )
             assert trial.story.intent == "pressure"
             assert trial.story.intent_source == "gemini"
 

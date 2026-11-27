@@ -13,14 +13,14 @@ from donke_engine import OnlineGame
 
 from app.modules.ai.commentary import moment
 from app.modules.ai.knowledge import sources
-from app.modules.game.repository import StoryPin
 from app.modules.game.seeded import SeededDuel
+from app.modules.game.story_state import StoryPin
 from app.modules.identity.schemas import Language
 from app.modules.progression.calendar import window_open
 from app.modules.story.awakening import requirements, resolve_path
+from app.modules.story.chapters import chapter_for
 from app.modules.story.coach import explain
 from app.modules.story.lines import FALLBACK, valid
-from app.modules.story.chapters import chapter_for
 
 QUESTIONS = (
     ("Which card opens the first trick?", "opening"),
