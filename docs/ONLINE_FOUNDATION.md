@@ -9,13 +9,13 @@
 
 ## Database setup
 
-On an empty development database, run `uv run --locked alembic upgrade head`. The Podman launcher runs the same command before starting the API and workers. Revision `0001_initial` defines the current schema. Use `uv run --locked alembic check` to compare the migrated schema against the models. [Baseline revision](../migrations/versions/0001_initial.py) · [Alembic drift checks](https://alembic.sqlalchemy.org/en/latest/autogenerate.html#running-alembic-check-to-test-for-new-upgrade-operations)
+On an empty development database, run `uv run --locked alembic upgrade head`. The Podman launcher runs the same command before starting the API and workers. Revision `0001_initial` creates the baseline. Later revisions extend it. Use `uv run --locked alembic check` to compare the migrated schema against the models. [Baseline revision](../migrations/versions/0001_initial.py) · [Alembic drift checks](https://alembic.sqlalchemy.org/en/latest/autogenerate.html#running-alembic-check-to-test-for-new-upgrade-operations)
 
-For an existing database with DonkE tables, compare its columns, defaults, constraints, indexes, and pgvector installation against a fresh database at `0001_initial`. When they match, run `uv run --locked alembic stamp --purge 0001_initial` against the existing database to replace the old revision marker while keeping its data. For a mismatched schema, use a fresh development database.
+For an existing database with DonkE tables, compare its columns, defaults, constraints, indexes, and pgvector installation against a fresh database at `0001_initial`. When they match, run `uv run --locked alembic stamp --purge 0001_initial` against the existing database to replace the old revision marker while keeping its data. Then run `uv run --locked alembic upgrade head`. For a mismatched schema, use a fresh development database.
 
 ## Player identity
 
-1. The KMP client submits its Google ID token as JSON to `POST /api/v1/auth/google`. Configure `DONKE_GOOGLE_CLIENT_ID` to the audience used in the client. The backend validates the token and identifies the account by its Google subject. [Google ID token verification](https://developers.google.com/identity/sign-in/web/backend-auth)
+1. The mobile website submits its Google ID token as JSON to `POST /api/v1/auth/google`. Configure `DONKE_GOOGLE_CLIENT_ID` to the audience used in the client. The backend validates the token and identifies the account by its Google subject. [Google ID token verification](https://developers.google.com/identity/sign-in/web/backend-auth)
 2. Send the 30-minute JWT as a Bearer token. `GET /api/v1/auth/me` returns the profile. `PATCH /api/v1/auth/me` accepts the commentary language code.
 3. Send the refresh token to `POST /api/v1/auth/refresh`. Serialize refresh attempts per client session and save the replacement before issuing another refresh. A refresh family lasts seven days. Replaying a consumed token revokes that family, including its access tokens. Separate logins stay valid.
 4. `POST /api/v1/auth/logout` revokes the current family. Protected calls check for revocation, expiry and account status in PostgreSQL.

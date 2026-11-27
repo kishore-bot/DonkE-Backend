@@ -37,10 +37,10 @@ The relevant domains expose individual HTTP operations. Use OpenAPI for required
 
 1. **Schedule.** Choose a UTC midnight start, an end exactly 21 days later, and a published pack key. Use `grimoire-awakening-v2` for called-Strike objectives or `skybound-voyage-v2` for Reef and Storm. Supply a reason and avoid overlaps.
 2. **Check the player view.** The active manifest should expose the expected cast and season window. The opening trial is available on day 1. Rivalry opens on day 8 and the finale on day 15, subject to prior clears.
-3. **Close.** Wait for admitted games to settle. The backend uses the admission season for cross-rollover results. Close pays the eligible bank and rewards once and retains the standings.
+3. **Close.** Wait for admitted games to settle. The backend uses the admission season for cross-rollover results. Close pays the eligible bank and peak-MMR rewards once and retains the standings. It resets current MMR halfway toward 1200 if a later season has yet to start.
 4. **Grace window.** Packed season players have three days to claim earned rewards covered by that window. Past chapters and owned forms can appear in the collection.
 
-[Season mechanics](GAME.md#a-21-day-season) · [Rollover guarantees](SEASONAL_BACKEND_MIGRATION.md#online-rollover-and-result-receipts)
+[Season mechanics](GAME.md#a-21-day-season) · [Rollover and receipts](GAME.md#online-rollover-and-result-receipts)
 
 ## Publish a character rig and voice
 
@@ -50,7 +50,7 @@ The relevant domains expose individual HTTP operations. Use OpenAPI for required
 4. **Review and publish.** Preview the uploaded asset, verify its content and approval, then publish it. Spoken assets require a published caption pair. Public clients resolve the approved media through the API, which issues a signed read valid for five minutes.
 5. **Withdraw.** Withdraw an incorrect or retired asset and publish a replacement. New requests stop receiving signed reads for the withdrawn item. Signed reads issued earlier expire within five minutes.
 
-The new-season website prefers approved English audio, then Japanese, then captions. It uses a bundled rig if an approved GLB is absent or unavailable. The production bucket and recordings still need provisioning. [Season release guide](SEASON_RELEASE.md#publish-a-seasonal-rig-and-recordings)
+The new-season website prefers approved English audio, then Japanese, then captions. It uses a bundled rig if an approved GLB is absent or unavailable. The production bucket and recordings still need provisioning. [Mobile release walkthrough](SEASON_RELEASE.md)
 
 ## Operate the backend
 

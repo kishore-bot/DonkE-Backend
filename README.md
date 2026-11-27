@@ -118,7 +118,7 @@ flowchart LR
 ```
 
 - **Real-time state.** One Redis Lua commit checks the game version and stores the move, acknowledgment, event batch, and next deadline together. Redis Streams let clients fetch events after a known sequence, and sorted sets let workers fetch due turns without scanning active matches.
-- **Game worker.** Independent polls handle matchmaking, room starts, turns and settlement. `/api/v1/online/health` reports heartbeat age and due turn lag. [High-level and low-level design](docs/STUDY_NOTES.md)
+- **Game worker.** Independent polls handle matchmaking, room starts, turns and settlement. `/api/v1/online/health` reports heartbeat age and due turn lag. [Worker and storage design](docs/BACKEND_ARCHITECTURE.md#low-level-design)
 - **Durable history.** PostgreSQL settles completed games, rankings, and rewards transactionally. A composite index on `(player_id, finished_at DESC)` supports recent player history and head-to-head lookups over match participants.
 - **Bots and coaching.** Rust runs rules and Monte Carlo move scoring. Post-match coaching replays decisions through the engine. The rules coach blends BM25 with pgvector retrieval when embeddings are configured and cites curated answers. Text and voice requests run outside the turn protocol.
 
@@ -176,10 +176,8 @@ Initialize a disposable PostgreSQL database with `uv run --locked alembic upgrad
 
 [Game and seasons](docs/GAME.md) · [AI and evaluation](docs/AI.md) · [Mobile web app](docs/APP.md) · [Admin operations](docs/ADMIN.md)
 
-The original plans and early reviews remain under [first doc](docs/first%20doc/) and [new changes](docs/new%20changes/). The guides above use the current release and API documentation for feature status.
-
 ## Engineering notes
 
-[Practice and build steps](docs/BUILD_STEPS.md) · [Online foundation](docs/ONLINE_FOUNDATION.md) · [Multiplayer protocol](docs/MULTIPLAYER.md) · [Progression](docs/PROGRESSION.md) · [AI and voice](docs/AI.md) · [Architecture study](docs/STUDY_NOTES.md) · [Stack review](docs/STACK_REVIEW.md)
+[Online setup](docs/ONLINE_FOUNDATION.md) · [Multiplayer protocol](docs/MULTIPLAYER.md) · [Season release walkthrough](docs/SEASON_RELEASE.md)
 
-`dev-deploy` is the integration branch. Phase branches are `phase-4-multiplayer`, `phase-5-progression`, `phase-6-ai`, and `phase-7-showcase`.
+`dev-deploy` is the integration branch.

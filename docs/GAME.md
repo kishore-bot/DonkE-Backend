@@ -10,7 +10,7 @@ DonkE uses the no-trump version of Kerala's Kazhutha. A 52-card deck is dealt ac
 - A **Strike**, called `vettu` in the game protocol, occurs when a player has no card of the led suit and plays a different suit. The trick ends immediately. The highest card of the led suit determines who collects the whole pile and leads again.
 - An empty hand counts as an escape after the trick resolves. A player can play their last card and still receive the pile on that trick. The last player holding cards is the Donkey. The result can also record that everyone escaped or that a play or time limit ended the table.
 
-**Example.** Seat 1 leads 7♥. Seat 2 plays K♥. Seat 3 has no hearts and plays 4♣. Seat 2 takes all three cards and leads again. The club triggers the Strike. The king determines the recipient. [Rules and architecture](STUDY_NOTES.md#kazhutha-rules)
+**Example.** Seat 1 leads 7♥. Seat 2 plays K♥. Seat 3 has no hearts and plays 4♣. Seat 2 takes all three cards and leads again. The club triggers the Strike. The king determines the recipient. [Kazhutha rules reference](https://cheettukali.com/kazhutha/rules/)
 
 ## Ways to play
 
@@ -24,7 +24,7 @@ DonkE uses the no-trump version of Kerala's Kazhutha. A 52-card deck is dealt ac
 | Story duel | Select a published season, character, chapter, and available route | A signed-in attempt can resume, earn first-clear rewards, and unlock further chapters. |
 | Shared or archived story | Open a signed challenge or replay a cleared chapter from Profile | The app starts a fresh unranked attempt. Shared and archived replays confer no season credit. |
 
-Classic uses one queue. Ranked bands are below 1600, 1600–2799, 2800–3999, and 4000 and above. A four-seat match can form immediately. The default bot-fill wait is ten seconds. Friends can form a party of up to four and queue together through their leader. [Online foundation](ONLINE_FOUNDATION.md#room-and-queue-flows) · [Progression](PROGRESSION.md)
+Classic uses one queue. Ranked bands are below 1600, 1600–2799, 2800–3999, and 4000 and above. A four-seat match can form immediately. The default bot-fill wait is ten seconds. Friends can form a party of up to four and queue together through their leader. Classic reserves those seats as a group. Cancelling before room publication releases the entire party. [Room and queue flows](ONLINE_FOUNDATION.md#room-and-queue-flows)
 
 ## Turns, retries, and recovery
 
@@ -32,7 +32,7 @@ Practice uses `POST /api/v1/practice` and returns a match-scoped capability with
 
 An online room supplies the game ID once it starts. A browser exchanges its account token for a one-use 30-second socket ticket and offers `donke.v1` and `ticket.<value>`. The client tracks the move version and public event sequence separately. On reconnect it requests missed events using `after_sequence` and uses the private `state_sync` as the authoritative seat view. A new connection takes over from the player’s earlier socket.
 
-Human turns default to 40 seconds. A timeout plays a legal card automatically. Three consecutive or five total timeouts give the seat to a bot. Leaving an active match also gives control to a bot. The engine caps a match at 1,000 plays and the online worker defaults to a 45-minute match cap. [Practice low-level design](BUILD_STEPS.md#practice-low-level-design) · [Multiplayer recovery](MULTIPLAYER.md) · [WebSocket specification](api/asyncapi.json)
+Human turns default to 40 seconds. A timeout plays a legal card automatically. Three consecutive or five total timeouts give the seat to a bot. Leaving an active match also gives control to a bot. The engine caps a match at 1,000 plays and the online worker defaults to a 45-minute match cap. [Command and retry design](BACKEND_ARCHITECTURE.md#low-level-design) · [Multiplayer recovery](MULTIPLAYER.md) · [WebSocket specification](api/asyncapi.json)
 
 ## A 21-day season
 
@@ -45,7 +45,7 @@ Packed seasons start at UTC midnight and use three seven-day acts. The public ma
 | `skybound-voyage-v2`, Storm | Escape after landing at least one Strike. |
 | Grimoire and Skybound v1 | Retain the earlier escape-based chapter rules. |
 
-The selected route, chapter, character, emote and rival policy are fixed at admission. The saved attempt keeps its last accepted move. A finished account-backed attempt remains available for one day, with an unclaimed result recoverable during that window. A signed challenge link lasts 30 days and carries the authored encounter and public result summary. A past-season collection entry shows cleared chapters and owned transformations. [Season release](SEASON_RELEASE.md#seasonal-game-packs) · [Chapter recovery](SEASONAL_BACKEND_MIGRATION.md#story-campaign-and-attempt-recovery)
+The selected route, chapter, character, emote and rival policy are fixed at admission. The saved attempt keeps its last accepted move. A finished account-backed attempt remains available for one day, with an unclaimed result recoverable during that window. A signed challenge link lasts 30 days and carries the authored encounter and public result summary. A past-season collection entry shows cleared chapters and owned transformations. [Season packs](SEASON_RELEASE.md#seasonal-game-packs) · [Story attempt storage](../app/modules/game/story_store.py)
 
 ## Rewards, forms, and competition
 
@@ -55,8 +55,14 @@ The selected route, chapter, character, emote and rival policy are fixed at admi
 - The store sells cosmetics with earned coins. Players equip owned emotes beside the Play roster. An eligible standout Strike may activate the emote pinned to that duel.
 - A party leader enrolls two to four members in a seasonal squad. The roster is frozen at enrollment, and qualifying clears contribute once per member. A completed squad grants each member a claim for 60 coins and a Squad Finale frame.
 
-A match admitted just before rollover keeps its admission season for progression. PostgreSQL commits settlement and the participant reward receipt in one transaction. The result can be pending while the worker processes it. Progress can reopen recent settled matches and replays. [Rollover and receipts](SEASONAL_BACKEND_MIGRATION.md#online-rollover-and-result-receipts) · [Gifts and squads](SEASONAL_BACKEND_MIGRATION.md#season-rewards-inbox-and-squad-finale)
+Packed season weekly reward claims can include the act's UTC start date. Omitting the date selects the current or final act. Earlier claims keep their original ledger key. Legacy seasons use calendar weeks. [Reward endpoints](api/README.md#progression) · [Squad rules](../app/modules/progression/squad.py)
+
+## Online rollover and result receipts
+
+Match admission uses the Redis clock and a shared PostgreSQL schedule lock. Redis checks the cutoff again when the table starts. A match that finishes after rollover keeps its admission season and uses that season's last eligible UTC day for progression. The global coin cap uses the actual completion date. Between seasons, matches earn no season points. Older matches without an admission record use finish-time attribution.
+
+The participant result can be in progress, pending or settled. PostgreSQL commits the replay and receipt together with coins, season points, bank coins and the rating change. Settlement retries reuse the stored outcome. Progress can reopen recent matches and replays. Older archives may have a placement with reward amounts unavailable. [Match endpoints](api/README.md#multiplayer) · [Settlement](../app/modules/matches/settlement.py)
 
 ## Backend boundaries
 
-Rust makes legal moves and resolves tricks. The Python API manages authentication, admission, scheduling, and progression. Redis owns active tables, room reservations, ordered event streams, and worker leases. PostgreSQL stores accounts, signed-in story attempts, archives, wallets, and settlement receipts. Gemini operates outside the live turn protocol. [Backend design](STUDY_NOTES.md) · [AI guide](AI.md)
+Rust makes legal moves and resolves tricks. The Python API manages authentication, admission, scheduling, and progression. Redis owns active tables, room reservations, ordered event streams, and worker leases. PostgreSQL stores accounts, signed-in story attempts, archives, wallets, and settlement receipts. Gemini operates outside the live turn protocol. [Backend architecture](BACKEND_ARCHITECTURE.md) · [AI guide](AI.md)

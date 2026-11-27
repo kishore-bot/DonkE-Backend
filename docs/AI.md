@@ -17,7 +17,7 @@ Rust decides card legality and game outcomes. The AI features explain recorded e
 | Season cue workflow | Pack, character, scene, source text and reviewed translations | Approved English and Japanese captions and optional recordings. |
 | Fair play | Signals from eligible ranked play | A case for operator review. The moderation decision remains with staff. |
 
-[Backend design](STUDY_NOTES.md) · [Evaluator scorecard](AI_EVAL.md)
+[Backend architecture](BACKEND_ARCHITECTURE.md) · [Evaluator scorecard](AI_EVAL.md)
 
 ## Rules retrieval and grounded answers
 
@@ -35,7 +35,9 @@ The prerequisite graph links character selection, the opening clear, 300 season 
 
 The rival remembers a public moment from the player's previous finished duel in the same season and chapter. With adaptive play enabled, Gemini can choose `steady` or `pressure`. The game fixes the policy before the deal and applies it in Rust. The configured rating target is 1.05 times player MMR. Earlier sampled-search measurements were close near 1,200 MMR and below target in both higher bands. The higher bands now have a separate bounded native search policy. Its calibration is pending.
 
-The post-match coach scores the first rival decision with multiple legal cards. It can show the chosen card, candidate count, and estimated chance of avoiding the Donkey. The standout Strike review uses 768 search iterations and requires adequate samples and a meaningful advantage over another legal option before activating the pinned emote. [Strike review policy](SEASONAL_BACKEND_MIGRATION.md#season-emotes-and-standout-strike-reviews) · [Rival calibration](SEASON_AI_EVAL.md)
+The post-match coach scores the first rival decision with multiple legal cards. It can show the chosen card, candidate count, and estimated chance of avoiding the Donkey. [Rival calibration](SEASON_AI_EVAL.md)
+
+The standout Strike review evaluates a confirmed called Strike using 768 native search iterations. It requires at least 16 samples per compared card, an estimated safe rate of at least 80% for the played card, a result within five percentage points of the best sampled move, and an advantage of at least 12 percentage points over an alternative. The result can activate the emote pinned at story admission. The service stores the result or abstention for retries. [Strike review code](../app/modules/story/highlights.py)
 
 ## Commentary and approved performances
 

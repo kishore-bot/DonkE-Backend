@@ -26,7 +26,7 @@ uv run --locked python -m scripts.evaluate --check
 
 ## Mobile build and deployment
 
-Run `bun install --frozen-lockfile`, `bun test` and `bun run build` in the frontend. Serve the built website and its model and replay assets. Forward `/api/v1` on the same origin and preserve WebSocket upgrades. Configure the Google web client ID for sign-in. Provision a 21-day pack through the backend admin API. [Season setup](SEASONAL_BACKEND_MIGRATION.md)
+Run `bun install --frozen-lockfile`, `bun test` and `bun run build` in the frontend. Serve the built website and its model and replay assets. Forward `/api/v1` on the same origin and preserve WebSocket upgrades. Configure the Google web client ID for sign-in. Provision a 21-day pack through the backend admin API. [Season setup](ADMIN.md#open-and-close-seasons)
 
 The production build keeps the roughly 239 kB gzipped renderer in a shared lazy chunk. Mobile Chromium verification opens the sample replay and requests a hero preview with reduced motion enabled, with zero 3D JavaScript or GLB requests. Switching the preference back restores the 3D table. With motion enabled, requesting the hero preview downloads the selected GLB in one GET. Physical-device frame timing, audio latency and the hosted end-to-end walkthrough still need a device and deployment. [React Three Fiber rendering guidance](https://r3f.docs.pmnd.rs/advanced/scaling-performance)
 
@@ -62,14 +62,9 @@ uv run --locked --extra a2a python -m scripts.review_cues --task TASK_ID
 
 The client discovers the card and checks the RPC endpoint before sending credentials. The response contains a task ID and findings. SQLite keeps the task status and findings without the submitted dialogue. After restarting the reviewer, use the same SQLite file and token and retrieve the result with the task ID. Resubmit a revised batch as a new task and use the existing admin review to publish.
 
-## Publish a seasonal rig and recordings
+## Verify seasonal media playback
 
-Apply Alembic revision `0002_season_expansion` or later. Configure a private S3-compatible bucket using `DONKE_SEASON_MEDIA_BUCKET`. Set `DONKE_SEASON_MEDIA_REGION` and, for a custom service, `DONKE_SEASON_MEDIA_ENDPOINT`. The AWS SDK uses the deployment's role or standard AWS credentials. Give that identity PutObject and GetObject access to the `seasons/` prefix. Allow GET requests from the mobile site's origin in the bucket's CORS configuration so the browser can fetch GLBs. [S3 PutObject](https://docs.aws.amazon.com/boto3/latest/reference/services/s3/client/put_object.html) · [S3 CORS](https://docs.aws.amazon.com/AmazonS3/latest/userguide/cors.html)
-
-1. In **Admin → Season cues**, create and publish the English and Japanese captions for Strike, Victory, and Transformation.
-2. In **Admin → Season media**, choose the pack, character, and asset slot. Upload a self-contained GLB with a skin and named Idle, Strike, Victory, and Transform clips, or PCM WAV up to 30 seconds in the appropriate English or Japanese scene slot. The upload limits are 20 MiB for GLB and 4 MiB for audio.
-3. Preview the upload and publish it after review. Media is held in the private bucket. The API stores metadata and issues five-minute signed reads for approved assets.
-4. The app selects the published rig, then falls back to its bundled rig. For the new packs it plays an approved English recording when available, then Japanese, then captions. Withdrawing a recording updates selection and stops the API from issuing new signed reads. Previously issued signed reads expire within five minutes.
+Use the operator guide to publish the caption pair, rig and recordings. On the mobile website, test a published rig, an English clip, Japanese fallback and caption-only playback. Withdraw a test recording and verify that the next request selects the available fallback. [Rig and voice publishing](ADMIN.md#publish-a-character-rig-and-voice)
 
 ## Seasonal game packs
 
