@@ -568,6 +568,63 @@
         "title": "ChallengeView",
         "type": "object"
       },
+      "CharacterPreview": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "model_url": {
+            "title": "Model Url",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "stage_theme": {
+            "enum": [
+              "crimson",
+              "tempest"
+            ],
+            "title": "Stage Theme",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "title",
+          "stage_theme",
+          "model_url"
+        ],
+        "title": "CharacterPreview",
+        "type": "object"
+      },
+      "CharacterSelection": {
+        "properties": {
+          "character_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Id"
+          }
+        },
+        "required": [
+          "character_id"
+        ],
+        "title": "CharacterSelection",
+        "type": "object"
+      },
       "ChatMessage": {
         "properties": {
           "at": {
@@ -2918,6 +2975,18 @@
             "title": "Ends At",
             "type": "string"
           },
+          "pack_key": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Key"
+          },
           "reason": {
             "maxLength": 120,
             "minLength": 3,
@@ -2969,6 +3038,17 @@
             "title": "Id",
             "type": "string"
           },
+          "pack_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Key"
+          },
           "ratings_reset": {
             "anyOf": [
               {
@@ -2998,6 +3078,72 @@
           "closed_at"
         ],
         "title": "SeasonInfo",
+        "type": "object"
+      },
+      "SeasonManifest": {
+        "properties": {
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "pack": {
+            "$ref": "#/components/schemas/SeasonPack"
+          },
+          "pack_key": {
+            "title": "Pack Key",
+            "type": "string"
+          },
+          "season_id": {
+            "format": "uuid",
+            "title": "Season Id",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "season_id",
+          "pack_key",
+          "starts_at",
+          "ends_at",
+          "pack"
+        ],
+        "title": "SeasonManifest",
+        "type": "object"
+      },
+      "SeasonPack": {
+        "properties": {
+          "anime_id": {
+            "title": "Anime Id",
+            "type": "string"
+          },
+          "cast": {
+            "items": {
+              "$ref": "#/components/schemas/CharacterPreview"
+            },
+            "title": "Cast",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "anime_id",
+          "title",
+          "description",
+          "cast"
+        ],
+        "title": "SeasonPack",
         "type": "object"
       },
       "Seat": {
@@ -3113,6 +3259,22 @@
           "forfeited"
         ],
         "title": "SeatStats",
+        "type": "object"
+      },
+      "SelectCharacter": {
+        "additionalProperties": false,
+        "properties": {
+          "character_id": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Character Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "character_id"
+        ],
+        "title": "SelectCharacter",
         "type": "object"
       },
       "SessionTokens": {
@@ -9010,6 +9172,56 @@
         ]
       }
     },
+    "/api/v1/seasons/active/manifest": {
+      "get": {
+        "description": "The published cast and schedule for guests and signed-in players.",
+        "operationId": "season_manifest_api_v1_seasons_active_manifest_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/SeasonManifest"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Season Manifest Api V1 Seasons Active Manifest Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Season Manifest",
+        "tags": [
+          "Progression"
+        ]
+      }
+    },
     "/api/v1/seasons/current": {
       "get": {
         "operationId": "current_api_v1_seasons_current_get",
@@ -9194,6 +9406,130 @@
           }
         ],
         "summary": "Claim Bonus",
+        "tags": [
+          "Progression"
+        ]
+      }
+    },
+    "/api/v1/seasons/{season_id}/me/character": {
+      "get": {
+        "operationId": "selected_character_api_v1_seasons__season_id__me_character_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "season_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Season Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CharacterSelection"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Selected Character",
+        "tags": [
+          "Progression"
+        ]
+      },
+      "put": {
+        "operationId": "choose_character_api_v1_seasons__season_id__me_character_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "season_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Season Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectCharacter"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CharacterSelection"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "PlayerAccess": []
+          }
+        ],
+        "summary": "Choose Character",
         "tags": [
           "Progression"
         ]

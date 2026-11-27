@@ -16,7 +16,7 @@ from sqlalchemy.orm import DeclarativeBase
 from app.core.config import Settings
 from app.core.errors import AppError
 
-SCHEMA_HEAD = "20261121_season_reset"
+SCHEMA_HEAD = "20261127_season_cast"
 
 
 class Base(DeclarativeBase):

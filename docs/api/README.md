@@ -121,6 +121,9 @@ Run `uv run python -m app.modules.ai.mcp_server` for stdio, or add `--http` for 
 | `POST` | `/api/v1/admin/seasons/{season_id}/close` | Close Season |
 | `GET` | `/api/v1/games/{game_id}/analytics` | Analytics |
 | `GET` | `/api/v1/seasons/current` | Current |
+| `GET` | `/api/v1/seasons/active/manifest` | Public active anime pack and cast |
+| `GET` | `/api/v1/seasons/{season_id}/me/character` | Read the player's character choice |
+| `PUT` | `/api/v1/seasons/{season_id}/me/character` | Save the player's character choice |
 | `GET` | `/api/v1/seasons/{season_id}/board` | Board |
 | `POST` | `/api/v1/seasons/{season_id}/bonus/{tier}/claim` | Claim Bonus |
 | `POST` | `/api/v1/seasons/{season_id}/tiers/{tier}/claim` | Claim Tier |
