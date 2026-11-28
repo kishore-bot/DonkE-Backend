@@ -1,7 +1,9 @@
 """Review-gated publication of seasonal rigs and voice performances."""
 
+import contextlib
 from datetime import UTC, datetime
 from hashlib import sha256
+from secrets import compare_digest
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
@@ -76,6 +78,7 @@ async def upload_media(
     slot: Annotated[str, Form(max_length=24)],
     reason: Annotated[str, Form(min_length=3, max_length=120)],
     platform: PlatformDep,
+    admin: Admin,
     cookie: Cookie,
     csrf: CsrfToken = None,
     request_id: RequestId = None,
@@ -83,31 +86,43 @@ async def upload_media(
     if not character_exists(pack_key, character_id):
         raise AppError(404, "season_character_not_found", "Character unavailable")
     cap = MAX_MODEL if slot == "model" else MAX_AUDIO
-    async with admin_write(
-        platform, cookie, csrf, request_id, "upload_season_media", reason
-    ) as db:
-        data = await file.read(cap + 1)
-        if len(data) > cap:
-            raise AppError(
-                413, "media_too_large", "The file exceeds the scene asset size limit"
-            )
-        content_type = validate_media(slot, data)
-        asset_id = uuid4()
-        extension = "glb" if slot == "model" else "wav"
-        key = f"seasons/{pack_key}/{character_id}/{asset_id}-{sha256(data).hexdigest()}.{extension}"
-        await run_in_threadpool(put_object, platform.settings, key, data, content_type)
-        row = SeasonMedia(
-            id=asset_id,
-            pack_key=pack_key,
-            character_id=character_id,
-            slot=slot,
-            object_key=key,
-            bytes=len(data),
-            content_type=content_type,
-            created_at=datetime.now(UTC),
+    # Check access before the slow upload without locking the admin session;
+    # admin_write repeats the check atomically when it records the asset.
+    identity = await admin.current(cookie)
+    if identity.admin.role != "admin":
+        raise AppError(403, "admin_required", "Admin role required")
+    if csrf is None or not compare_digest(csrf.encode(), identity.csrf_token.encode()):
+        raise AppError(403, "csrf_required", "Send a valid CSRF token")
+    data = await file.read(cap + 1)
+    if len(data) > cap:
+        raise AppError(
+            413, "media_too_large", "The file exceeds the scene asset size limit"
         )
-        db.add(row)
+    content_type = validate_media(slot, data)
+    asset_id = uuid4()
+    extension = "glb" if slot == "model" else "wav"
+    key = f"seasons/{pack_key}/{character_id}/{asset_id}-{sha256(data).hexdigest()}.{extension}"
+    await run_in_threadpool(put_object, platform.settings, key, data, content_type)
+    try:
+        async with admin_write(
+            platform, cookie, csrf, request_id, "upload_season_media", reason
+        ) as db:
+            row = SeasonMedia(
+                id=asset_id,
+                pack_key=pack_key,
+                character_id=character_id,
+                slot=slot,
+                object_key=key,
+                bytes=len(data),
+                content_type=content_type,
+                created_at=datetime.now(UTC),
+            )
+            db.add(row)
         return MediaView.model_validate(row)
+    except BaseException:
+        # No row references the object, so remove it rather than leave an orphan.
+        await run_in_threadpool(remove_object, platform.settings, key)
+        raise
 
 
 def put_object(settings: Settings, key: str, data: bytes, content_type: str) -> None:
@@ -119,6 +134,12 @@ def put_object(settings: Settings, key: str, data: bytes, content_type: str) -> 
         raise AppError(
             503, "media_upload_failed", "The season object could not be stored"
         ) from exc
+
+
+def remove_object(settings: Settings, key: str) -> None:
+    """Best effort: a failure leaves an unreferenced object for storage cleanup."""
+    with contextlib.suppress(Exception):
+        ObjectStorage(settings).delete(key)
 
 
 @router.post("/admin/season-media/{asset_id}/review")

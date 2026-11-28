@@ -123,6 +123,39 @@ def test_expired_match_capacity_can_be_reused(monkeypatch):
         create_game(client)
 
 
+def test_finished_matches_give_way_to_new_ones():
+    settings = Settings(practice_max_sessions=1)
+    with TestClient(create_app(settings)) as client:
+        view, path, headers = create_game(client)
+        assert client.post("/api/v1/practice", json={}).status_code == 503
+        while view["outcome"] is None:
+            response = client.post(f"{path}/plays", headers=headers, json=command(view))
+            view = response.json()["view"]
+        create_game(client)
+        assert client.get(path, headers=headers).status_code == 404
+
+
+def test_a_position_is_searched_once_for_repeated_hints(client, monkeypatch):
+    from app.modules.game import service
+
+    searches = []
+    real = service.hint_game
+
+    def counted(game, iterations):
+        searches.append(game)
+        return real(game, iterations)
+
+    monkeypatch.setattr(service, "hint_game", counted)
+    view, path, headers = create_game(client)
+    first = client.get(f"{path}/hint", headers=headers)
+    assert first.status_code == 200
+    assert client.get(f"{path}/hint", headers=headers).json() == first.json()
+    assert len(searches) == 1
+    client.post(f"{path}/plays", headers=headers, json=command(view))
+    assert client.get(f"{path}/hint", headers=headers).status_code == 200
+    assert len(searches) == 2
+
+
 def test_health_and_openapi(client):
     assert client.get("/healthz").json() == {"status": "ok"}
     assert client.get("/ready").status_code == 200

@@ -377,6 +377,45 @@ def test_a_lost_refresh_response_can_be_retried_but_theft_still_revokes(settings
         )
 
 
+def test_a_grace_retry_supersedes_the_earlier_replacement(settings):
+    from datetime import UTC, datetime, timedelta
+
+    from app.modules.identity import service as identity_service
+
+    config = settings.model_copy(update={"refresh_reuse_grace_seconds": 20})
+    with TestClient(
+        create_app(config, TestGoogle()), base_url="https://testserver"
+    ) as client:
+        original = sign_in(client)
+        payload = {"refresh_token": original["refresh_token"]}
+        legit = client.post("/api/v1/auth/refresh", json=payload).json()
+        # A copy of the original replayed inside the window gets the only live chain.
+        thief = client.post("/api/v1/auth/refresh", json=payload).json()
+
+        later = datetime.now(UTC) + timedelta(seconds=21)
+
+        class Later(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return later
+
+        identity_service.datetime = Later
+        try:
+            superseded = client.post(
+                "/api/v1/auth/refresh",
+                json={"refresh_token": legit["refresh_token"]},
+            )
+            follow_up = client.post(
+                "/api/v1/auth/refresh",
+                json={"refresh_token": thief["refresh_token"]},
+            )
+        finally:
+            identity_service.datetime = datetime
+        assert superseded.status_code == 401
+        assert follow_up.status_code == 401
+        assert client.get("/api/v1/auth/me", headers=headers(thief)).status_code == 401
+
+
 def test_empty_secrets_are_rejected_or_treated_as_unset():
     online = {
         "postgres_dsn": "postgresql+asyncpg://u:p@localhost/d",

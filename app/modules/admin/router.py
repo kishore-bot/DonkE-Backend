@@ -3,7 +3,8 @@ from uuid import uuid4
 from fastapi import APIRouter, Request, Response
 
 from app.core.dependencies import PlatformDep
-from app.core.rate_limit import client_host, limit
+from app.core.errors import AppError
+from app.core.rate_limit import FailureLimit, client_host, limit
 from app.modules.admin.dependencies import (
     SESSION_COOKIE,
     Admin,
@@ -32,11 +33,27 @@ async def login(
     admin: Admin,
     request_id: RequestId = None,
 ) -> AdminLogin:
-    await limit(platform, "admin_login_ip", client_host(request), 10, 60)
-    await limit(platform, "admin_login_name", body.username, 5, 900)
-    result, cookie = await admin.sign_in(
-        body.username, body.password, request_id or uuid4(), body.totp
+    host = client_host(request)
+    await limit(platform, "admin_login_ip", host, 10, 60)
+    # Only failures count. The tight limit is per name and address, so a stranger
+    # cannot lock an admin out from elsewhere. The name-wide limit stops
+    # distributed guessing.
+    failures = (
+        FailureLimit(platform, "admin_login", f"{body.username}:{host}", 5, 900),
+        FailureLimit(platform, "admin_login_name", body.username, 30, 900),
     )
+    for failure in failures:
+        await failure.check()
+    try:
+        result, cookie = await admin.sign_in(
+            body.username, body.password, request_id or uuid4(), body.totp
+        )
+    except AppError as error:
+        if error.status == 401 and error.code != "totp_required":
+            for failure in failures:
+                await failure.fail()
+        raise
+    await failures[0].clear()
     response.set_cookie(
         SESSION_COOKIE,
         cookie,

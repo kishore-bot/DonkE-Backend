@@ -12,6 +12,7 @@ from app.core.config import Settings
 from app.core.errors import AppError
 from app.modules.game.schemas import (
     GameUpdate,
+    PracticeHint,
     PracticePlayRequest,
 )
 from app.modules.game.seeded import SeededDuel
@@ -35,6 +36,10 @@ class PracticeSession:
     plays: dict[UUID, RecordedPlay] = field(default_factory=dict)
     # Serialises plays within one match; other matches never wait on it.
     lock: Lock = field(default_factory=Lock)
+    # The last hint and the game instance it was computed for. Play publishes a
+    # new instance, so one engine search serves every hint request per position.
+    hint: tuple[object, PracticeHint] | None = None
+    hint_lock: Lock = field(default_factory=Lock)
 
 
 class PracticeRepository:
@@ -77,12 +82,30 @@ class PracticeRepository:
             raise AppError(
                 429, "practice_limit", "Finish one of your practice matches first"
             )
+        self._evict_finished(settings.practice_max_sessions - creating.total())
         if len(sessions) + creating.total() >= settings.practice_max_sessions:
             raise AppError(503, "practice_full", "Practice is at capacity")
         recent.append(now)
         created[client] = recent
         created.move_to_end(client)
         creating[client] += 1
+
+    def _evict_finished(self, room: int) -> None:
+        """Drop finished matches, plain practice first and oldest first, until
+        the table has fewer than `room` sessions. Finished matches only keep
+        their result screen, so they never refuse a new match. O(n log n) for
+        n <= practice_max_sessions, and only when the table is full."""
+        sessions = self._sessions
+        excess = len(sessions) - room + 1
+        if excess <= 0:
+            return
+        finished = sorted(
+            (session.story is not None, session.expires_at, game_id)
+            for game_id, session in sessions.items()
+            if session.finished
+        )
+        for *_, game_id in finished[:excess]:
+            del sessions[game_id]
 
     def release(self, client: str) -> None:
         with self._lock:

@@ -22,6 +22,30 @@ async def limit(
         raise AppError(429, "rate_limited", "Too many attempts. Try again later")
 
 
+class FailureLimit:
+    """Counts only failed attempts. `check` refuses once `maximum` failures are
+    recorded inside the window, `fail` records one, and `clear` forgets them."""
+
+    def __init__(
+        self, platform: Platform, action: str, scope: str, maximum: int, seconds: int
+    ):
+        self.platform, self.maximum, self.seconds = platform, maximum, seconds
+        self.key = f"{platform.settings.redis_prefix}:fail:{action}:{scope}"
+
+    async def check(self) -> None:
+        failures = await self.platform.redis.get(self.key)
+        if failures is not None and int(failures) >= self.maximum:
+            raise AppError(429, "rate_limited", "Too many attempts. Try again later")
+
+    async def fail(self) -> None:
+        await self.platform.redis.execute_command(
+            "EVAL", COUNTER, 1, self.key, self.seconds
+        )
+
+    async def clear(self) -> None:
+        await self.platform.redis.delete(self.key)
+
+
 def client_host(request: Request) -> str:
     """The caller's IP. X-Forwarded-For is honoured only when the direct peer
     is a configured trusted proxy, walking right to left to the first address

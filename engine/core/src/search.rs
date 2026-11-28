@@ -142,7 +142,24 @@ pub(crate) fn determinize(game: &Game, observer: Option<usize>, rng: &mut impl R
     let Some(counts) = allocate(&needs, &voids, supply, rng)
         .or_else(|| allocate(&needs, &vec![0; voids.len()], supply, rng))
     else {
-        return world; // Not enough unseen cards: keep the real hands.
+        // Tracking disagrees with the hands, so no consistent deal exists.
+        // Reshuffle the hidden seats' unknown cards among them instead of
+        // keeping the real hands, so search never reads who holds what.
+        let mut pool = Vec::new();
+        let mut kept = Vec::with_capacity(hidden.len());
+        for &seat in &hidden {
+            let (known, unknown): (Vec<Card>, Vec<Card>) = world.hands[seat]
+                .iter()
+                .partition(|card| world.known[seat].contains(card));
+            kept.push((known, unknown.len()));
+            pool.extend(unknown);
+        }
+        pool.shuffle(rng);
+        for (&seat, (mut hand, count)) in hidden.iter().zip(kept) {
+            hand.extend(pool.drain(pool.len() - count..));
+            world.hands[seat] = hand;
+        }
+        return world;
     };
     let mut by_suit: [Vec<Card>; 4] = Default::default();
     for card in unseen {
@@ -390,6 +407,32 @@ mod tests {
             assert_eq!(all.len(), 52);
             assert!(Card::deck().iter().all(|card| all.contains(card)));
         }
+    }
+
+    #[test]
+    fn inconsistent_snapshots_never_expose_the_real_hidden_hands() {
+        let mut rng = StdRng::seed_from_u64(3);
+        let mut game = Game::deal(4, &mut rng).unwrap();
+        game.ensure_tracking();
+        // Corrupt tracking: a card still held by seat 1 is also recorded as
+        // discarded, so too few cards are unseen for any consistent deal.
+        let held = game.hands[1][0];
+        game.discarded.push(held);
+        let mut hidden_cards: Vec<Card> = (1..4).flat_map(|s| game.hands[s].clone()).collect();
+        hidden_cards.sort_by_key(|card| card_index(*card));
+        let mut reshuffled = false;
+        for _ in 0..20 {
+            let world = determinize(&game, Some(0), &mut rng);
+            assert_eq!(world.hands[0], game.hands[0]);
+            let mut dealt: Vec<Card> = (1..4).flat_map(|s| world.hands[s].clone()).collect();
+            dealt.sort_by_key(|card| card_index(*card));
+            assert_eq!(dealt, hidden_cards);
+            for seat in 1..4 {
+                assert_eq!(world.hands[seat].len(), game.hands[seat].len());
+            }
+            reshuffled |= (1..4).any(|s| world.hands[s] != game.hands[s]);
+        }
+        assert!(reshuffled);
     }
 
     #[test]

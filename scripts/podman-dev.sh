@@ -42,9 +42,10 @@ case "${1:-up}" in
     up)
         validate_config
         podman build --file Containerfile --tag localhost/donke-backend:dev .
-        compose up -d postgres redis
+        compose up -d postgres redis objects
         wait_for_stores
         compose run --rm db-init
+        compose run --rm objects-init
         compose up -d app matchmaking jobs scheduler voice
         ;;
     smoke)

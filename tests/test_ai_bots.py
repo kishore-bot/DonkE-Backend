@@ -255,3 +255,5 @@ def test_taskiq_jobs_are_registered_with_retries_and_schedules():
         {"cron": "* * * * *"}
     ]
     assert prune is not None and prune.labels["schedule"][0]["cron"] == "17 * * * *"
+    sweep = jobs.broker.find_task("donke.sweep_media")
+    assert sweep is not None and sweep.labels["schedule"][0]["cron"] == "43 * * * *"

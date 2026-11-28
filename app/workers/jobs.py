@@ -30,7 +30,7 @@ from taskiq_redis import RedisStreamBroker
 from app.core.config import Settings
 from app.core.platform import Platform, open_platform
 from app.modules.ai.fair_play import drain, run_analysis
-from app.workers.maintenance import prune_sessions
+from app.workers.maintenance import prune_sessions, sweep_media
 
 settings = Settings()
 
@@ -89,3 +89,12 @@ async def prune_expired_sessions(
 ) -> None:
     """Hourly: delete expired player and admin sessions."""
     await prune_sessions(platform)
+
+
+@broker.task(task_name="donke.sweep_media", schedule=[{"cron": "43 * * * *"}])
+async def sweep_orphaned_media(
+    platform: Platform = PLATFORM,
+) -> int:
+    """Hourly: delete stored season objects that no media row references."""
+    return await sweep_media(platform)
+

@@ -53,7 +53,7 @@ The import-graph test rejects direct and transitive cycles between application m
 
 | Flow | Implementation and invariant |
 | --- | --- |
-| Practice | The in-process repository reserves capacity before dealing and validates token digests and expiry. A match lock serializes plays. An identical request UUID and payload return the recorded result. A new play replaces the prior engine snapshot after native validation. |
+| Practice | The in-process repository reserves capacity before dealing and validates token digests and expiry. When the table is full, finished matches are dropped (plain practice first, oldest first) before a new match is refused. A match lock serializes plays. An identical request UUID and payload return the recorded result. A new play replaces the prior engine snapshot after native validation. |
 | Seat admission | `app/modules/lobby/repository.py` and its Lua script fence claims and check player membership. A room starts only if its ready revision and all seat reservations match. |
 | Player move | `app/modules/matches/controllers/socket.py` authenticates the socket. `MatchService` restores the native game, applies a legal move and asks `game.lua` to commit. The script checks connection ownership and version, then publishes the snapshot, stream batch, receipt and next deadline atomically. Retried request IDs return the original acknowledgement when the payload matches. |
 | Reconnect | The browser exchanges its access token for a same-origin, single-use socket ticket. Native clients can send a Bearer header. The API replays public batches after the last applied sequence and sends a private seat view. A newer connection supersedes the previous one. |

@@ -56,9 +56,17 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr | None = None
     season_media_bucket: str | None = None
     season_media_endpoint: HttpUrl | None = None
+    # Address browsers use for signed reads when it differs from the endpoint
+    # the backend reaches, e.g. a local container published on localhost.
+    season_media_public_endpoint: HttpUrl | None = None
     season_media_region: str | None = None
 
-    @field_validator("season_media_endpoint", "season_media_region", mode="before")
+    @field_validator(
+        "season_media_endpoint",
+        "season_media_public_endpoint",
+        "season_media_region",
+        mode="before",
+    )
     @classmethod
     def empty_media_setting(cls, value: object) -> object:
         return None if value == "" else value

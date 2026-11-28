@@ -121,6 +121,8 @@ class StoreService:
                 raise AppError(
                     409, "insufficient_coins", "Earn more coins to buy this cosmetic"
                 )
+            # The ledger reference is unique per player and item. If it already
+            # exists, the item was paid for, so restore it without charging twice.
             await credit(db, wallet, f"buy:{player}:{sku}", "purchase", -product.price)
             await own(db, player, sku)
             return wallet.coins

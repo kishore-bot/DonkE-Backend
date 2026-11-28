@@ -6,7 +6,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.core.dependencies import OptionalPlatform
 from app.core.errors import ErrorResponse
-from app.core.rate_limit import client_host
+from app.core.rate_limit import client_host, limit
 from app.modules.game.dependencies import AccessToken, Practice
 from app.modules.game.schemas import (
     GameUpdate,
@@ -56,7 +56,9 @@ async def get_practice(
     return await run_in_threadpool(service.snapshot, game_id, token)
 
 
-@router.get("/{game_id}/hint", responses=AUTH_ERRORS)
+@router.get(
+    "/{game_id}/hint", responses={**AUTH_ERRORS, 429: {"model": ErrorResponse}}
+)
 async def hint(
     game_id: UUID,
     platform: OptionalPlatform,
@@ -67,7 +69,8 @@ async def hint(
     """The engine's view of your current choices. Practice only."""
     response.headers["Cache-Control"] = "no-store"
     store = for_attempt(platform, game_id, token)
-    if store is not None:
+    if store is not None and platform is not None:
+        await limit(platform, "story_hint", str(game_id), 10, 60)
         return await store.hint(game_id, token)
     return await run_in_threadpool(service.hint, game_id, token)
 

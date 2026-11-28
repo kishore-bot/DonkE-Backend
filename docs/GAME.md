@@ -28,7 +28,7 @@ Classic uses one queue. Ranked bands are below 1600, 1600–2799, 2800–3999, a
 
 ## Turns, retries, and recovery
 
-Practice uses `POST /api/v1/practice` and returns a match-scoped capability with the player view. The hint endpoint scores the human seat's legal moves. A play sends a card, the last confirmed `expected_version`, and a new request UUID. An identical retry returns the recorded response. A changed payload with the same UUID or a stale version produces a conflict. A fresh authoritative snapshot allows recovery.
+Practice uses `POST /api/v1/practice` and returns a match-scoped capability with the player view. The hint endpoint scores the human seat's legal moves. Each position is searched once and repeated requests reuse that result. Signed-in story hints allow 10 requests per match per minute. A play sends a card, the last confirmed `expected_version`, and a new request UUID. An identical retry returns the recorded response. A changed payload with the same UUID or a stale version produces a conflict. A fresh authoritative snapshot allows recovery.
 
 An online room supplies the game ID once it starts. A browser exchanges its account token for a one-use 30-second socket ticket and offers `donke.v1` and `ticket.<value>`. The client tracks the move version and public event sequence separately. On reconnect it requests missed events using `after_sequence` and uses the private `state_sync` as the authoritative seat view. A new connection takes over from the player’s earlier socket.
 

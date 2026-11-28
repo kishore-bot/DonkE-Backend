@@ -74,8 +74,16 @@ class PracticeService:
 
     def hint(self, game_id: UUID, token: str) -> PracticeHint:
         # Play publishes a new game instance. Readers can use the captured version.
-        game = self.repository.get(game_id, token).game
-        return hint_game(game, self.settings.practice_hint_iterations)
+        # Repeated requests for one position wait for and reuse a single search.
+        session = self.repository.get(game_id, token)
+        with session.hint_lock:
+            game = session.game
+            if session.hint is None or session.hint[0] is not game:
+                session.hint = (
+                    game,
+                    hint_game(game, self.settings.practice_hint_iterations),
+                )
+            return session.hint[1]
 
     def snapshot(self, game_id: UUID, token: str) -> GameUpdate:
         game = self.repository.get(game_id, token).game

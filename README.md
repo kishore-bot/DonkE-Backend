@@ -54,6 +54,7 @@ Install Podman and `podman-compose` inside WSL. Use [`.env.example`](.env.exampl
 | --- | --- |
 | `DONKE_POSTGRES_PASSWORD` | Required by Compose. Use a URL-safe random value. |
 | `DONKE_AUTH_SECRET` | Required for the online stack. Use a separate random value of at least 32 bytes. |
+| `DONKE_OBJECTS_ACCESS_KEY`, `DONKE_OBJECTS_SECRET_KEY` | Required by Compose. Credentials for the local S3-compatible media store. Use a long random secret. |
 | `DONKE_GOOGLE_CLIENT_ID` | Enables player sign-in with Google. |
 | `DONKE_GEMINI_API_KEY` | Enables Gemini calls for coaching, commentary, embeddings, and voice. |
 | `DONKE_DEMO_MODE` | Set to `true` on a dedicated demo database to enable the showcase seed. |
@@ -64,7 +65,7 @@ bash scripts/podman-dev.sh up
 curl --fail http://127.0.0.1:8000/ready
 ```
 
-The launcher builds the image, waits for PostgreSQL and Redis, runs the Alembic baseline, then starts the API and background workers. The stores stay on the internal network. Use `bash scripts/podman-dev.sh down` to stop the stack and retain its data volumes.
+The launcher builds the image, waits for PostgreSQL and Redis, runs the Alembic baseline, prepares the season media bucket, then starts the API and background workers. PostgreSQL and Redis stay on the internal network. The media store ([RustFS](https://github.com/rustfs/rustfs), S3-compatible) listens on `127.0.0.1:9000` so the browser can load signed media URLs. Compose points the backend at it by default. To use a hosted bucket instead, set the `DONKE_SEASON_MEDIA_*` values and AWS credentials. Use `bash scripts/podman-dev.sh down` to stop the stack and retain its data volumes.
 
 [Podman Compose documentation](https://docs.podman.io/en/latest/markdown/podman-compose.1.html)
 

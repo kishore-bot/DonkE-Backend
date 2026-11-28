@@ -17,10 +17,10 @@ For an existing database with DonkE tables, compare its columns, defaults, const
 
 1. The mobile website submits its Google ID token as JSON to `POST /api/v1/auth/google`. Configure `DONKE_GOOGLE_CLIENT_ID` to the audience used in the client. The backend validates the token and identifies the account by its Google subject. [Google ID token verification](https://developers.google.com/identity/sign-in/web/backend-auth)
 2. Send the 30-minute JWT as a Bearer token. `GET /api/v1/auth/me` returns the profile. `PATCH /api/v1/auth/me` accepts the commentary language code.
-3. Send the refresh token to `POST /api/v1/auth/refresh`. Serialize refresh attempts per client session and save the replacement before issuing another refresh. A refresh family lasts seven days. Replaying a consumed token revokes that family, including its access tokens. Separate logins stay valid.
+3. Send the refresh token to `POST /api/v1/auth/refresh`. Serialize refresh attempts per client session and save the replacement before issuing another refresh. A refresh family lasts seven days. A consumed token can be retried for `DONKE_REFRESH_REUSE_GRACE_SECONDS` (20 s by default) after its first use. Each retry supersedes the replacement issued before it, so only one refresh chain stays live. Replaying a consumed or superseded token after that window revokes the family, including its access tokens. Separate logins stay valid.
 4. `POST /api/v1/auth/logout` revokes the current family. Protected calls check for revocation, expiry and account status in PostgreSQL.
 
-Refresh tokens are stored as digests. Rotation locks the session row, marks the presented token used and inserts the replacement in the same transaction. Reuse detection commits the revocation before the API sends its error. If a successful refresh response is lost, sign in again to recover the session.
+Refresh tokens are stored as digests. Rotation locks the session row, marks every outstanding token of the session used and inserts the replacement in the same transaction. Reuse detection commits the revocation before the API sends its error. If a successful refresh response is lost, retry with the same token inside the grace window. After the window, sign in again.
 
 ## Room and queue flows
 

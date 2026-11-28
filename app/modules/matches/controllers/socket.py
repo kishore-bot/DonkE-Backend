@@ -104,6 +104,8 @@ async def socket_loop(
                 await send(socket, {"type": "feed", **entry})
         return last
 
+    events_key = service.repo.game_key("events", game_id)
+    feed_key = live.key(service.platform, "feed", game_id)
     cursor = await sync(after)
     feed_cursor = await forward_feed(None)
     next_auth = monotonic() + 5
@@ -166,14 +168,20 @@ async def socket_loop(
                         raise
                     await send(socket, {"type": "error", "code": exc.code})
                 pending = asyncio.create_task(socket.receive())
-            # Idle ticks read one stream id instead of the whole match state.
+            # Idle ticks run one non-blocking XREAD over the event and feed
+            # streams instead of reading the match state. Event ids are
+            # `{sequence}-0`, so any entry past the cursor means new moves.
             # A full load still runs on each renewal, to notice a deleted game.
-            latest = await service.repo.latest_sequence(game_id)
-            if renewed or latest != cursor:
+            fresh = await service.platform.redis.xread(
+                {events_key: f"{cursor}-0", feed_key: feed_cursor or "0-0"}, count=1
+            )
+            streams = set(fresh) if isinstance(fresh, dict) else {s for s, _ in fresh}
+            if renewed or events_key in streams:
                 state = await service.load(game_id, player_id)
                 if state.sequence != cursor:
                     cursor = await sync(cursor)
-            feed_cursor = await forward_feed(feed_cursor)
+            if feed_key in streams:
+                feed_cursor = await forward_feed(feed_cursor)
     finally:
         if not pending.done():
             pending.cancel()

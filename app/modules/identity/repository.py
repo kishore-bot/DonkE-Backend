@@ -51,6 +51,17 @@ async def lookup_token(
     )
 
 
+async def consume_outstanding(
+    db: AsyncSession, session_id: UUID, at: datetime
+) -> None:
+    """Mark every unused refresh token of a locked session as used."""
+    await db.execute(
+        update(RefreshToken)
+        .where(RefreshToken.session_id == session_id, RefreshToken.used_at.is_(None))
+        .values(used_at=at)
+    )
+
+
 async def prune_expired(db: AsyncSession, now: datetime) -> None:
     await db.execute(delete(PlayerSession).where(PlayerSession.expires_at <= now))
 

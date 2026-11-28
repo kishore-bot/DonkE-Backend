@@ -119,8 +119,11 @@ class IdentityService:
                 # end the whole session.
                 session.revoked_at = now
             else:
-                if previous.used_at is None:
-                    previous.used_at = now
+                # Consuming every outstanding token keeps one live chain: a grace
+                # retry supersedes the replacement issued earlier, so a token
+                # stolen inside the window cannot start a parallel chain, and
+                # presenting a superseded token after the window revokes the session.
+                await repository.consume_outstanding(db, session.id, now)
                 refresh, row = self._new_refresh(session.id)
                 db.add(row)
                 result = self._tokens(session, refresh, now)

@@ -25,11 +25,14 @@ x-backend: &backend
     DONKE_MATCH_MINUTES: ${DONKE_MATCH_MINUTES:-45}
     DONKE_MATCH_ARCHIVE_SECONDS: ${DONKE_MATCH_ARCHIVE_SECONDS:-86400}
     DONKE_GEMINI_API_KEY: ${DONKE_GEMINI_API_KEY:-}
-    DONKE_SEASON_MEDIA_BUCKET: ${DONKE_SEASON_MEDIA_BUCKET:-}
-    DONKE_SEASON_MEDIA_ENDPOINT: ${DONKE_SEASON_MEDIA_ENDPOINT:-}
-    DONKE_SEASON_MEDIA_REGION: ${DONKE_SEASON_MEDIA_REGION:-}
-    AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
-    AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    # Defaults use the local "objects" store. Set these to use a hosted bucket.
+    DONKE_SEASON_MEDIA_BUCKET: ${DONKE_SEASON_MEDIA_BUCKET:-donke-season-media}
+    DONKE_SEASON_MEDIA_ENDPOINT: ${DONKE_SEASON_MEDIA_ENDPOINT:-http://objects:9000}
+    DONKE_SEASON_MEDIA_PUBLIC_ENDPOINT: ${DONKE_SEASON_MEDIA_PUBLIC_ENDPOINT:-http://localhost:9000}
+    DONKE_SEASON_MEDIA_REGION: ${DONKE_SEASON_MEDIA_REGION:-us-east-1}
+    DONKE_SEASON_MEDIA_CORS_ORIGINS: ${DONKE_SEASON_MEDIA_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+    AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-${DONKE_OBJECTS_ACCESS_KEY:-}}
+    AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-${DONKE_OBJECTS_SECRET_KEY:-}}
     AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
     DONKE_GEMINI_TEXT_MODEL: ${DONKE_GEMINI_TEXT_MODEL:-gemini-3.8-flash}
     DONKE_GEMINI_VOICE_MODEL: ${DONKE_GEMINI_VOICE_MODEL:-gemini-3.8-flash-tts}
@@ -64,6 +67,23 @@ services:
       interval: 2s
       timeout: 2s
       retries: 20
+  objects:
+    # S3-compatible store for season media, replacing the hosted bucket locally.
+    image: docker.io/rustfs/rustfs:1.0.7
+    environment:
+      RUSTFS_ACCESS_KEY: ${DONKE_OBJECTS_ACCESS_KEY:?Set DONKE_OBJECTS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${DONKE_OBJECTS_SECRET_KEY:?Set DONKE_OBJECTS_SECRET_KEY}
+      RUSTFS_CONSOLE_ENABLE: "false"
+    volumes:
+      - objects-data:/data
+    ports:
+      # Browsers fetch signed media URLs from this address.
+      - "127.0.0.1:9000:9000"
+  objects-init:
+    <<: *backend
+    command: ["python", "-m", "scripts.init_object_storage"]
+    depends_on:
+      - objects
   db-init:
     <<: *backend
     command: ["alembic", "upgrade", "head"]
@@ -111,3 +131,4 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  objects-data:
