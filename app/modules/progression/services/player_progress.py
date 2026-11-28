@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 
 from app.core.errors import AppError
 from app.core.platform import Platform
+from app.modules.identity.models.player import Player
 from app.modules.progression.helpers.calendar import week_start
 from app.modules.progression.helpers.catalog import (
     ACHIEVEMENTS,
@@ -122,8 +123,11 @@ class SeasonProgressService:
         async with self.platform.sessions() as db:
             if await db.get(Season, season_id) is None:
                 raise AppError(404, "season_not_found", "Season not found")
-            rows = await db.scalars(
-                select(SeasonPlayer)
+            rows = await db.execute(
+                select(SeasonPlayer, Player.display_name)
+                .outerjoin(
+                    Player, (Player.id == SeasonPlayer.player_id) & Player.active
+                )
                 .where(SeasonPlayer.season_id == season_id)
                 .order_by(
                     SeasonPlayer.peak_mmr.desc(),
@@ -134,9 +138,12 @@ class SeasonProgressService:
             )
             return [
                 Standing(
-                    player_id=row.player_id, points=row.points, peak_mmr=row.peak_mmr
+                    player_id=row.player_id,
+                    display_name=display_name,
+                    points=row.points,
+                    peak_mmr=row.peak_mmr,
                 )
-                for row in rows
+                for row, display_name in rows
             ]
 
     async def achievements(self, player: UUID) -> AchievementsView:

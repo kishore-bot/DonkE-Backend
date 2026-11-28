@@ -56,6 +56,11 @@ jobs:
   podman-smoke:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
+    env:
+      DONKE_POSTGRES_PASSWORD: synthetic-showcase-only
+      DONKE_AUTH_SECRET: synthetic-showcase-key-with-at-least-32-bytes
+      DONKE_OBJECTS_ACCESS_KEY: donke-smoke
+      DONKE_OBJECTS_SECRET_KEY: synthetic-showcase-storage-key
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
@@ -69,22 +74,14 @@ jobs:
           uv tool dir --bin >> "$GITHUB_PATH"
       - name: Build and smoke-test the Podman stack
         env:
-          DONKE_POSTGRES_PASSWORD: synthetic-showcase-only
-          DONKE_AUTH_SECRET: synthetic-showcase-key-with-at-least-32-bytes
           DONKE_DEMO_MODE: "true"
-          DONKE_GEMINI_API_KEY: ""
           DONKE_ROOM_START_SECONDS: "0"
           RUSTUP_TOOLCHAIN: "1.96.0"
         run: |
-          bash scripts/podman-dev.sh config
-          export PODMAN_COMPOSE_PROVIDER="$(command -v podman-compose)"
-          podman compose --file compose.yml up -d
+          bash scripts/podman-dev.sh up
           bash scripts/podman-dev.sh smoke
       - name: Stop the Podman smoke stack
         if: always()
-        env:
-          DONKE_POSTGRES_PASSWORD: synthetic-showcase-only
-          DONKE_AUTH_SECRET: synthetic-showcase-key-with-at-least-32-bytes
         run: |
           if command -v podman-compose >/dev/null; then
             bash scripts/podman-dev.sh down

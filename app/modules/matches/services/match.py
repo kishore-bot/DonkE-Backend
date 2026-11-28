@@ -40,6 +40,12 @@ class MatchService:
         position(state, player_id)
         return state
 
+    async def load_for_socket(self, game_id: UUID, player_id: UUID) -> MatchState:
+        state = await self.load(game_id, player_id)
+        if state.status == "active" and state.seats[position(state, player_id)].left:
+            raise unavailable()
+        return state
+
     def view(
         self, state: MatchState, player_id: UUID, *, now_ms: int | None = None
     ) -> PublicMatch:
@@ -126,21 +132,21 @@ class MatchService:
         seat = position(state, player_id)
         game = OnlineGame.restore(state.native)
         view = PlayerView.model_validate_json(game.view(seat))
-        if (
-            state.status != "active"
-            or seat in view.escape_order
-            or state.seats[seat].bot
-        ):
+        player = state.seats[seat]
+        if state.status != "active" or player.left:
             return
-        state.seats[seat].bot = True
-        state.seats[seat].forfeited = True
-        if state.turn == seat and state.prepare_until_ms is None:
-            state.deadline_ms = deadline(
-                self.platform.settings, state, await self.repo.now_ms()
-            )
+        player.left = True
+        events = []
+        if seat not in view.escape_order and not player.bot:
+            player.bot = player.forfeited = True
+            if state.turn == seat and state.prepare_until_ms is None:
+                state.deadline_ms = deadline(
+                    self.platform.settings, state, await self.repo.now_ms()
+                )
+            events.append({"event": "seat_taken_over", "seat": seat, "reason": "left"})
         await self.commit(
             state,
-            [{"event": "seat_taken_over", "seat": seat, "reason": "left"}],
+            events,
             owner,
             player_id=str(player_id),
             is_leave=True,

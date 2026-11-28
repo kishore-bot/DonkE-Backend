@@ -44,8 +44,8 @@ case "${1:-up}" in
         podman build --file Containerfile --tag localhost/donke-backend:dev .
         compose up -d postgres redis objects
         wait_for_stores
-        compose run --rm db-init
-        compose run --rm objects-init
+        compose run --rm -T db-init </dev/null
+        compose run --rm -T objects-init </dev/null
         compose up -d app matchmaking jobs scheduler voice
         ;;
     smoke)

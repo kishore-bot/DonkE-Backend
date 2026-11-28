@@ -48,7 +48,9 @@ Run practice with one server worker. Sessions expire after an hour by default an
 
 ### Online stack with rootless Podman
 
-Install Podman and `podman-compose` inside WSL. Use [`.env.example`](.env.example) to configure `.env.dev` (preferred by the launcher) or `.env`.
+Install Podman and `podman-compose` inside WSL. Copy [`.env.example`](.env.example) to `.env.dev` and fill in the local credentials. The launcher also accepts `.env`. Keep only values you need to set or override. [`compose.yml`](compose.yml) lists the defaults for the online stack, including matchmaking and turn timers.
+
+When running Python directly, [`Settings`](app/core/config.py) reads process variables and `.env`. Leave all three of `DONKE_POSTGRES_DSN`, `DONKE_REDIS_DSN` and `DONKE_AUTH_SECRET` unset for practice-only mode, or set all three for online mode.
 
 | Variable | When to set it |
 | --- | --- |

@@ -278,7 +278,7 @@ def test_podman_launcher_pins_provider_and_waits_for_schema_initialization(
     podman = tmp_path / "podman"
     podman.write_text(
         '#!/bin/sh\nprintf "podman %s %s\n" "$PODMAN_COMPOSE_PROVIDER" "$*" >> "$PODMAN_TEST_LOG"\n'
-        'case " $* " in *" run --rm db-init "*) exit "$PODMAN_TEST_INIT_CODE";; esac\n',
+        'case " $* " in *" run --rm -T db-init "*) exit "$PODMAN_TEST_INIT_CODE";; esac\n',
         encoding="utf-8",
     )
     for command in (podman, provider):
@@ -312,13 +312,13 @@ def test_podman_launcher_pins_provider_and_waits_for_schema_initialization(
         if line.endswith("up -d postgres redis objects")
     )
     schema_init = next(
-        i for i, line in enumerate(commands) if line.endswith("run --rm db-init")
+        i for i, line in enumerate(commands) if line.endswith("run --rm -T db-init")
     )
     assert stores < schema_init
     assert any("pg_isready" in line for line in commands[stores:schema_init])
     assert any("redis-cli ping" in line for line in commands[stores:schema_init])
     assert any(
-        line.endswith("run --rm objects-init") for line in commands[schema_init:]
+        line.endswith("run --rm -T objects-init") for line in commands[schema_init:]
     ) == (init_code == 0)
     assert any(
         line.endswith("up -d app matchmaking jobs scheduler voice")

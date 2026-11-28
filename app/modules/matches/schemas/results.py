@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 from app.modules.lobby.schemas.queue import Mode
 from app.modules.matches.schemas.state import EventBatch, GameSeat, MatchAdmission
 
+type Placement = Literal["escaped", "donkey", "forfeited", "holding"]
+
 
 class MatchReplay(BaseModel):
     id: UUID
@@ -55,7 +57,7 @@ class SettledResult(BaseModel):
     rewarded_season_id: UUID | None = None
     finished_at: datetime
     outcome: str
-    placement: Literal["escaped", "donkey", "forfeited", "holding"]
+    placement: Placement
     place: int | None = None
     rewards: MatchRewards | None = None
 
@@ -68,3 +70,5 @@ type MatchResult = Annotated[
 class RecentMatch(BaseModel):
     game_id: UUID
     finished_at: datetime
+    mode: Mode | None = None
+    placement: Placement | None = None

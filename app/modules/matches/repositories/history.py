@@ -12,14 +12,22 @@ from app.modules.matches.schemas.results import MatchReplay, RecentMatch
 async def recent_results(platform: Platform, player_id: UUID) -> list[RecentMatch]:
     async with platform.sessions() as db:
         rows = await db.execute(
-            select(MatchPlayer.game_id, MatchPlayer.finished_at)
+            select(
+                MatchPlayer.game_id,
+                MatchPlayer.finished_at,
+                MatchRecord.replay["mode"].as_string(),
+                MatchPlayer.receipt["placement"].as_string(),
+            )
+            .join(MatchRecord, MatchRecord.id == MatchPlayer.game_id)
             .where(MatchPlayer.player_id == player_id)
             .order_by(MatchPlayer.finished_at.desc(), MatchPlayer.game_id)
             .limit(10)
         )
         return [
-            RecentMatch(game_id=game_id, finished_at=finished_at)
-            for game_id, finished_at in rows
+            RecentMatch(
+                game_id=game_id, finished_at=finished_at, mode=mode, placement=placement
+            )
+            for game_id, finished_at, mode, placement in rows
         ]
 
 

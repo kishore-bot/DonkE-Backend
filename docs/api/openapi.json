@@ -1776,6 +1776,11 @@
             "title": "Iterations",
             "type": "integer"
           },
+          "left": {
+            "default": false,
+            "title": "Left",
+            "type": "boolean"
+          },
           "level": {
             "anyOf": [
               {
@@ -2686,6 +2691,15 @@
         "title": "PersonaLines",
         "type": "object"
       },
+      "Placement": {
+        "enum": [
+          "escaped",
+          "donkey",
+          "forfeited",
+          "holding"
+        ],
+        "type": "string"
+      },
       "PlayLimitOutcome": {
         "properties": {
           "reason": {
@@ -3444,6 +3458,31 @@
             "format": "uuid",
             "title": "Game Id",
             "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "classic",
+                  "ranked"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "placement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Placement"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -4434,14 +4473,7 @@
             "title": "Place"
           },
           "placement": {
-            "enum": [
-              "escaped",
-              "donkey",
-              "forfeited",
-              "holding"
-            ],
-            "title": "Placement",
-            "type": "string"
+            "$ref": "#/components/schemas/Placement"
           },
           "rewarded_season_id": {
             "anyOf": [
@@ -4621,6 +4653,17 @@
       },
       "Standing": {
         "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
           "peak_mmr": {
             "title": "Peak Mmr",
             "type": "integer"

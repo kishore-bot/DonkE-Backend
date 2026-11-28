@@ -22,6 +22,14 @@ local function release_admission(game_id)
     redis.call('HDEL', admissions, game_id)
 end
 
+local function release_room_member(player_id, room_id)
+    local member_key = key('lobby', 'member', player_id)
+    local member = get(member_key)
+    if member and member.kind == 'room' and member.id == room_id then
+        redis.call('DEL', member_key)
+    end
+end
+
 if operation == 'season_settlement_status' then
     if now < input.ends_ms then return ok({status = 'active'}) end
     if input.season_id and redis.call('SCARD', season_matches(input.season_id)) > 0 then
@@ -151,11 +159,7 @@ if operation == 'settled' then
     release_admission(id)
     for _, seat in ipairs(state.seats) do
         if type(seat.player_id) == 'string' then
-            local member_key = key('lobby', 'member', seat.player_id)
-            local member = get(member_key)
-            if member and member.kind == 'room' and member.id == state.room_id then
-                redis.call('DEL', member_key)
-            end
+            release_room_member(seat.player_id, state.room_id)
         end
     end
     local room_key = key('lobby', 'room', state.room_id)
@@ -200,6 +204,7 @@ end
 local next_state = cjson.decode(input.state)
 redis.call('SET', state_key, input.state)
 append(next_state.sequence, input.events)
+if input.is_leave then release_room_member(input.player_id, state.room_id) end
 if input.command then
     redis.call('HSET', requests, input.command, ok({
         signature = input.signature, sequence = next_state.sequence, version = next_state.version

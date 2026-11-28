@@ -97,5 +97,6 @@ class MySeason(BaseModel):
 
 class Standing(BaseModel):
     player_id: UUID
+    display_name: str | None = None
     points: int
     peak_mmr: int

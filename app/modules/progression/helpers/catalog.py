@@ -79,10 +79,10 @@ ACHIEVEMENTS = {
     "regular": AchievementSpec("Regular", "Play 10 matches", "games", 10, 30),
     "veteran": AchievementSpec("Veteran", "Play 100 matches", "games", 100, 200),
     "vettu_master": AchievementSpec(
-        "Vettu Master", "Give 50 Vettus", "cuts_given", 50, 120
+        "Strike Master", "Land 50 Strikes", "cuts_given", 50, 120
     ),
     "thick_skin": AchievementSpec(
-        "Thick Skin", "Pick up 100 cards from Vettus", "cards_picked", 100, 60
+        "Thick Skin", "Pick up 100 cards from Strikes", "cards_picked", 100, 60
     ),
     "untouchable": AchievementSpec(
         "Untouchable",

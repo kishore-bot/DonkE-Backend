@@ -396,6 +396,11 @@
             "title": "Iterations",
             "type": "integer"
           },
+          "left": {
+            "default": false,
+            "title": "Left",
+            "type": "boolean"
+          },
           "level": {
             "anyOf": [
               {

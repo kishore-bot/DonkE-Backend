@@ -41,6 +41,7 @@ Classic uses one queue. Ranked uses MMR bands ending at 1599, 2799 and 3999, plu
 3. During finalization, a single script publishes the room and all matching membership pointers. No partial room is visible. A lost finalization response is safe because a committed claim is already gone.
 4. Cancelling a claimed entry writes a tombstone and releases that player immediately. Later rollback restores each uncancelled entry only if it still owns the same claim, preserving its original queue timestamp.
 5. Workers reclaim expired leases. Claims have a five-second default lease. Queue reservations expire after two minutes by default, and idle rooms expire after an hour. A stale worker cannot overwrite a player's newer room or queue.
+6. A live leave commits the seat change and releases the player's membership in the same Redis operation. It checks the room ID before removing the membership. The former player can search immediately while the other seats finish the old match.
 
 ## Admin foundation
 

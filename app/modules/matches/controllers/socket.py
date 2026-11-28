@@ -55,7 +55,7 @@ async def socket_loop(
     identity = IdentityService(service.platform)
 
     async def sync(last: int) -> int:
-        state = await service.load(game_id, player_id)
+        state = await service.load_for_socket(game_id, player_id)
         if last > state.sequence:
             raise MatchConflict("invalid_sequence")
         if state.sequence > last:
@@ -76,7 +76,7 @@ async def socket_loop(
         """Emotes and table chat go to a side feed, never the game log, so
         they cannot change the game version clients play against."""
         platform = service.platform
-        state = await service.load(game_id, player_id)
+        state = await service.load_for_socket(game_id, player_id)
         seat = position(state, player_id)
         async with platform.sessions() as db:
             if isinstance(command, SocketEmote):
@@ -91,7 +91,8 @@ async def socket_loop(
                 )
 
     seat_players = [
-        seat.player_id for seat in (await service.load(game_id, player_id)).seats
+        seat.player_id
+        for seat in (await service.load_for_socket(game_id, player_id)).seats
     ]
 
     async def forward_feed(last: str | None) -> str | None:
@@ -181,7 +182,7 @@ async def socket_loop(
             )
             streams = set(fresh) if isinstance(fresh, dict) else {s for s, _ in fresh}
             if renewed or events_key in streams:
-                state = await service.load(game_id, player_id)
+                state = await service.load_for_socket(game_id, player_id)
                 if state.sequence != cursor:
                     cursor = await sync(cursor)
             if feed_key in streams:
@@ -205,7 +206,7 @@ async def issue_socket_ticket(
     game_id: UUID, player: CurrentPlayer, platform: PlatformDep, response: Response
 ) -> SocketTicket:
     """Mint a single-use browser ticket for a seated player. Expires in 30 seconds."""
-    await MatchService(platform).load(game_id, player.profile.id)
+    await MatchService(platform).load_for_socket(game_id, player.profile.id)
     await limit(platform, "ws_ticket", str(player.profile.id), 30, 60)
     response.headers["Cache-Control"] = "no-store"
     return SocketTicket(ticket=await socket_tickets.issue(platform, game_id, player))
@@ -238,7 +239,7 @@ async def multiplayer(
             subprotocol = socket_tickets.PROTOCOL
         player_id = principal.profile.id
         service = MatchService(platform)
-        state = await service.load(game_id, player_id)
+        state = await service.load_for_socket(game_id, player_id)
     except AppError as exc:
         await websocket.close(code=4401 if exc.status == 401 else 4404)
         return
