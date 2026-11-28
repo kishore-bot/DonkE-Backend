@@ -16,7 +16,7 @@ async def reindex(gateway: Gateway, db: AsyncSession) -> int:
     )
     if vectors is None:
         raise AppError(503, "embedding_unavailable", "Rule embedding is unavailable")
-    model = gateway.platform.settings.gemini_embedding_model
+    model = gateway.models.embedding
     for rule, vector in zip(RULES, vectors, strict=True):
         row = insert(RuleEmbedding).values(
             source=rule.source, model=model, vector_json=json.dumps(vector)
@@ -37,7 +37,7 @@ async def ranked_rules(gateway: Gateway, question: str) -> list[Rule]:
     lexical = sources(question)
     if gateway.provider is None:
         return lexical
-    model = gateway.platform.settings.gemini_embedding_model
+    model = gateway.models.embedding
     async with gateway.platform.sessions() as db:
         available = await db.scalar(
             select(RuleEmbedding.source).where(RuleEmbedding.model == model).limit(1)

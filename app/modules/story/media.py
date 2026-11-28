@@ -3,15 +3,12 @@
 import json
 import struct
 import wave
-from datetime import datetime
 from io import BytesIO
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import Settings
 from app.core.errors import AppError
 from app.modules.story.models import SeasonMedia
 
@@ -101,74 +98,3 @@ async def approved_media(
 
 def media_path(asset_id: UUID) -> str:
     return f"/api/v1/story/media/{asset_id}"
-
-
-def s3_client(settings: Settings, endpoint: object | None) -> Any:
-    from boto3 import client  # noqa: PLC0415
-    from botocore.config import Config  # noqa: PLC0415
-
-    return client(
-        "s3",
-        endpoint_url=str(endpoint).rstrip("/") if endpoint else None,
-        region_name=settings.season_media_region,
-        config=Config(
-            connect_timeout=3,
-            read_timeout=10,
-            signature_version="s3v4",
-            retries={"max_attempts": 2},
-            # Self-hosted endpoints such as a local container serve buckets by path.
-            s3={"addressing_style": "path" if endpoint else "auto"},
-        ),
-    )
-
-
-class ObjectStorage:
-    def __init__(self, settings: Settings):
-        bucket = settings.season_media_bucket
-        if not bucket:
-            raise AppError(
-                503, "media_unavailable", "Season object storage is not configured"
-            )
-        self.bucket = bucket
-        self.client = s3_client(settings, settings.season_media_endpoint)
-        # Signed reads must name the host the browser will contact.
-        public = settings.season_media_public_endpoint
-        self.signer = s3_client(settings, public) if public else self.client
-
-    def upload(self, key: str, data: bytes, content_type: str) -> None:
-        self.client.put_object(
-            Bucket=self.bucket, Key=key, Body=data, ContentType=content_type
-        )
-
-    def delete(self, key: str) -> None:
-        self.client.delete_object(Bucket=self.bucket, Key=key)
-
-    def delete_many(self, keys: list[str]) -> list[str]:
-        """Delete in batches of 1,000 (the S3 limit). Returns keys that failed."""
-        failed: list[str] = []
-        for start in range(0, len(keys), 1000):
-            result = self.client.delete_objects(
-                Bucket=self.bucket,
-                Delete={
-                    "Objects": [{"Key": key} for key in keys[start : start + 1000]],
-                    "Quiet": True,
-                },
-            )
-            failed.extend(error["Key"] for error in result.get("Errors", []))
-        return failed
-
-    def keys_before(self, prefix: str, before: datetime) -> list[str]:
-        pages = self.client.get_paginator("list_objects_v2").paginate(
-            Bucket=self.bucket, Prefix=prefix
-        )
-        return [
-            item["Key"]
-            for page in pages
-            for item in page.get("Contents", [])
-            if item["LastModified"] < before
-        ]
-
-    def url(self, key: str) -> str:
-        return self.signer.generate_presigned_url(
-            "get_object", Params={"Bucket": self.bucket, "Key": key}, ExpiresIn=300
-        )

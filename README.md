@@ -57,6 +57,8 @@ Install Podman and `podman-compose` inside WSL. Use [`.env.example`](.env.exampl
 | `DONKE_OBJECTS_ACCESS_KEY`, `DONKE_OBJECTS_SECRET_KEY` | Required by Compose. Credentials for the local S3-compatible media store. Use a long random secret. |
 | `DONKE_GOOGLE_CLIENT_ID` | Enables player sign-in with Google. |
 | `DONKE_GEMINI_API_KEY` | Enables Gemini calls for coaching, commentary, embeddings, and voice. |
+| `DONKE_AI_PROVIDER` | AI backend from the registry in [`providers.py`](app/modules/ai/providers.py): `gemini` (default) or `none`. |
+| `DONKE_STORAGE_PROVIDER` | Object storage backend from the registry in [`storage.py`](app/core/storage.py): `s3` (default, any S3-compatible store) or `none`. |
 | `DONKE_DEMO_MODE` | Set to `true` on a dedicated demo database to enable the showcase seed. |
 
 ```sh

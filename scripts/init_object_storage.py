@@ -1,68 +1,42 @@
-"""Prepare the season media bucket on a self-hosted S3 store.
+"""Prepare the configured object store for season media.
 
 Creates the bucket when missing and allows signed GET reads from the browser
-origins in DONKE_SEASON_MEDIA_CORS_ORIGINS (comma separated). Safe to rerun.
+origins in DONKE_SEASON_MEDIA_CORS_ORIGINS (comma separated). Works with any
+backend registered in app.core.storage. Safe to rerun.
 """
 
+import asyncio
 import os
 import sys
-import time
-
-from botocore.exceptions import BotoCoreError, ClientError
 
 from app.core.config import Settings
-from app.modules.story.media import ObjectStorage
+from app.core.storage import build_storage
 
 
-def wait_for(storage: ObjectStorage, seconds: int = 60) -> None:
-    deadline = time.monotonic() + seconds
-    while True:
-        try:
-            storage.client.list_buckets()
-            return
-        except (BotoCoreError, ClientError):
-            if time.monotonic() > deadline:
-                raise
-            time.sleep(1)
-
-
-def main() -> None:
-    settings = Settings()
-    storage = ObjectStorage(settings)
+async def prepare(seconds: int = 60) -> None:
+    storage = build_storage(Settings())
+    if storage is None:
+        print("No object storage configured; nothing to prepare", file=sys.stderr)
+        return
     origins = [
         origin.strip()
         for origin in os.environ.get("DONKE_SEASON_MEDIA_CORS_ORIGINS", "").split(",")
         if origin.strip()
     ]
-    wait_for(storage)
-    try:
-        storage.client.head_bucket(Bucket=storage.bucket)
-    except ClientError:
-        region = settings.season_media_region
-        if region and region != "us-east-1":
-            storage.client.create_bucket(
-                Bucket=storage.bucket,
-                CreateBucketConfiguration={"LocationConstraint": region},
-            )
-        else:
-            storage.client.create_bucket(Bucket=storage.bucket)
-        print(f"Created bucket {storage.bucket}", file=sys.stderr)
-    if origins:
-        storage.client.put_bucket_cors(
-            Bucket=storage.bucket,
-            CORSConfiguration={
-                "CORSRules": [
-                    {
-                        "AllowedOrigins": origins,
-                        "AllowedMethods": ["GET", "HEAD"],
-                        "AllowedHeaders": ["*"],
-                        "MaxAgeSeconds": 3600,
-                    }
-                ]
-            },
-        )
-    print(f"Bucket {storage.bucket} is ready", file=sys.stderr)
+    # The store container may still be starting.
+    async with asyncio.timeout(seconds):
+        while True:
+            try:
+                await storage.prepare(origins)
+                break
+            except Exception as error:
+                print(
+                    f"Waiting for object storage ({type(error).__name__})",
+                    file=sys.stderr,
+                )
+                await asyncio.sleep(1)
+    print("Object storage is ready", file=sys.stderr)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(prepare())

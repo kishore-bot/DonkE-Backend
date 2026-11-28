@@ -101,7 +101,7 @@ async def line(
 ) -> tuple[Commentary, bool]:
     events = await public_events(gateway, game_id, player_id, sequence)
     kind, facts = moment(events, language)
-    model = gateway.platform.settings.gemini_text_model
+    model = gateway.models.text
     digest = sha256(f"1:{game_id}:{sequence}:{language}:{model}".encode()).hexdigest()
     key = gateway.key(f"commentary:{digest}")
     redis = gateway.platform.redis

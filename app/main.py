@@ -19,6 +19,7 @@ from app.core.errors import (
 )
 from app.core.platform import open_platform
 from app.core.schema import check_storage_ready
+from app.core.storage import ObjectStore
 from app.modules.admin import flags
 from app.modules.admin.console.router import router as console_router
 from app.modules.admin.router import router as admin_router
@@ -56,7 +57,9 @@ def create_app(
     settings: Settings | None = None,
     google: GoogleIdentity | None = None,
     ai: AIProvider | None = None,
+    storage: ObjectStore | None = None,
 ) -> FastAPI:
+    """Builds the app. `ai` and `storage` override the configured backends."""
     config = settings or Settings()
 
     @asynccontextmanager
@@ -65,7 +68,7 @@ def create_app(
             yield
             return
         async with (
-            open_platform(config) as platform,
+            open_platform(config, storage) as platform,
             open_gateway(platform, ai) as gateway,
         ):
             application.state.gateway = gateway

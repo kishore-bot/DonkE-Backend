@@ -307,7 +307,9 @@ def test_podman_launcher_pins_provider_and_waits_for_schema_initialization(
     )
     assert all(line.startswith(f"podman {provider} ") for line in commands[1:])
     stores = next(
-        i for i, line in enumerate(commands) if line.endswith("up -d postgres redis")
+        i
+        for i, line in enumerate(commands)
+        if line.endswith("up -d postgres redis objects")
     )
     schema_init = next(
         i for i, line in enumerate(commands) if line.endswith("run --rm db-init")
@@ -315,6 +317,9 @@ def test_podman_launcher_pins_provider_and_waits_for_schema_initialization(
     assert stores < schema_init
     assert any("pg_isready" in line for line in commands[stores:schema_init])
     assert any("redis-cli ping" in line for line in commands[stores:schema_init])
+    assert any(
+        line.endswith("run --rm objects-init") for line in commands[schema_init:]
+    ) == (init_code == 0)
     assert any(
         line.endswith("up -d app matchmaking jobs scheduler voice")
         for line in commands[schema_init:]

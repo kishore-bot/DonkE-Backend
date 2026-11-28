@@ -25,7 +25,7 @@ class Voice:
         self.script = self.redis.register_script(SCRIPT)
 
     def identifier(self, text: str, language: str, voice: str) -> str:
-        model = self.gateway.platform.settings.gemini_voice_model
+        model = self.gateway.models.voice
         return sha256(json.dumps([model, language, voice, text]).encode()).hexdigest()
 
     async def execute(self, action: str, **fields: str | int) -> dict:

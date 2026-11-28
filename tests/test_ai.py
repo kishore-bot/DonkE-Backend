@@ -320,7 +320,7 @@ def test_pydantic_ai_selection_through_the_gemini_adapter():
     from pydantic_ai.models.test import TestModel
 
     from app.core.config import Settings
-    from app.modules.ai.provider import Gemini
+    from app.modules.ai.gemini import Gemini
 
     async def select():
         gemini = Gemini(Settings(gemini_api_key="synthetic-test-model"))
@@ -336,3 +336,38 @@ def test_pydantic_ai_selection_through_the_gemini_adapter():
             await gemini.close()
 
     asyncio.run(select())
+
+
+def test_the_registry_swaps_ai_providers_without_touching_features():
+    from app.core.config import Settings
+    from app.modules.ai.gateway import Gateway
+    from app.modules.ai.provider import Models, Written
+    from app.modules.ai.providers import build_provider, register_provider
+    from app.modules.ai.gemini import Gemini
+
+    class Echo:
+        models = Models(text="echo-1", voice="echo-voice", embedding="echo-embed")
+
+        async def write(self, task, prompt):
+            return Written(prompt)
+
+        async def close(self):
+            pass
+
+    register_provider("test-echo", lambda _: Echo())
+    assert build_provider(Settings(_env_file=None)) is None  # Gemini without a key
+    assert isinstance(
+        build_provider(Settings(_env_file=None, gemini_api_key="synthetic")), Gemini
+    )
+    assert build_provider(Settings(_env_file=None, ai_provider="none")) is None
+    echo = build_provider(Settings(_env_file=None, ai_provider="test-echo"))
+    assert isinstance(echo, Echo)
+    # Cache and embedding keys follow the active provider's models.
+    platform = type("P", (), {"settings": Settings(_env_file=None)})()
+    assert Gateway(platform, echo).models.text == "echo-1"
+    assert (
+        Gateway(platform, None).models.text
+        == Settings(_env_file=None).gemini_text_model
+    )
+    with pytest.raises(ValueError, match="Unknown AI provider"):
+        build_provider(Settings(_env_file=None, ai_provider="missing"))

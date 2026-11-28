@@ -8,21 +8,19 @@ from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Form, UploadFile
-from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
-from app.core.config import Settings
 from app.core.dependencies import PlatformDep
 from app.core.errors import AppError
+from app.core.storage import ObjectStore, require_storage
 from app.modules.admin.dependencies import Admin, Cookie, CsrfToken, RequestId
 from app.modules.admin.service import admin_write
 from app.modules.progression.season_content import PACKS
 from app.modules.story.media import (
     MAX_AUDIO,
     MAX_MODEL,
-    ObjectStorage,
     approved_media,
     media_path,
     validate_media,
@@ -102,7 +100,8 @@ async def upload_media(
     asset_id = uuid4()
     extension = "glb" if slot == "model" else "wav"
     key = f"seasons/{pack_key}/{character_id}/{asset_id}-{sha256(data).hexdigest()}.{extension}"
-    await run_in_threadpool(put_object, platform.settings, key, data, content_type)
+    storage = require_storage(platform.storage)
+    await put_object(storage, key, data, content_type)
     try:
         async with admin_write(
             platform, cookie, csrf, request_id, "upload_season_media", reason
@@ -121,25 +120,25 @@ async def upload_media(
         return MediaView.model_validate(row)
     except BaseException:
         # No row references the object, so remove it rather than leave an orphan.
-        await run_in_threadpool(remove_object, platform.settings, key)
+        await remove_object(storage, key)
         raise
 
 
-def put_object(settings: Settings, key: str, data: bytes, content_type: str) -> None:
+async def put_object(
+    storage: ObjectStore, key: str, data: bytes, content_type: str
+) -> None:
     try:
-        ObjectStorage(settings).upload(key, data, content_type)
-    except AppError:
-        raise
+        await storage.upload(key, data, content_type)
     except Exception as exc:
         raise AppError(
             503, "media_upload_failed", "The season object could not be stored"
         ) from exc
 
 
-def remove_object(settings: Settings, key: str) -> None:
+async def remove_object(storage: ObjectStore, key: str) -> None:
     """Best effort: a failure leaves an unreferenced object for storage cleanup."""
     with contextlib.suppress(Exception):
-        ObjectStorage(settings).delete(key)
+        await storage.delete(key)
 
 
 @router.post("/admin/season-media/{asset_id}/review")
@@ -199,7 +198,7 @@ async def public_media(asset_id: UUID, platform: PlatformDep) -> RedirectRespons
         row = await db.get(SeasonMedia, asset_id)
     if row is None or row.published_at is None or row.withdrawn_at is not None:
         raise AppError(404, "media_not_found", "Scene asset not found")
-    return await asset_redirect(platform.settings, row.object_key)
+    return await asset_redirect(platform.storage, row.object_key)
 
 
 @router.get("/admin/season-media/{asset_id}/preview", response_class=RedirectResponse)
@@ -213,12 +212,12 @@ async def preview_media(
         row = await db.get(SeasonMedia, asset_id)
     if row is None or row.withdrawn_at is not None:
         raise AppError(404, "media_not_found", "Scene asset not found")
-    return await asset_redirect(platform.settings, row.object_key)
+    return await asset_redirect(platform.storage, row.object_key)
 
 
-async def asset_redirect(settings: Settings, key: str) -> RedirectResponse:
+async def asset_redirect(storage: ObjectStore | None, key: str) -> RedirectResponse:
     try:
-        url = await run_in_threadpool(read_url, settings, key)
+        url = await require_storage(storage).url(key)
     except AppError:
         raise
     except Exception as exc:
@@ -226,7 +225,3 @@ async def asset_redirect(settings: Settings, key: str) -> RedirectResponse:
             503, "media_unavailable", "Scene storage is unavailable"
         ) from exc
     return RedirectResponse(url, headers={"Cache-Control": "no-store"})
-
-
-def read_url(settings: Settings, key: str) -> str:
-    return ObjectStorage(settings).url(key)

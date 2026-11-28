@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
+from fake_storage import MemoryStore
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
 from test_admin_console import admin_login
@@ -19,7 +20,6 @@ from app.modules.progression.models import Season
 from app.modules.progression.schemas import SeasonCreate
 from app.modules.progression.services.seasons import create_season
 from app.modules.story import dependencies as story_clock
-from app.modules.story import media_routes
 from app.modules.story.models import SeasonCue, SeasonMedia
 
 pytestmark = pytest.mark.integration
@@ -195,19 +195,11 @@ def test_season_objectives_rival_memory_archives_and_scoped_evidence(
         asyncio.run(clean())
 
 
-def test_admin_recording_review_and_english_japanese_fallback(settings, monkeypatch):
+def test_admin_recording_review_and_english_japanese_fallback(settings):
     pack, character = "grimoire-awakening-v2", "stormscribe"
     admin_path = "/api/v1/admin/season-media"
     cue_path = f"/api/v1/story/cues/{pack}/{character}/transform"
-    stored = {}
-
-    def upload(_, key, data, content_type):
-        stored[key] = content_type, data
-
-    monkeypatch.setattr(media_routes, "put_object", upload)
-    monkeypatch.setattr(
-        media_routes, "read_url", lambda _, key: f"https://objects.example/{key}"
-    )
+    store = MemoryStore()
     buffer = io.BytesIO()
     with wave.open(buffer, "wb") as wav:
         wav.setparams((1, 2, 16_000, 800, "NONE", "not compressed"))
@@ -238,7 +230,8 @@ def test_admin_recording_review_and_english_japanese_fallback(settings, monkeypa
 
     try:
         with TestClient(
-            create_app(settings, TestGoogle()), base_url="https://testserver"
+            create_app(settings, TestGoogle(), storage=store),
+            base_url="https://testserver",
         ) as client:
             assert client.get(admin_path).status_code == 401
             _, headers = admin_login(client, settings)
@@ -294,6 +287,6 @@ def test_admin_recording_review_and_english_japanese_fallback(settings, monkeypa
                 ).status_code
                 == 404
             )
-            assert len(stored) == 2
+            assert len(store.objects) == 2
     finally:
         asyncio.run(cleanup())

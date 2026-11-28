@@ -56,9 +56,7 @@ async def get_practice(
     return await run_in_threadpool(service.snapshot, game_id, token)
 
 
-@router.get(
-    "/{game_id}/hint", responses={**AUTH_ERRORS, 429: {"model": ErrorResponse}}
-)
+@router.get("/{game_id}/hint", responses={**AUTH_ERRORS, 429: {"model": ErrorResponse}})
 async def hint(
     game_id: UUID,
     platform: OptionalPlatform,

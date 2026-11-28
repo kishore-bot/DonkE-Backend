@@ -8,7 +8,8 @@ from typing import cast
 
 from app.core.platform import Platform
 from app.modules.admin import flags
-from app.modules.ai.provider import AIProvider, Gemini, Selected, Written
+from app.modules.ai.provider import AIProvider, Models, Selected, Written
+from app.modules.ai.providers import build_provider
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,20 @@ class Gateway:
         self.platform = platform
         self.provider = provider
         self.limit = asyncio.Semaphore(4)
+
+    @property
+    def models(self) -> Models:
+        """Model ids that key caches and embeddings. Without a provider (or a
+        fake that declares none) they fall back to the configured ids."""
+        models = getattr(self.provider, "models", None)
+        if isinstance(models, Models):
+            return models
+        settings = self.platform.settings
+        return Models(
+            text=settings.gemini_text_model,
+            voice=settings.gemini_voice_model,
+            embedding=settings.gemini_embedding_model,
+        )
 
     def key(self, name: str) -> str:
         return f"{self.platform.settings.redis_prefix}:ai:{name}"
@@ -119,11 +134,8 @@ class Gateway:
 async def open_gateway(
     platform: Platform, provider: AIProvider | None = None
 ) -> AsyncIterator[Gateway]:
-    client = (
-        Gemini(platform.settings)
-        if provider is None and platform.settings.gemini_api_key
-        else None
-    )
+    """`provider` overrides the configured backend; one built here is closed here."""
+    client = build_provider(platform.settings) if provider is None else None
     try:
         yield Gateway(platform, provider or client)
     finally:

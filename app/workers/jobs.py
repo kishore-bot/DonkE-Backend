@@ -97,4 +97,3 @@ async def sweep_orphaned_media(
 ) -> int:
     """Hourly: delete stored season objects that no media row references."""
     return await sweep_media(platform)
-

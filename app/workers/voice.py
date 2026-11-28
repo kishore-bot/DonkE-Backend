@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 
 async def run() -> None:
     settings = Settings()
-    if not settings.gemini_api_key:
-        return
     async with open_platform(settings) as platform, open_gateway(platform) as gateway:
+        if gateway.provider is None:
+            return  # No AI backend configured: nothing to voice.
         voice = Voice(gateway)
         while True:
             try:

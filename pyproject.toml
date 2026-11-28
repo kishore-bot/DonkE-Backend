@@ -85,5 +85,5 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "PLR", "PT011", "PT018", "PLC0415"]
 # Google SDKs load only when a Gemini key is configured.
-"app/modules/ai/provider.py" = ["PLC0415"]
+"app/modules/ai/gemini.py" = ["PLC0415"]
 "scripts/**" = ["S603", "S607"]

@@ -51,9 +51,7 @@ async def lookup_token(
     )
 
 
-async def consume_outstanding(
-    db: AsyncSession, session_id: UUID, at: datetime
-) -> None:
+async def consume_outstanding(db: AsyncSession, session_id: UUID, at: datetime) -> None:
     """Mark every unused refresh token of a locked session as used."""
     await db.execute(
         update(RefreshToken)
