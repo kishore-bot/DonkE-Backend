@@ -37,7 +37,7 @@ The rival remembers a public moment from the player's previous finished duel in 
 
 The post-match coach scores the first rival decision with multiple legal cards. It can show the chosen card, candidate count, and estimated chance of avoiding the Donkey. [Rival calibration](SEASON_AI_EVAL.md)
 
-The standout Strike review evaluates a confirmed called Strike using 768 native search iterations. It requires at least 16 samples per compared card, an estimated safe rate of at least 80% for the played card, a result within five percentage points of the best sampled move, and an advantage of at least 12 percentage points over an alternative. The result can activate the emote pinned at story admission. The service stores the result or abstention for retries. [Strike review code](../app/modules/story/highlights.py)
+The standout Strike review evaluates a confirmed called Strike using 768 native search iterations. It requires at least 16 samples per compared card, an estimated safe rate of at least 80% for the played card, a result within five percentage points of the best sampled move, and an advantage of at least 12 percentage points over an alternative. The result can activate the emote pinned at story admission. The service stores the result or abstention for retries. [Strike review code](../app/modules/story/services/highlights.py)
 
 ## Commentary and approved performances
 

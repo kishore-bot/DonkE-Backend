@@ -6,8 +6,8 @@ from test_online import settings as settings  # noqa: PLC0414
 
 from app.main import create_app
 from app.modules.ai.controllers import audio as ai_router
-from app.modules.ai.schemas import Commentary
-from app.modules.identity.schemas import DEFAULT_VOICE, Profile, ProfileUpdate
+from app.modules.ai.schemas.commentary import Commentary
+from app.modules.identity.schemas.profile import DEFAULT_VOICE, Profile, ProfileUpdate
 
 
 def test_default_voice_follows_language_until_the_player_chooses():

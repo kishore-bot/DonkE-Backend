@@ -11,8 +11,8 @@ from test_online import settings as settings  # noqa: PLC0414
 from app.core.errors import AppError
 from app.core.platform import open_platform
 from app.main import create_app
-from app.modules.admin import flags, totp
-from app.modules.admin.service import AdminService
+from app.modules.admin.helpers import flag_specs, totp
+from app.modules.admin.services.admin import AdminService
 
 PASSWORD = "synthetic-console-admin"
 
@@ -30,9 +30,9 @@ def test_totp_matches_the_rfc_6238_vector_and_allows_one_step_of_drift():
 
 
 def test_flag_values_are_validated_against_the_allowlist():
-    assert flags.validate("ai_enabled", False) is False
-    assert flags.validate("ai_text_daily_calls", 10) == 10
-    assert flags.validate("maintenance_notice", "  Back soon  ") == "Back soon"
+    assert flag_specs.validate("ai_enabled", False) is False
+    assert flag_specs.validate("ai_text_daily_calls", 10) == 10
+    assert flag_specs.validate("maintenance_notice", "  Back soon  ") == "Back soon"
     for key, value in [
         ("ai_enabled", "no"),
         ("ai_text_daily_calls", True),
@@ -40,10 +40,10 @@ def test_flag_values_are_validated_against_the_allowlist():
         ("maintenance_notice", "x" * 201),
     ]:
         with pytest.raises(AppError) as invalid:
-            flags.validate(key, value)
+            flag_specs.validate(key, value)
         assert invalid.value.code == "invalid_flag_value"
     with pytest.raises(AppError):
-        flags.validate("secret_key", "x")
+        flag_specs.validate("secret_key", "x")
 
 
 def test_admin_ui_is_served_separately_with_a_strict_policy():
@@ -181,7 +181,7 @@ def test_totp_setup_then_sign_in_needs_a_fresh_code(client, settings):
         async with open_platform(settings) as platform, platform.sessions() as db:
             from sqlalchemy import select
 
-            from app.modules.admin.models import AdminUser
+            from app.modules.admin.models.admin_user import AdminUser
 
             return await db.scalar(
                 select(AdminUser.totp_secret).where(AdminUser.username == username)
@@ -203,7 +203,7 @@ def test_totp_secrets_are_sealed_and_bound_to_their_account():
     from uuid import uuid4 as fresh
 
     from app.core.config import Settings
-    from app.modules.admin import vault
+    from app.modules.admin.helpers import vault
 
     def online(**values):
         return Settings(
@@ -242,7 +242,7 @@ def test_kill_switch_heals_when_the_cache_invalidation_fails(
 ):
     from redis.exceptions import RedisError
 
-    from app.modules.admin import flags
+    from app.modules.admin.services import flags
 
     _, csrf = admin_login(client, settings)
 

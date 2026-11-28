@@ -5,9 +5,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.dependencies import PlatformDep
 from app.core.rate_limit import limit
-from app.modules.identity.google import GoogleIdentity
-from app.modules.identity.service import IdentityService, Principal, unauthorized
-from app.modules.social.live import touch
+from app.modules.identity.dto.principal import Principal
+from app.modules.identity.helpers.errors import unauthorized
+from app.modules.identity.services.google import GoogleIdentity
+from app.modules.identity.services.identity import IdentityService
+from app.modules.social.repositories.presence import touch
 
 player_bearer = HTTPBearer(auto_error=False, scheme_name="PlayerAccess")
 PlayerCredentials = Annotated[

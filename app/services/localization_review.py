@@ -39,7 +39,8 @@ from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.requests import HTTPConnection
 from starlette.responses import JSONResponse
 
-from app.modules.story.lines import Moment, valid
+from app.modules.story.helpers.lines import valid
+from app.modules.story.schemas.lines import Moment
 
 RPC_PATH = "/a2a"
 CHECK_VERSION = "localization-v1"

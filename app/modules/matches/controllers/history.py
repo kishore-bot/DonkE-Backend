@@ -4,8 +4,9 @@ from fastapi import APIRouter, Response
 
 from app.core.dependencies import PlatformDep
 from app.modules.identity.dependencies import CurrentPlayer
-from app.modules.matches import settlement
-from app.modules.matches.schemas import MatchResult, PublicReplay, RecentMatch
+from app.modules.matches.repositories import history
+from app.modules.matches.schemas.results import MatchResult, PublicReplay, RecentMatch
+from app.modules.matches.services import results
 
 router = APIRouter()
 
@@ -16,7 +17,7 @@ async def replay(
 ) -> PublicReplay:
     """Public events of a finished match. The opening deal is never sent."""
     return PublicReplay.of(
-        await settlement.read_replay(platform, game_id, player.profile.id)
+        await history.read_replay(platform, game_id, player.profile.id)
     )
 
 
@@ -26,7 +27,7 @@ async def match_result(
 ) -> MatchResult:
     """Read the authenticated participant's placement and settled rewards."""
     response.headers["Cache-Control"] = "no-store"
-    return await settlement.read_result(platform, game_id, player.profile.id)
+    return await results.read_result(platform, game_id, player.profile.id)
 
 
 @router.get("/results/recent")
@@ -35,4 +36,4 @@ async def recent_results(
 ) -> list[RecentMatch]:
     """List up to ten recent results for the authenticated participant."""
     response.headers["Cache-Control"] = "no-store"
-    return await settlement.recent_results(platform, player.profile.id)
+    return await history.recent_results(platform, player.profile.id)

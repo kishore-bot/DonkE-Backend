@@ -12,12 +12,13 @@ from test_online import settings as settings  # noqa: PLC0414
 from app.core.errors import AppError
 from app.core.platform import open_platform
 from app.main import create_app
-from app.modules.ai.coaching import MISTAKE_GAP, analyse
-from app.modules.ai.insights import card_svg
-from app.modules.ai.prompts import PROMPTS, accepted, digest
-from app.modules.ai.provider import Written
-from app.modules.matches.schemas import EventBatch, GameSeat, MatchReplay
-from app.modules.matches.settlement import persist
+from app.modules.ai.dto.provider import Written
+from app.modules.ai.helpers.coaching_analysis import MISTAKE_GAP, analyse
+from app.modules.ai.helpers.insights import card_svg
+from app.modules.ai.helpers.prompts import PROMPTS, accepted, digest
+from app.modules.matches.schemas.results import MatchReplay
+from app.modules.matches.schemas.state import EventBatch, GameSeat
+from app.modules.matches.services.settlement import persist
 
 
 def played_replay(seed: int, players: list[UUID | None]) -> MatchReplay:

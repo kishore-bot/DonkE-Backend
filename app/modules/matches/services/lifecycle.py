@@ -6,15 +6,13 @@ from uuid import UUID, uuid4
 from donke_engine import OnlineGame
 
 from app.core.platform import Platform
-from app.modules.identity.repository import profiles
-from app.modules.matches import bots, settlement
-from app.modules.matches.repository import MatchConflict, MatchRepository
-from app.modules.matches.rules import deadline
-from app.modules.matches.schemas import (
-    GameSeat,
-    MatchReplay,
-    MatchState,
-)
+from app.modules.identity.repositories.players import profiles
+from app.modules.matches.helpers import bots
+from app.modules.matches.helpers.rules import deadline
+from app.modules.matches.repositories.matches import MatchConflict, MatchRepository
+from app.modules.matches.schemas.results import MatchReplay
+from app.modules.matches.schemas.state import GameSeat, MatchState
+from app.modules.matches.services import settlement
 from app.modules.progression.services.seasons import (
     lock_season_schedule,
     match_admission,

@@ -5,10 +5,7 @@ from fastapi import APIRouter
 from app.core.rate_limit import limit
 from app.modules.identity.dependencies import CurrentPlayer, PlayerWrites
 from app.modules.social.dependencies import Friends
-from app.modules.social.schemas import (
-    FriendStatus,
-    Together,
-)
+from app.modules.social.schemas.friends import FriendStatus, Together
 
 router = APIRouter()
 

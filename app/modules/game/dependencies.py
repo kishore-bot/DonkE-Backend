@@ -4,7 +4,7 @@ from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.errors import AppError
-from app.modules.game.service import PracticeService
+from app.modules.game.services.practice import PracticeService
 
 bearer = HTTPBearer(auto_error=False)
 

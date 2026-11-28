@@ -7,17 +7,14 @@ from starlette.concurrency import run_in_threadpool
 from app.core.dependencies import PlatformDep
 from app.core.rate_limit import client_host, limit
 from app.modules.game.dependencies import AccessToken, Practice
-from app.modules.story.challenge import (
-    ChallengeLink,
-    ChallengeView,
+from app.modules.story.helpers.chapters import chapter_for
+from app.modules.story.schemas.challenge import ChallengeLink, ChallengeView
+from app.modules.story.schemas.duel import StoryAttempt
+from app.modules.story.services.challenge import (
     challenge_character,
     challenge_link,
     read_challenge,
 )
-from app.modules.story.chapters import (
-    chapter_for,
-)
-from app.modules.story.schemas import StoryAttempt
 from app.modules.story.services.duels import finished_duel, story_attempt
 
 router = APIRouter()

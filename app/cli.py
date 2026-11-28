@@ -9,8 +9,8 @@ from uuid import uuid4
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.core.platform import open_platform
-from app.modules.admin.schemas import USERNAME, Role
-from app.modules.admin.service import AdminService
+from app.modules.admin.schemas.auth import USERNAME, Role
+from app.modules.admin.services.admin import AdminService
 
 
 async def create_admin(username: str, password: str, role: Role) -> None:

@@ -11,10 +11,15 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.main import create_app
-from app.modules.admin import flags
-from app.modules.ai import fair_play
-from app.modules.matches import repository, service
-from app.modules.matches.health import heartbeat_key, online_health, record_turn_sweep
+from app.modules.admin.services import flags
+from app.modules.ai.repositories import fair_play_queue
+from app.modules.matches.repositories import matches as matches_repo
+from app.modules.matches.services import match as match_service
+from app.modules.matches.services.health import (
+    heartbeat_key,
+    online_health,
+    record_turn_sweep,
+)
 from app.workers import matchmaking
 
 
@@ -105,12 +110,12 @@ async def redis_platform():
 
 @pytest.mark.integration
 def test_turn_renewal_outlasts_initial_lease_and_release_checks_owner(monkeypatch):
-    monkeypatch.setattr(repository, "TURN_LEASE_MS", 400)
-    monkeypatch.setattr(service, "TURN_LEASE_MS", 400)
+    monkeypatch.setattr(matches_repo, "TURN_LEASE_MS", 400)
+    monkeypatch.setattr(match_service, "TURN_LEASE_MS", 400)
 
     async def check():
         async with redis_platform() as platform:
-            matches = service.MatchService(platform)
+            matches = match_service.MatchService(platform)
             game = uuid4()
             observed = []
 
@@ -139,7 +144,7 @@ def test_online_health_requires_fresh_heartbeat_and_reports_turn_lag():
             with pytest.raises(AppError) as missing:
                 await online_health(platform)
             assert missing.value.code == "game_worker_unavailable"
-            repo = repository.MatchRepository(platform)
+            repo = matches_repo.MatchRepository(platform)
             now = await repo.now_ms()
             await platform.redis.zadd(
                 repo.game_key("index", "turns"), {str(uuid4()): now - 200}
@@ -170,18 +175,18 @@ def test_online_health_requires_fresh_heartbeat_and_reports_turn_lag():
 def test_fair_play_claim_skips_old_leases_and_recovers_expired_claim():
     async def check():
         async with redis_platform() as platform:
-            key = fair_play.pending_key(platform)
+            key = fair_play_queue.pending_key(platform)
             await platform.redis.zadd(key, {"old": 1, "first": 2, "second": 3})
             await platform.redis.set(f"{key}:lease:old", "1", ex=300)
             left, right = await asyncio.gather(
-                fair_play.claim_pending(platform, 1),
-                fair_play.claim_pending(platform, 1),
+                fair_play_queue.claim_pending(platform, 1),
+                fair_play_queue.claim_pending(platform, 1),
             )
             assert sorted(left + right) == ["first", "second"]
-            assert await fair_play.claim_pending(platform, 1) == []
+            assert await fair_play_queue.claim_pending(platform, 1) == []
             await platform.redis.delete(f"{key}:lease:first")
             await platform.redis.zadd(key, {"first": 1})
-            assert await fair_play.claim_pending(platform, 1) == ["first"]
+            assert await fair_play_queue.claim_pending(platform, 1) == ["first"]
 
     asyncio.run(check())
 

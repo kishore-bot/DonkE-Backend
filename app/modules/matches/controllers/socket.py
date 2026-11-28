@@ -13,12 +13,11 @@ from app.core.errors import AppError, ErrorResponse
 from app.core.platform import Platform
 from app.core.rate_limit import limit
 from app.modules.identity.dependencies import CurrentPlayer
-from app.modules.identity.service import IdentityService, Principal
-from app.modules.matches import socket_tickets
-from app.modules.matches.repository import MatchConflict
-from app.modules.matches.rules import position
-from app.modules.matches.service import MatchService
-from app.modules.matches.socket_schemas import (
+from app.modules.identity.dto.principal import Principal
+from app.modules.identity.services.identity import IdentityService
+from app.modules.matches.helpers.rules import position
+from app.modules.matches.repositories.matches import MatchConflict
+from app.modules.matches.schemas.socket import (
     COMMAND,
     SocketChat,
     SocketEmote,
@@ -26,11 +25,14 @@ from app.modules.matches.socket_schemas import (
     SocketPlay,
     SocketTicket,
 )
-from app.modules.social import live
-from app.modules.social.safety import (
+from app.modules.matches.services import socket_tickets
+from app.modules.matches.services.match import MatchService
+from app.modules.social.helpers import redis_keys
+from app.modules.social.helpers.moderation import clean
+from app.modules.social.repositories import feed, presence
+from app.modules.social.repositories.safety import (
     allowed_emote,
     blocked_with,
-    clean,
     ensure_can_chat,
 )
 
@@ -78,11 +80,11 @@ async def socket_loop(
             if isinstance(command, SocketEmote):
                 await limit(platform, "emote", str(player_id), 6, 10)
                 value = await allowed_emote(db, player_id, command.emote)
-                await live.post_feed(platform, game_id, seat, "emote", value)
+                await feed.post_feed(platform, game_id, seat, "emote", value)
             else:
                 await limit(platform, "table_chat", str(player_id), 5, 3)
                 await ensure_can_chat(db, player_id)
-                await live.post_feed(
+                await feed.post_feed(
                     platform, game_id, seat, "chat", clean(command.text)
                 )
 
@@ -91,7 +93,7 @@ async def socket_loop(
     ]
 
     async def forward_feed(last: str | None) -> str | None:
-        entries = await live.read_feed(service.platform, game_id, last)
+        entries = await feed.read_feed(service.platform, game_id, last)
         if not entries:
             return last
         # Blocks are read fresh for every batch, so blocking someone mid-match
@@ -105,7 +107,7 @@ async def socket_loop(
         return last
 
     events_key = service.repo.game_key("events", game_id)
-    feed_key = live.key(service.platform, "feed", game_id)
+    feed_key = redis_keys.key(service.platform, "feed", game_id)
     cursor = await sync(after)
     feed_cursor = await forward_feed(None)
     next_auth = monotonic() + 5
@@ -115,7 +117,7 @@ async def socket_loop(
         while True:
             if monotonic() >= next_auth:
                 await identity.active_session(player_id, principal.session_id)
-                await live.touch(service.platform, player_id)
+                await presence.touch(service.platform, player_id)
                 next_auth = monotonic() + 5
             # The 15 s connection lease is renewed every 3 s, not every tick;
             # a replaced connection is noticed at the next renewal.

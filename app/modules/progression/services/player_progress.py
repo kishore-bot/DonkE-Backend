@@ -5,10 +5,8 @@ from sqlalchemy import func, select
 
 from app.core.errors import AppError
 from app.core.platform import Platform
-from app.modules.progression.calendar import (
-    week_start,
-)
-from app.modules.progression.catalog import (
+from app.modules.progression.helpers.calendar import week_start
+from app.modules.progression.helpers.catalog import (
     ACHIEVEMENTS,
     BONUS_TRACK,
     CHALLENGES,
@@ -19,21 +17,21 @@ from app.modules.progression.catalog import (
     TIERS,
     active_perks,
 )
-from app.modules.progression.models import (
-    Achievement,
-    PlayerStats,
-    Season,
-    SeasonDay,
-    SeasonPlayer,
-    WeeklyPlayer,
-)
+from app.modules.progression.models.achievement import Achievement
+from app.modules.progression.models.player_stats import PlayerStats
+from app.modules.progression.models.season import Season
+from app.modules.progression.models.season_day import SeasonDay
+from app.modules.progression.models.season_player import SeasonPlayer
+from app.modules.progression.models.weekly_player import WeeklyPlayer
 from app.modules.progression.repositories.economy import (
     reward_refs,
     streak_stars,
 )
-from app.modules.progression.schemas import (
+from app.modules.progression.schemas.achievements import (
     AchievementsView,
     AchievementView,
+)
+from app.modules.progression.schemas.seasons import (
     BonusView,
     ChallengeView,
     MySeason,

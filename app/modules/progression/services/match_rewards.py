@@ -5,30 +5,25 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.identity.repository import profiles
-from app.modules.matches.schemas import MatchRewards
-from app.modules.progression.analytics import (
-    MatchAnalytics,
-    SeatStats,
-)
-from app.modules.progression.calendar import week_start
-from app.modules.progression.catalog import (
+from app.modules.identity.repositories.players import profiles
+from app.modules.matches.schemas.results import MatchRewards
+from app.modules.progression.helpers.calendar import week_start
+from app.modules.progression.helpers.catalog import (
     ACHIEVEMENTS,
     active_perks,
     bank_share,
     boosted_coins,
 )
-from app.modules.progression.models import (
-    Achievement,
-    CoinLedger,
-    PlayerStats,
-    Season,
-    SeasonDay,
-    SeasonPlayer,
-    Wallet,
-    WeeklyPlayer,
-)
+from app.modules.progression.models.achievement import Achievement
+from app.modules.progression.models.coin_ledger import CoinLedger
+from app.modules.progression.models.player_stats import PlayerStats
+from app.modules.progression.models.season import Season
+from app.modules.progression.models.season_day import SeasonDay
+from app.modules.progression.models.season_player import SeasonPlayer
+from app.modules.progression.models.wallet import Wallet
+from app.modules.progression.models.weekly_player import WeeklyPlayer
 from app.modules.progression.repositories.economy import credit, wallet_lock
+from app.modules.progression.schemas.analytics import MatchAnalytics, SeatStats
 from app.modules.progression.services.skill_updates import update_skills
 
 

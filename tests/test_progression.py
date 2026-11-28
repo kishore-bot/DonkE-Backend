@@ -8,14 +8,18 @@ from test_online import headers, profile, sign_in
 from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.platform import open_platform
-from app.modules.admin.service import AdminService
-from app.modules.identity.repository import apply_rating
-from app.modules.lobby.repository import LobbyRepository
-from app.modules.lobby.service import LobbyService
-from app.modules.matches.models import MatchRecord
-from app.modules.matches.schemas import EventBatch, GameSeat, MatchReplay
-from app.modules.matches.settlement import persist
-from app.modules.progression.models import Season, SeasonPlayer, Wallet, WeeklyPlayer
+from app.modules.admin.services.admin import AdminService
+from app.modules.identity.repositories.players import apply_rating
+from app.modules.lobby.repositories.lobby import LobbyRepository
+from app.modules.lobby.services.lobby import LobbyService
+from app.modules.matches.models.match_record import MatchRecord
+from app.modules.matches.schemas.results import MatchReplay
+from app.modules.matches.schemas.state import EventBatch, GameSeat
+from app.modules.matches.services.settlement import persist
+from app.modules.progression.models.season import Season
+from app.modules.progression.models.season_player import SeasonPlayer
+from app.modules.progression.models.wallet import Wallet
+from app.modules.progression.models.weekly_player import WeeklyPlayer
 from app.workers.matchmaking import match_once
 
 pytestmark = pytest.mark.integration

@@ -6,7 +6,7 @@ from math import log10
 
 from donke_engine import OnlineGame
 
-from app.modules.story.rival import BANDS, expert_search, pairing
+from app.modules.story.helpers.rival import BANDS, expert_search, pairing
 
 
 def score(

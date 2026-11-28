@@ -1,5 +1,4 @@
 from collections import Counter, OrderedDict, deque
-from dataclasses import dataclass, field
 from hashlib import sha256
 from secrets import compare_digest
 from threading import Lock
@@ -10,36 +9,9 @@ from donke_engine import PracticeGame
 
 from app.core.config import Settings
 from app.core.errors import AppError
-from app.modules.game.schemas import (
-    GameUpdate,
-    PracticeHint,
-    PracticePlayRequest,
-)
-from app.modules.game.seeded import SeededDuel
-from app.modules.game.story_state import StoryPin
-
-
-@dataclass(frozen=True, slots=True)
-class RecordedPlay:
-    command: PracticePlayRequest
-    outcome: GameUpdate
-
-
-@dataclass(slots=True)
-class PracticeSession:
-    game: PracticeGame | SeededDuel
-    token_digest: bytes
-    expires_at: float
-    client: str = "unknown"
-    story: StoryPin | None = None
-    finished: bool = False
-    plays: dict[UUID, RecordedPlay] = field(default_factory=dict)
-    # Serialises plays within one match; other matches never wait on it.
-    lock: Lock = field(default_factory=Lock)
-    # The last hint and the game instance it was computed for. Play publishes a
-    # new instance, so one engine search serves every hint request per position.
-    hint: tuple[object, PracticeHint] | None = None
-    hint_lock: Lock = field(default_factory=Lock)
+from app.modules.game.dto.practice_session import PracticeSession
+from app.modules.game.dto.story_pin import StoryPin
+from app.modules.game.helpers.seeded_duel import SeededDuel
 
 
 class PracticeRepository:

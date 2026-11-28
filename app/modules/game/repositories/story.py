@@ -5,8 +5,9 @@ from uuid import UUID
 from sqlalchemy import Integer, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.game.models import StoryDuel, StoryDuelCommand
-from app.modules.identity.models import Player
+from app.modules.game.models.story_duel import StoryDuel
+from app.modules.game.models.story_duel_command import StoryDuelCommand
+from app.modules.identity.models.player import Player
 
 
 async def prune_expired(db: AsyncSession, now: datetime) -> None:

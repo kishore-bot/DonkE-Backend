@@ -4,10 +4,10 @@ from fastapi import APIRouter
 
 from app.core.dependencies import PlatformDep
 from app.modules.admin.dependencies import Cookie, CsrfToken, RequestId
-from app.modules.admin.service import admin_write
-from app.modules.matches.repository import MatchRepository
-from app.modules.progression.clock import utc_now
-from app.modules.progression.schemas import (
+from app.modules.admin.services.audit import admin_write
+from app.modules.matches.repositories.matches import MatchRepository
+from app.modules.progression.helpers.clock import utc_now
+from app.modules.progression.schemas.seasons import (
     CloseSeason,
     SeasonCreate,
     SeasonInfo,

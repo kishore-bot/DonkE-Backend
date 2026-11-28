@@ -16,14 +16,15 @@ from app.core.config import Settings
 from app.core.errors import AppError
 from app.core.platform import Platform, open_platform
 from app.core.schema import check_storage_ready
-from app.modules.identity.repository import find_or_create_player
-from app.modules.identity.schemas import Language, Profile
-from app.modules.identity.service import IdentityService
-from app.modules.lobby.repository import LobbyRepository
-from app.modules.lobby.service import LobbyService
-from app.modules.matches.schemas import EventBatch, GameSeat, MatchReplay
-from app.modules.matches.settlement import persist
-from app.modules.progression.models import Season
+from app.modules.identity.repositories.players import find_or_create_player
+from app.modules.identity.schemas.profile import Language, Profile
+from app.modules.identity.services.identity import IdentityService
+from app.modules.lobby.repositories.lobby import LobbyRepository
+from app.modules.lobby.services.lobby import LobbyService
+from app.modules.matches.schemas.results import MatchReplay
+from app.modules.matches.schemas.state import EventBatch, GameSeat
+from app.modules.matches.services.settlement import persist
+from app.modules.progression.models.season import Season
 from app.modules.social.services.friends import FriendsService
 
 DEMO_SUBJECTS: tuple[tuple[str, str, Language], ...] = (

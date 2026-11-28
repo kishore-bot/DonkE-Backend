@@ -5,24 +5,20 @@ from sqlalchemy import select
 
 from app.core.errors import AppError
 from app.core.platform import Platform
-from app.modules.progression.catalog import (
+from app.modules.progression.helpers.catalog import (
     CATALOG,
     SQUAD_COSMETIC,
     in_window,
     window_end,
 )
-from app.modules.progression.models import (
-    Cosmetic,
-    Wallet,
-)
+from app.modules.progression.models.cosmetic import Cosmetic
+from app.modules.progression.models.wallet import Wallet
 from app.modules.progression.repositories.economy import (
     credit,
     own,
     wallet_lock,
 )
-from app.modules.progression.schemas import (
-    CatalogItem,
-)
+from app.modules.progression.schemas.store import CatalogItem
 
 EARNED_COSMETICS = {
     "tier": "Season tier",

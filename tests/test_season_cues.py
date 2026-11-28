@@ -10,10 +10,10 @@ from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.platform import open_platform
 from app.main import create_app
-from app.modules.ai.gateway import Gateway
-from app.modules.ai.provider import Written
-from app.modules.ai.voice import Voice
-from app.modules.story.models import SeasonCue
+from app.modules.ai.dto.provider import Written
+from app.modules.ai.services.gateway import Gateway
+from app.modules.ai.services.voice import Voice
+from app.modules.story.models.season_cue import SeasonCue
 
 
 @pytest.mark.integration

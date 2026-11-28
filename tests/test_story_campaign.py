@@ -9,10 +9,11 @@ from test_online import headers, sign_in
 from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.platform import open_platform
-from app.modules.game.models import StoryDuel, StoryDuelCommand
+from app.modules.game.models.story_duel import StoryDuel
+from app.modules.game.models.story_duel_command import StoryDuelCommand
 from app.modules.game.repositories.story import prune_expired
-from app.modules.progression.models import Season
-from app.modules.progression.schemas import SeasonCreate
+from app.modules.progression.models.season import Season
+from app.modules.progression.schemas.seasons import SeasonCreate
 from app.modules.progression.services.seasons import create_season
 from app.modules.story import dependencies as story_clock
 

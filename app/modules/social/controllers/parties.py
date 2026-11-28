@@ -3,11 +3,9 @@ from uuid import UUID
 from fastapi import APIRouter
 
 from app.modules.identity.dependencies import CurrentPlayer, PlayerWrites
-from app.modules.lobby.schemas import QueueStatus
+from app.modules.lobby.schemas.queue import QueueStatus
 from app.modules.social.dependencies import Parties
-from app.modules.social.schemas import (
-    PartyView,
-)
+from app.modules.social.schemas.parties import PartyView
 
 router = APIRouter()
 

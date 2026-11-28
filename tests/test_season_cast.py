@@ -10,9 +10,9 @@ from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.errors import AppError
 from app.core.platform import open_platform
-from app.modules.progression import clock as season_clock
-from app.modules.progression.models import Season
-from app.modules.progression.schemas import SeasonCreate
+from app.modules.progression.helpers import clock as season_clock
+from app.modules.progression.models.season import Season
+from app.modules.progression.schemas.seasons import SeasonCreate
 from app.modules.progression.services.seasons import active_manifest, create_season
 
 

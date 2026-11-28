@@ -1,0 +1,2 @@
+# Shell scripts run under bash in WSL and containers: keep LF on Windows checkouts.
+*.sh text eol=lf

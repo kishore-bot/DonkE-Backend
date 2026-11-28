@@ -4,12 +4,11 @@ from fastapi import APIRouter
 
 from app.core.dependencies import PlatformDep
 from app.modules.identity.dependencies import CurrentPlayer
-from app.modules.matches.settlement import read_replay
-from app.modules.progression.analytics import MatchAnalytics, match_analytics
+from app.modules.matches.repositories.history import read_replay
 from app.modules.progression.dependencies import SeasonProgress
-from app.modules.progression.schemas import (
-    AchievementsView,
-)
+from app.modules.progression.schemas.achievements import AchievementsView
+from app.modules.progression.schemas.analytics import MatchAnalytics
+from app.modules.progression.services.analytics import match_analytics
 
 router = APIRouter()
 

@@ -12,13 +12,13 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import Settings
 from app.core.platform import Platform, open_platform
-from app.modules.lobby.repository import LobbyConflict, LobbyRepository
-from app.modules.lobby.service import QUEUES, LobbyService
-from app.modules.matches.health import record_turn_sweep
-from app.modules.matches.repository import MatchConflict
-from app.modules.matches.service import TURN_CONCURRENCY, MatchService
+from app.modules.lobby.repositories.lobby import LobbyConflict, LobbyRepository
+from app.modules.lobby.services.lobby import QUEUES, LobbyService
+from app.modules.matches.repositories.matches import MatchConflict
+from app.modules.matches.services.health import record_turn_sweep
+from app.modules.matches.services.match import TURN_CONCURRENCY, MatchService
 from app.modules.progression.services.skill_updates import hidden_skills
-from app.modules.social.models import PlayerBlock
+from app.modules.social.models.player_block import PlayerBlock
 
 logger = logging.getLogger(__name__)
 RETRYABLE = (RedisError, SQLAlchemyError, OSError, LobbyConflict, MatchConflict)

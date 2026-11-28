@@ -9,26 +9,26 @@ from starlette.concurrency import run_in_threadpool
 from app.core.errors import AppError
 from app.core.platform import Platform
 from app.core.rate_limit import limit
-from app.modules.ai.gateway import Gateway
-from app.modules.game.rival_memory import recall
-from app.modules.game.schemas import PracticeCreated, SceneEmote, StoryEvent
-from app.modules.game.seeded import SeededDuel
-from app.modules.game.service import PracticeService
-from app.modules.game.story_state import StoryPin
-from app.modules.game.story_store import StoryStore, for_attempt
-from app.modules.identity.service import Principal
-from app.modules.progression.emotes import pinned_emote
-from app.modules.progression.models import SeasonCharacter, SeasonSquadMember
-from app.modules.progression.season_content import CharacterPreview
+from app.modules.ai.services.gateway import Gateway
+from app.modules.game.dto.story_pin import StoryPin
+from app.modules.game.helpers.seeded_duel import SeededDuel
+from app.modules.game.repositories.rival_memory import recall
+from app.modules.game.schemas.emotes import SceneEmote
+from app.modules.game.schemas.practice import PracticeCreated
+from app.modules.game.schemas.story import StoryEvent
+from app.modules.game.services.practice import PracticeService
+from app.modules.game.services.story_store import StoryStore, for_attempt
+from app.modules.identity.dto.principal import Principal
+from app.modules.progression.models.season_character import SeasonCharacter
+from app.modules.progression.models.season_squad_member import SeasonSquadMember
+from app.modules.progression.schemas.content import CharacterPreview
+from app.modules.progression.services.emotes import pinned_emote
 from app.modules.progression.services.seasons import active_manifest
-from app.modules.story.chapters import (
-    Chapter,
-    chapter_for,
-    cleared_chapters,
-    describe,
-)
-from app.modules.story.rival import expert_search, rival_budget
-from app.modules.story.schemas import StartDuel, StoryAttempt
+from app.modules.story.dto.chapter import Chapter
+from app.modules.story.helpers.chapters import chapter_for
+from app.modules.story.helpers.rival import expert_search, rival_budget
+from app.modules.story.schemas.duel import StartDuel, StoryAttempt
+from app.modules.story.services.chapters import cleared_chapters, describe
 
 
 def story_attempt(

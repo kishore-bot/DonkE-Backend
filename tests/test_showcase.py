@@ -17,12 +17,12 @@ from app.core.config import Settings
 from app.core.errors import AppError
 from app.core.platform import Platform, open_platform
 from app.core.schema import check_storage_ready, has_required_schema
-from app.modules.identity.service import IdentityService
-from app.modules.lobby.repository import LobbyRepository
-from app.modules.lobby.service import LobbyService
-from app.modules.matches.service import MatchService
-from app.modules.matches.settlement import read_replay
-from app.modules.progression.models import Season
+from app.modules.identity.services.identity import IdentityService
+from app.modules.lobby.repositories.lobby import LobbyRepository
+from app.modules.lobby.services.lobby import LobbyService
+from app.modules.matches.repositories.history import read_replay
+from app.modules.matches.services.match import MatchService
+from app.modules.progression.models.season import Season
 from app.modules.progression.services.store import StoreService
 from app.workers import matchmaking
 from scripts.demo_smoke import SmokeFailure, cleanup_room, websocket_base

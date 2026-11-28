@@ -4,13 +4,8 @@ from fastapi import APIRouter
 
 from app.modules.identity.dependencies import CurrentPlayer, PlayerWrites
 from app.modules.lobby.dependencies import Lobby
-from app.modules.lobby.schemas import (
-    QueueRequest,
-    QueueStatus,
-    ReadyRequest,
-    Room,
-    RoomCreate,
-)
+from app.modules.lobby.schemas.queue import QueueRequest, QueueStatus
+from app.modules.lobby.schemas.rooms import ReadyRequest, Room, RoomCreate
 
 rooms = APIRouter(prefix="/api/v1/rooms", tags=["Rooms"])
 matchmaking = APIRouter(prefix="/api/v1/matchmaking", tags=["Matchmaking"])

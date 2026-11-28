@@ -14,9 +14,9 @@ from google.genai import errors, types
 from google.genai.client import AsyncClient
 
 from app.core.config import Settings
-from app.modules.ai.knowledge import RULES
-from app.modules.progression.season_content import PACKS
-from app.modules.story.lines import valid
+from app.modules.ai.helpers.knowledge import RULES
+from app.modules.progression.helpers.season_content import PACKS
+from app.modules.story.helpers.lines import valid
 
 TTL_SECONDS = 300
 MAX_CORPUS_BYTES = 262_144

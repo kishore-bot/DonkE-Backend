@@ -5,16 +5,12 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.progression.catalog import (
-    STREAK_DAYS,
-)
-from app.modules.progression.models import (
-    CoinLedger,
-    Cosmetic,
-    Season,
-    SeasonDay,
-    Wallet,
-)
+from app.modules.progression.helpers.catalog import STREAK_DAYS
+from app.modules.progression.models.coin_ledger import CoinLedger
+from app.modules.progression.models.cosmetic import Cosmetic
+from app.modules.progression.models.season import Season
+from app.modules.progression.models.season_day import SeasonDay
+from app.modules.progression.models.wallet import Wallet
 
 
 async def wallet_lock(db: AsyncSession, player: UUID) -> Wallet:

@@ -29,7 +29,7 @@ from taskiq_redis import RedisStreamBroker
 
 from app.core.config import Settings
 from app.core.platform import Platform, open_platform
-from app.modules.ai.fair_play import drain, run_analysis
+from app.modules.ai.services.fair_play import drain, run_analysis
 from app.workers.maintenance import prune_sessions, sweep_media
 
 settings = Settings()

@@ -9,14 +9,18 @@ from test_online import headers, sign_in
 from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.platform import open_platform
-from app.modules.ai.coaching import analyse, seat_of
-from app.modules.identity.models import Player
-from app.modules.identity.repository import apply_rating
-from app.modules.matches.repository import MatchRepository
-from app.modules.matches.schemas import GameSeat
-from app.modules.matches.service import MatchService
-from app.modules.matches.settlement import load_replay, persist
-from app.modules.progression.models import PlayerSkill, Season, SeasonPlayer
+from app.modules.ai.helpers.coaching_analysis import analyse
+from app.modules.ai.services.coaching import seat_of
+from app.modules.identity.models.player import Player
+from app.modules.identity.repositories.players import apply_rating
+from app.modules.matches.repositories.history import load_replay
+from app.modules.matches.repositories.matches import MatchRepository
+from app.modules.matches.schemas.state import GameSeat
+from app.modules.matches.services.match import MatchService
+from app.modules.matches.services.settlement import persist
+from app.modules.progression.models.player_skill import PlayerSkill
+from app.modules.progression.models.season import Season
+from app.modules.progression.models.season_player import SeasonPlayer
 from app.modules.progression.services.seasons import close_season
 
 pytestmark = pytest.mark.integration

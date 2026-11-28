@@ -4,10 +4,7 @@ from fastapi import APIRouter, Path
 
 from app.modules.identity.dependencies import CurrentPlayer, PlayerWrites
 from app.modules.progression.dependencies import Store
-from app.modules.progression.schemas import (
-    CatalogItem,
-    WalletView,
-)
+from app.modules.progression.schemas.store import CatalogItem, WalletView
 
 router = APIRouter()
 

@@ -5,8 +5,8 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
-from app.modules.matches.schemas import EventBatch, PublicMatch
-from app.modules.matches.socket_schemas import COMMAND
+from app.modules.matches.schemas.socket import COMMAND
+from app.modules.matches.schemas.state import EventBatch, PublicMatch
 
 
 def contract() -> dict[str, Any]:

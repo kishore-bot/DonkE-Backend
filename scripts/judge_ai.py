@@ -26,8 +26,10 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.core.config import Settings
 from app.core.platform import Platform, open_platform
-from app.modules.ai.coaching import TIPS, Analysis, MatchAnalysis
-from app.modules.ai.gateway import Gateway, open_gateway
+from app.modules.ai.helpers.coaching_analysis import TIPS
+from app.modules.ai.models.match_analysis import MatchAnalysis
+from app.modules.ai.schemas.coaching import Analysis
+from app.modules.ai.services.gateway import Gateway, open_gateway
 
 JUDGE = (
     "You grade a card-game coaching tip. The FACT is correct and complete. "

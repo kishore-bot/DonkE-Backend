@@ -12,10 +12,10 @@ from app.modules.admin.dependencies import (
     CsrfToken,
     RequestId,
 )
-from app.modules.admin.schemas import (
+from app.modules.admin.schemas.audit import AuditEntry
+from app.modules.admin.schemas.auth import (
     AdminLogin,
     AdminProfile,
-    AuditEntry,
     Login,
     TotpCode,
     TotpSetup,

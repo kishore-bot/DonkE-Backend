@@ -16,11 +16,12 @@ from test_online import settings as settings  # noqa: PLC0414
 from app.core.platform import open_platform
 from app.main import create_app
 from app.modules.ai import mcp_server
-from app.modules.progression.models import Season
-from app.modules.progression.schemas import SeasonCreate
+from app.modules.progression.models.season import Season
+from app.modules.progression.schemas.seasons import SeasonCreate
 from app.modules.progression.services.seasons import create_season
 from app.modules.story import dependencies as story_clock
-from app.modules.story.models import SeasonCue, SeasonMedia
+from app.modules.story.models.season_cue import SeasonCue
+from app.modules.story.models.season_media import SeasonMedia
 
 pytestmark = pytest.mark.integration
 

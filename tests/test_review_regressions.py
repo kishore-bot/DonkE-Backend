@@ -14,15 +14,15 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.config import Settings
 from app.core.errors import AppError
-from app.modules.admin import service as admin
-from app.modules.ai import voice
-from app.modules.game import service as practice
+from app.modules.admin.services import admin
+from app.modules.ai.services import voice
 from app.modules.game.repositories import practice as practice_store
 from app.modules.game.repositories.practice import PracticeRepository
-from app.modules.game.schemas import PlayRequest
-from app.modules.matches import socket_tickets
-from app.modules.matches.schemas import GameSeat, MatchState
-from app.modules.matches.service import MatchService
+from app.modules.game.schemas.practice import PlayRequest
+from app.modules.game.services import practice
+from app.modules.matches.schemas.state import GameSeat, MatchState
+from app.modules.matches.services import socket_tickets
+from app.modules.matches.services.match import MatchService
 
 
 def test_practice_reserves_capacity_and_prunes_idle_clients(monkeypatch):

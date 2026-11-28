@@ -1,0 +1,16 @@
+from typing import Protocol
+
+from app.modules.ai.dto.provider import Models, Selected, Written
+
+
+class AIProvider(Protocol):
+    """What DonkE needs from an AI backend. Implementations live in
+    app/modules/ai/providers/registry.py and are chosen by DONKE_AI_PROVIDER."""
+
+    models: Models
+
+    async def select(self, task: str, prompt: str) -> Selected: ...
+    async def write(self, task: str, prompt: str) -> Written: ...
+    async def render(self, text: str, voice: str) -> bytes: ...
+    async def embed(self, texts: list[str], *, query: bool) -> list[list[float]]: ...
+    async def close(self) -> None: ...

@@ -3,10 +3,12 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 
 from app.core.platform import Platform
-from app.modules.admin.repository import prune_expired as prune_admin_sessions
+from app.modules.admin.repositories.admins import prune_expired as prune_admin_sessions
 from app.modules.game.repositories.story import prune_expired as prune_story_duels
-from app.modules.identity.repository import prune_expired as prune_player_sessions
-from app.modules.story.models import SeasonMedia
+from app.modules.identity.repositories.sessions import (
+    prune_expired as prune_player_sessions,
+)
+from app.modules.story.models.season_media import SeasonMedia
 
 
 async def prune_sessions(platform: Platform) -> None:

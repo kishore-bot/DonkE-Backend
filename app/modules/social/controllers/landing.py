@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from app.core.errors import AppError
-from app.modules.social.schemas import InviteCode
+from app.modules.social.schemas.invites import InviteCode
 
 landing = APIRouter(tags=["Social"])
 

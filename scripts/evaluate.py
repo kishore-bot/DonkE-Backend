@@ -11,16 +11,16 @@ from uuid import UUID
 
 from donke_engine import OnlineGame
 
-from app.modules.ai.commentary import moment
-from app.modules.ai.knowledge import sources
-from app.modules.game.seeded import SeededDuel
-from app.modules.game.story_state import StoryPin
-from app.modules.identity.schemas import Language
-from app.modules.progression.calendar import window_open
-from app.modules.story.awakening import requirements, resolve_path
-from app.modules.story.chapters import chapter_for
-from app.modules.story.coach import explain
-from app.modules.story.lines import FALLBACK, valid
+from app.modules.ai.helpers.commentary import moment
+from app.modules.ai.helpers.knowledge import sources
+from app.modules.game.dto.story_pin import StoryPin
+from app.modules.game.helpers.seeded_duel import SeededDuel
+from app.modules.identity.schemas.profile import Language
+from app.modules.progression.helpers.calendar import window_open
+from app.modules.story.helpers.awakening import requirements, resolve_path
+from app.modules.story.helpers.chapters import chapter_for
+from app.modules.story.helpers.lines import FALLBACK, valid
+from app.modules.story.services.coach import explain
 
 QUESTIONS = (
     ("Which card opens the first trick?", "opening"),

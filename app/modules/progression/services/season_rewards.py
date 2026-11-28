@@ -5,13 +5,13 @@ from sqlalchemy import select
 
 from app.core.errors import AppError
 from app.core.platform import Platform
-from app.modules.progression.calendar import (
+from app.modules.progression.helpers.calendar import (
     CLAIM_GRACE,
     claim_deadline,
     claim_week,
     window_open,
 )
-from app.modules.progression.catalog import (
+from app.modules.progression.helpers.catalog import (
     BONUS_TRACK,
     CHALLENGES,
     STREAK_DAYS,
@@ -19,11 +19,9 @@ from app.modules.progression.catalog import (
     TIER_REWARDS,
     tier_reached,
 )
-from app.modules.progression.models import (
-    Season,
-    SeasonPlayer,
-    WeeklyPlayer,
-)
+from app.modules.progression.models.season import Season
+from app.modules.progression.models.season_player import SeasonPlayer
+from app.modules.progression.models.weekly_player import WeeklyPlayer
 from app.modules.progression.repositories.economy import (
     credit,
     own,
@@ -31,10 +29,7 @@ from app.modules.progression.repositories.economy import (
     streak_stars,
     wallet_lock,
 )
-from app.modules.progression.schemas import (
-    EarnedGift,
-    SeasonGifts,
-)
+from app.modules.progression.schemas.gifts import EarnedGift, SeasonGifts
 from app.modules.progression.services.seasons import lock_season_schedule
 
 

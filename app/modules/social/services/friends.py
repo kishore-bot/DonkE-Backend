@@ -6,25 +6,21 @@ from sqlalchemy.orm import aliased
 
 from app.core.errors import AppError
 from app.core.platform import Platform
-from app.modules.identity.repository import profiles
-from app.modules.lobby.service import LobbyService
-from app.modules.matches.models import MatchPlayer, MatchRecord
-from app.modules.matches.schemas import MatchReplay
-from app.modules.progression.analytics import finishing_ranks, match_analytics
-from app.modules.social import live
-from app.modules.social.errors import missing
-from app.modules.social.models import (
-    Friendship,
-    PartyInvite,
-    PartyMember,
-    PlayerBlock,
-)
-from app.modules.social.safety import ensure_not_blocked, pair
-from app.modules.social.schemas import (
-    Activity,
-    FriendStatus,
-    Together,
-)
+from app.modules.identity.repositories.players import profiles
+from app.modules.lobby.services.lobby import LobbyService
+from app.modules.matches.models.match_player import MatchPlayer
+from app.modules.matches.models.match_record import MatchRecord
+from app.modules.matches.schemas.results import MatchReplay
+from app.modules.progression.services.analytics import finishing_ranks, match_analytics
+from app.modules.social.helpers.errors import missing
+from app.modules.social.helpers.moderation import pair
+from app.modules.social.models.friendship import Friendship
+from app.modules.social.models.party_invite import PartyInvite
+from app.modules.social.models.party_member import PartyMember
+from app.modules.social.models.player_block import PlayerBlock
+from app.modules.social.repositories import presence
+from app.modules.social.repositories.safety import ensure_not_blocked
+from app.modules.social.schemas.friends import Activity, FriendStatus, Together
 
 
 class FriendsService:
@@ -56,7 +52,7 @@ class FriendsService:
             for edge, other in zip(edges, others, strict=True)
             if edge.accepted and other in known
         ]
-        present = await live.online(self.platform, accepted)
+        present = await presence.online(self.platform, accepted)
         activity: dict[UUID, Activity] = {
             other: (await self.lobby.queue_status(known[other])).status
             for other in accepted

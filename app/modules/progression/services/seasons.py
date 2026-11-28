@@ -6,24 +6,16 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
-from app.modules.identity.repository import reset_ratings
-from app.modules.matches.repository import MatchRepository
-from app.modules.matches.schemas import MatchAdmission
-from app.modules.progression.models import (
-    Season,
-    SeasonCharacter,
-    SeasonPlayer,
-)
+from app.modules.identity.repositories.players import reset_ratings
+from app.modules.matches.repositories.matches import MatchRepository
+from app.modules.matches.schemas.state import MatchAdmission
+from app.modules.progression.helpers.season_content import PACKS
+from app.modules.progression.models.season import Season
+from app.modules.progression.models.season_character import SeasonCharacter
+from app.modules.progression.models.season_player import SeasonPlayer
 from app.modules.progression.repositories.economy import credit, own, wallet_lock
-from app.modules.progression.schemas import (
-    SeasonCreate,
-    SeasonInfo,
-)
-from app.modules.progression.season_content import (
-    PACKS,
-    CharacterSelection,
-    SeasonManifest,
-)
+from app.modules.progression.schemas.content import CharacterSelection, SeasonManifest
+from app.modules.progression.schemas.seasons import SeasonCreate, SeasonInfo
 
 
 async def active_season(db: AsyncSession, now: datetime) -> Season | None:

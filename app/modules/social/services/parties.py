@@ -5,21 +5,18 @@ from sqlalchemy.dialects.postgresql import insert
 
 from app.core.errors import AppError
 from app.core.platform import Platform
-from app.modules.identity.repository import profiles
-from app.modules.lobby.schemas import QueueStatus
-from app.modules.lobby.service import LobbyService
-from app.modules.social.errors import conflict, missing
-from app.modules.social.models import (
-    Friendship,
-    Party,
-    PartyInvite,
-    PartyMember,
-)
-from app.modules.social.repository import members, party_for, party_view
-from app.modules.social.safety import ensure_not_blocked, pair
-from app.modules.social.schemas import (
-    PartyView,
-)
+from app.modules.identity.repositories.players import profiles
+from app.modules.lobby.schemas.queue import QueueStatus
+from app.modules.lobby.services.lobby import LobbyService
+from app.modules.social.helpers.errors import conflict, missing
+from app.modules.social.helpers.moderation import pair
+from app.modules.social.models.friendship import Friendship
+from app.modules.social.models.party import Party
+from app.modules.social.models.party_invite import PartyInvite
+from app.modules.social.models.party_member import PartyMember
+from app.modules.social.repositories.parties import members, party_for, party_view
+from app.modules.social.repositories.safety import ensure_not_blocked
+from app.modules.social.schemas.parties import PartyView
 
 
 class PartyService:

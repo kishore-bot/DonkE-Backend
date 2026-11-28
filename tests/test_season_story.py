@@ -9,12 +9,14 @@ from test_online import headers, profile, sign_in
 from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.platform import open_platform
-from app.modules.ai.provider import Selected
-from app.modules.progression import clock as season_routes
-from app.modules.progression.calendar import week_start
-from app.modules.progression.models import Season, SeasonDay, SeasonPlayer
+from app.modules.ai.dto.provider import Selected
+from app.modules.progression.helpers import clock as season_routes
+from app.modules.progression.helpers.calendar import week_start
+from app.modules.progression.models.season import Season
+from app.modules.progression.models.season_day import SeasonDay
+from app.modules.progression.models.season_player import SeasonPlayer
 from app.modules.progression.repositories.economy import streak_stars
-from app.modules.progression.schemas import SeasonCreate
+from app.modules.progression.schemas.seasons import SeasonCreate
 from app.modules.progression.services.seasons import create_season
 from app.modules.story import dependencies as story_clock
 

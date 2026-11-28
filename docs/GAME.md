@@ -45,7 +45,7 @@ Packed seasons start at UTC midnight and use three seven-day acts. The public ma
 | `skybound-voyage-v2`, Storm | Escape after landing at least one Strike. |
 | Grimoire and Skybound v1 | Retain the earlier escape-based chapter rules. |
 
-The selected route, chapter, character, emote and rival policy are fixed at admission. The saved attempt keeps its last accepted move. A finished account-backed attempt remains available for one day, with an unclaimed result recoverable during that window. A signed challenge link lasts 30 days and carries the authored encounter and public result summary. A past-season collection entry shows cleared chapters and owned transformations. [Season packs](SEASON_RELEASE.md#seasonal-game-packs) · [Story attempt storage](../app/modules/game/story_store.py)
+The selected route, chapter, character, emote and rival policy are fixed at admission. The saved attempt keeps its last accepted move. A finished account-backed attempt remains available for one day, with an unclaimed result recoverable during that window. A signed challenge link lasts 30 days and carries the authored encounter and public result summary. A past-season collection entry shows cleared chapters and owned transformations. [Season packs](SEASON_RELEASE.md#seasonal-game-packs) · [Story attempt storage](../app/modules/game/services/story_store.py)
 
 ## Rewards, forms, and competition
 
@@ -55,13 +55,13 @@ The selected route, chapter, character, emote and rival policy are fixed at admi
 - The store sells cosmetics with earned coins. Players equip owned emotes beside the Play roster. An eligible standout Strike may activate the emote pinned to that duel.
 - A party leader enrolls two to four members in a seasonal squad. The roster is frozen at enrollment, and qualifying clears contribute once per member. A completed squad grants each member a claim for 60 coins and a Squad Finale frame.
 
-Packed season weekly reward claims can include the act's UTC start date. Omitting the date selects the current or final act. Earlier claims keep their original ledger key. Legacy seasons use calendar weeks. [Reward endpoints](api/README.md#progression) · [Squad rules](../app/modules/progression/squad.py)
+Packed season weekly reward claims can include the act's UTC start date. Omitting the date selects the current or final act. Earlier claims keep their original ledger key. Legacy seasons use calendar weeks. [Reward endpoints](api/README.md#progression) · [Squad rules](../app/modules/progression/services/squads.py)
 
 ## Online rollover and result receipts
 
 Match admission uses the Redis clock and a shared PostgreSQL schedule lock. Redis checks the cutoff again when the table starts. A match that finishes after rollover keeps its admission season and uses that season's last eligible UTC day for progression. The global coin cap uses the actual completion date. Between seasons, matches earn no season points. Older matches without an admission record use finish-time attribution.
 
-The participant result can be in progress, pending or settled. PostgreSQL commits the replay and receipt together with coins, season points, bank coins and the rating change. Settlement retries reuse the stored outcome. Progress can reopen recent matches and replays. Older archives may have a placement with reward amounts unavailable. [Match endpoints](api/README.md#multiplayer) · [Settlement](../app/modules/matches/settlement.py)
+The participant result can be in progress, pending or settled. PostgreSQL commits the replay and receipt together with coins, season points, bank coins and the rating change. Settlement retries reuse the stored outcome. Progress can reopen recent matches and replays. Older archives may have a placement with reward amounts unavailable. [Match endpoints](api/README.md#multiplayer) · [Settlement](../app/modules/matches/services/settlement.py)
 
 ## Backend boundaries
 

@@ -8,16 +8,15 @@ from test_online import headers, profile, sign_in
 from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.platform import open_platform
-from app.modules.matches.schemas import EventBatch, GameSeat, MatchReplay
-from app.modules.matches.settlement import persist
-from app.modules.progression.models import (
-    PlayerSkill,
-    PlayerStats,
-    Season,
-    SeasonDay,
-    SeasonPlayer,
-    Wallet,
-)
+from app.modules.matches.schemas.results import MatchReplay
+from app.modules.matches.schemas.state import EventBatch, GameSeat
+from app.modules.matches.services.settlement import persist
+from app.modules.progression.models.player_skill import PlayerSkill
+from app.modules.progression.models.player_stats import PlayerStats
+from app.modules.progression.models.season import Season
+from app.modules.progression.models.season_day import SeasonDay
+from app.modules.progression.models.season_player import SeasonPlayer
+from app.modules.progression.models.wallet import Wallet
 from app.modules.progression.repositories.economy import streak_stars
 
 pytestmark = pytest.mark.integration

@@ -5,7 +5,7 @@ from fastapi import Depends, Header, Request
 from fastapi.security import APIKeyCookie
 
 from app.core.dependencies import PlatformDep
-from app.modules.admin.service import AdminService
+from app.modules.admin.services.admin import AdminService
 
 SESSION_COOKIE = "__Host-donke-admin"
 Cookie = Annotated[

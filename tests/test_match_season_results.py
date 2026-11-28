@@ -10,18 +10,17 @@ from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.errors import AppError
 from app.core.platform import open_platform
-from app.modules.identity.models import Player
-from app.modules.matches import settlement
-from app.modules.matches.models import MatchPlayer
-from app.modules.matches.schemas import (
-    EventBatch,
-    GameSeat,
-    MatchAdmission,
-    MatchReplay,
-)
-from app.modules.matches.service import MatchService
-from app.modules.progression.calendar import week_start
-from app.modules.progression.models import Season, SeasonDay, SeasonPlayer, WeeklyPlayer
+from app.modules.identity.models.player import Player
+from app.modules.matches.models.match_player import MatchPlayer
+from app.modules.matches.schemas.results import MatchReplay
+from app.modules.matches.schemas.state import EventBatch, GameSeat, MatchAdmission
+from app.modules.matches.services import settlement
+from app.modules.matches.services.match import MatchService
+from app.modules.progression.helpers.calendar import week_start
+from app.modules.progression.models.season import Season
+from app.modules.progression.models.season_day import SeasonDay
+from app.modules.progression.models.season_player import SeasonPlayer
+from app.modules.progression.models.weekly_player import WeeklyPlayer
 from app.modules.progression.services.seasons import close_season
 
 pytestmark = pytest.mark.integration

@@ -3,18 +3,18 @@ from uuid import UUID
 from fastapi import APIRouter
 
 from app.core.rate_limit import limit
-from app.modules.ai.coaching import Coaching, coaching
 from app.modules.ai.dependencies import AI
-from app.modules.ai.index import ranked_rules
-from app.modules.ai.insights import Insights, Roast, insights, roast
-from app.modules.ai.knowledge import NO_MATCH
-from app.modules.ai.rivals import PersonaLines, RivalView, persona_lines, rival
-from app.modules.ai.schemas import (
-    CoachReply,
-    CoachRequest,
-)
+from app.modules.ai.helpers.knowledge import NO_MATCH
+from app.modules.ai.schemas.coach import CoachReply, CoachRequest
+from app.modules.ai.schemas.coaching import Coaching
+from app.modules.ai.schemas.insights import Insights, Roast
+from app.modules.ai.schemas.rivals import PersonaLines, RivalView
+from app.modules.ai.services.coaching import coaching
+from app.modules.ai.services.insights import insights, roast
+from app.modules.ai.services.rivals import persona_lines, rival
+from app.modules.ai.services.rule_index import ranked_rules
 from app.modules.identity.dependencies import CurrentPlayer
-from app.modules.matches.settlement import read_replay
+from app.modules.matches.repositories.history import read_replay
 
 router = APIRouter()
 

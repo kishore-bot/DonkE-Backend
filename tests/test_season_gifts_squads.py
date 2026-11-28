@@ -9,9 +9,12 @@ from test_online import settings as settings  # noqa: PLC0414
 from test_social_plus import befriend
 
 from app.core.platform import open_platform
-from app.modules.progression import clock as season_routes
-from app.modules.progression.models import Season, SeasonDay, SeasonPlayer, WeeklyPlayer
-from app.modules.progression.schemas import SeasonCreate
+from app.modules.progression.helpers import clock as season_routes
+from app.modules.progression.models.season import Season
+from app.modules.progression.models.season_day import SeasonDay
+from app.modules.progression.models.season_player import SeasonPlayer
+from app.modules.progression.models.weekly_player import WeeklyPlayer
+from app.modules.progression.schemas.seasons import SeasonCreate
 from app.modules.progression.services import season_rewards
 from app.modules.progression.services.seasons import create_season
 from app.modules.story import dependencies as story_clock

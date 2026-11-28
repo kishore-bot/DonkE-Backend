@@ -13,9 +13,11 @@ from app.core.config import Settings
 from app.core.platform import open_platform
 from app.core.rate_limit import client_host
 from app.main import create_app
-from app.modules.matches.models import MatchPlayer
-from app.modules.matches.schemas import GameSeat, PublicReplay
-from app.modules.matches.settlement import persist, rated_changes
+from app.modules.matches.helpers.ratings import rated_changes
+from app.modules.matches.models.match_player import MatchPlayer
+from app.modules.matches.schemas.results import PublicReplay
+from app.modules.matches.schemas.state import GameSeat
+from app.modules.matches.services.settlement import persist
 
 
 def test_public_replay_never_carries_the_opening_deal():
@@ -126,12 +128,12 @@ def test_settlement_retry_queues_analysis_a_failed_attempt_missed(
 ):
     from redis.exceptions import RedisError
 
-    from app.modules.matches.settlement import pending_analysis_key
+    from app.modules.matches.helpers.keys import pending_analysis_key
 
     async def scenario():
         async with open_platform(settings) as platform:
             async with platform.sessions.begin() as db:
-                from app.modules.identity.models import Player
+                from app.modules.identity.models.player import Player
 
                 players = [Player(google_sub=uuid4().hex, display_name=n) for n in "AB"]
                 db.add_all(players)

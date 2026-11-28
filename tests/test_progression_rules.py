@@ -3,9 +3,10 @@ from uuid import uuid4
 
 import pytest
 
-from app.modules.matches.schemas import EventBatch, GameSeat, MatchReplay
-from app.modules.progression.analytics import finishing_ranks, match_analytics
-from app.modules.progression.catalog import (
+from app.modules.matches.schemas.results import MatchReplay
+from app.modules.matches.schemas.state import EventBatch, GameSeat
+from app.modules.progression.dto.rating import Rating
+from app.modules.progression.helpers.catalog import (
     CATALOG,
     active_perks,
     bank_share,
@@ -14,7 +15,8 @@ from app.modules.progression.catalog import (
     tier_reached,
     window_end,
 )
-from app.modules.progression.skill import Rating, rate
+from app.modules.progression.helpers.skill import rate
+from app.modules.progression.services.analytics import finishing_ranks, match_analytics
 
 
 def seat(name, *, bot=False, forfeited=False):

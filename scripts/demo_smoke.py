@@ -17,9 +17,10 @@ from pydantic import ValidationError
 from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import WebSocketException
 
-from app.modules.game.schemas import Card
-from app.modules.lobby.schemas import Room
-from app.modules.matches.schemas import Acknowledgement, MatchReplay, PublicMatch
+from app.modules.game.schemas.cards import Card
+from app.modules.lobby.schemas.rooms import Room
+from app.modules.matches.schemas.results import MatchReplay
+from app.modules.matches.schemas.state import Acknowledgement, PublicMatch
 from scripts.seed_demo import DemoSession, DemoSessions
 
 

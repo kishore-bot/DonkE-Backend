@@ -4,44 +4,47 @@ from sqlalchemy.engine import Connection
 from app.core.database import Base
 from app.core.errors import AppError
 from app.core.platform import Platform
-from app.modules.admin.models import AdminAudit, AdminSession, AdminUser, RuntimeFlag
-from app.modules.ai.models import (
-    FairPlayCase,
-    MatchAnalysis,
-    PlayerRival,
-    RuleEmbedding,
-)
-from app.modules.game.models import StoryDuel, StoryDuelCommand, StoryRivalMemory
-from app.modules.identity.models import Player, PlayerSession, RefreshToken
-from app.modules.matches.models import MatchPlayer, MatchRecord
-from app.modules.progression.models import (
-    Achievement,
-    CoinLedger,
-    Cosmetic,
-    PlayerSkill,
-    PlayerStats,
-    Season,
-    SeasonChapterClear,
-    SeasonCharacter,
-    SeasonDay,
-    SeasonEmote,
-    SeasonPlayer,
-    SeasonSquad,
-    SeasonSquadMember,
-    SeasonStoryProgress,
-    Wallet,
-    WeeklyPlayer,
-)
-from app.modules.social.models import (
-    Friendship,
-    Party,
-    PartyInvite,
-    PartyMember,
-    PlayerBlock,
-    PlayerMute,
-    PlayerReport,
-)
-from app.modules.story.models import SeasonCue, SeasonMedia
+from app.modules.admin.models.admin_audit import AdminAudit
+from app.modules.admin.models.admin_session import AdminSession
+from app.modules.admin.models.admin_user import AdminUser
+from app.modules.admin.models.runtime_flag import RuntimeFlag
+from app.modules.ai.models.fair_play_case import FairPlayCase
+from app.modules.ai.models.match_analysis import MatchAnalysis
+from app.modules.ai.models.player_rival import PlayerRival
+from app.modules.ai.models.rule_embedding import RuleEmbedding
+from app.modules.game.models.story_duel import StoryDuel
+from app.modules.game.models.story_duel_command import StoryDuelCommand
+from app.modules.game.models.story_rival_memory import StoryRivalMemory
+from app.modules.identity.models.player import Player
+from app.modules.identity.models.player_session import PlayerSession
+from app.modules.identity.models.refresh_token import RefreshToken
+from app.modules.matches.models.match_player import MatchPlayer
+from app.modules.matches.models.match_record import MatchRecord
+from app.modules.progression.models.achievement import Achievement
+from app.modules.progression.models.coin_ledger import CoinLedger
+from app.modules.progression.models.cosmetic import Cosmetic
+from app.modules.progression.models.player_skill import PlayerSkill
+from app.modules.progression.models.player_stats import PlayerStats
+from app.modules.progression.models.season import Season
+from app.modules.progression.models.season_chapter_clear import SeasonChapterClear
+from app.modules.progression.models.season_character import SeasonCharacter
+from app.modules.progression.models.season_day import SeasonDay
+from app.modules.progression.models.season_emote import SeasonEmote
+from app.modules.progression.models.season_player import SeasonPlayer
+from app.modules.progression.models.season_squad import SeasonSquad
+from app.modules.progression.models.season_squad_member import SeasonSquadMember
+from app.modules.progression.models.season_story_progress import SeasonStoryProgress
+from app.modules.progression.models.wallet import Wallet
+from app.modules.progression.models.weekly_player import WeeklyPlayer
+from app.modules.social.models.friendship import Friendship
+from app.modules.social.models.party import Party
+from app.modules.social.models.party_invite import PartyInvite
+from app.modules.social.models.party_member import PartyMember
+from app.modules.social.models.player_block import PlayerBlock
+from app.modules.social.models.player_mute import PlayerMute
+from app.modules.social.models.player_report import PlayerReport
+from app.modules.story.models.season_cue import SeasonCue
+from app.modules.story.models.season_media import SeasonMedia
 
 # Register the complete schema for Alembic and readiness.
 MAPPED_MODELS = (

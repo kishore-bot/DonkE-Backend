@@ -57,7 +57,7 @@ Install Podman and `podman-compose` inside WSL. Use [`.env.example`](.env.exampl
 | `DONKE_OBJECTS_ACCESS_KEY`, `DONKE_OBJECTS_SECRET_KEY` | Required by Compose. Credentials for the local S3-compatible media store. Use a long random secret. |
 | `DONKE_GOOGLE_CLIENT_ID` | Enables player sign-in with Google. |
 | `DONKE_GEMINI_API_KEY` | Enables Gemini calls for coaching, commentary, embeddings, and voice. |
-| `DONKE_AI_PROVIDER` | AI backend from the registry in [`providers.py`](app/modules/ai/providers.py): `gemini` (default) or `none`. |
+| `DONKE_AI_PROVIDER` | AI backend from the registry in [`registry.py`](app/modules/ai/providers/registry.py): `gemini` (default) or `none`. |
 | `DONKE_STORAGE_PROVIDER` | Object storage backend from the registry in [`storage.py`](app/core/storage.py): `s3` (default, any S3-compatible store) or `none`. |
 | `DONKE_DEMO_MODE` | Set to `true` on a dedicated demo database to enable the showcase seed. |
 
@@ -133,7 +133,7 @@ flowchart LR
 | Head-to-head, latest 200 shared matches | 76.7 ms | 2.04 ms |
 | Admin history, latest 10 matches | 73.5 ms | 0.053 ms |
 
-Values are median database execution times from 20 warm runs per query on local PostgreSQL 18.7. The before and after queries returned the same ordered match IDs. [Participant index](app/modules/matches/models.py)
+Values are median database execution times from 20 warm runs per query on local PostgreSQL 18.7. The before and after queries returned the same ordered match IDs. [Participant index](app/modules/matches/models/match_player.py)
 
 </details>
 

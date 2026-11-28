@@ -2483,7 +2483,7 @@
           },
           "weekly": {
             "items": {
-              "$ref": "#/components/schemas/app__modules__progression__schemas__ChallengeView"
+              "$ref": "#/components/schemas/app__modules__progression__schemas__seasons__ChallengeView"
             },
             "title": "Weekly",
             "type": "array"
@@ -5510,7 +5510,7 @@
         "title": "WalletView",
         "type": "object"
       },
-      "app__modules__progression__schemas__ChallengeView": {
+      "app__modules__progression__schemas__seasons__ChallengeView": {
         "properties": {
           "claimed": {
             "title": "Claimed",
@@ -5548,7 +5548,7 @@
         "title": "ChallengeView",
         "type": "object"
       },
-      "app__modules__story__challenge__ChallengeView": {
+      "app__modules__story__schemas__challenge__ChallengeView": {
         "properties": {
           "character": {
             "$ref": "#/components/schemas/CharacterPreview"
@@ -10981,6 +10981,16 @@
             },
             "description": "Unprocessable Content"
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
           "503": {
             "content": {
               "application/json": {
@@ -13572,7 +13582,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__modules__story__challenge__ChallengeView"
+                  "$ref": "#/components/schemas/app__modules__story__schemas__challenge__ChallengeView"
                 }
               }
             },

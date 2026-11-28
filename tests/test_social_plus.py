@@ -13,9 +13,9 @@ from test_online import settings as settings  # noqa: PLC0414
 from app.core.errors import AppError
 from app.core.platform import open_platform
 from app.main import create_app
-from app.modules.matches.service import MatchService
-from app.modules.matches.settlement import persist
-from app.modules.social.safety import clean
+from app.modules.matches.services.match import MatchService
+from app.modules.matches.services.settlement import persist
+from app.modules.social.helpers.moderation import clean
 
 
 def test_chat_text_is_cleaned_masked_and_bounded():
@@ -265,7 +265,7 @@ def test_word_list_covers_every_language_without_common_false_positives(text, bl
 
 @pytest.mark.integration
 def test_chat_polling_moves_past_runs_of_blocked_messages(client, settings):
-    from app.modules.social import live
+    from app.modules.social.repositories import chat as chat_repo
 
     reader, spammer, friend = (sign_in(client) for _ in range(3))
     spammer_id = profile(client, spammer)["id"]
@@ -276,7 +276,7 @@ def test_chat_polling_moves_past_runs_of_blocked_messages(client, settings):
         # More hidden messages than one page, written past the rate limit.
         async with open_platform(settings) as platform:
             for number in range(60):
-                await live.post_chat(
+                await chat_repo.post_chat(
                     platform, "global", UUID(spammer_id), "Spam", f"spam {number}"
                 )
 
@@ -301,7 +301,7 @@ def test_chat_polling_moves_past_runs_of_blocked_messages(client, settings):
 
 @pytest.mark.integration
 def test_blocking_mid_match_hides_the_next_table_message(settings):
-    from app.modules.social import live
+    from app.modules.social.repositories import feed as feed_repo
 
     config = settings.model_copy(update={"room_start_seconds": 0})
     with prepare_match(config) as client:
@@ -317,7 +317,7 @@ def test_blocking_mid_match_hides_the_next_table_message(settings):
 
         async def say(text):  # seat 1 speaks at the table
             async with open_platform(config) as platform:
-                await live.post_feed(platform, game, 1, "chat", text)
+                await feed_repo.post_feed(platform, game, 1, "chat", text)
 
         def next_feed(socket):
             message = socket.receive_json()

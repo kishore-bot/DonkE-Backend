@@ -7,22 +7,18 @@ from app.core.errors import AppError
 from app.core.rate_limit import client_host
 from app.modules.ai.dependencies import AI
 from app.modules.game.dependencies import Practice
-from app.modules.game.story_store import StoryStore
+from app.modules.game.services.story_store import StoryStore
 from app.modules.identity.dependencies import (
     CurrentPlayer,
     OptionalPlayer,
 )
-from app.modules.progression.season_content import PACKS
+from app.modules.progression.helpers.season_content import PACKS
 from app.modules.progression.services.seasons import active_manifest
-from app.modules.story.chapters import (
-    CHAPTERS,
-    ChapterView,
-    chapter_for,
-    cleared_chapters,
-    describe,
-)
 from app.modules.story.dependencies import StoryClock
-from app.modules.story.schemas import StartDuel, StoryAttempt
+from app.modules.story.helpers.chapters import CHAPTERS, chapter_for
+from app.modules.story.schemas.chapters import ChapterView
+from app.modules.story.schemas.duel import StartDuel, StoryAttempt
+from app.modules.story.services.chapters import cleared_chapters, describe
 from app.modules.story.services.duels import start_attempt, story_attempt
 
 router = APIRouter()

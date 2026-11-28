@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import delete, select
 
 from app.core.platform import open_platform
-from app.modules.progression.models import Season
+from app.modules.progression.models.season import Season
 
 
 @pytest.fixture(autouse=True)

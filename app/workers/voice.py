@@ -5,8 +5,8 @@ from redis.exceptions import RedisError
 
 from app.core.config import Settings
 from app.core.platform import open_platform
-from app.modules.ai.gateway import open_gateway
-from app.modules.ai.voice import Voice
+from app.modules.ai.services.gateway import open_gateway
+from app.modules.ai.services.voice import Voice
 
 logger = logging.getLogger(__name__)
 

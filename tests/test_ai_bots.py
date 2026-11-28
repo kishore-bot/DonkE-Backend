@@ -13,19 +13,16 @@ from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.platform import open_platform
 from app.main import create_app
-from app.modules.ai.coaching import analyse
-from app.modules.ai.fair_play import (
-    FairPlayCase,
-    Resolve,
-    drain,
-    resolve,
-    review,
-    run_analysis,
-)
-from app.modules.ai.models import MatchAnalysis, PlayerRival
-from app.modules.matches import bots
-from app.modules.matches.schemas import GameSeat
-from app.modules.matches.settlement import pending_analysis_key, persist
+from app.modules.ai.helpers.coaching_analysis import analyse
+from app.modules.ai.models.fair_play_case import FairPlayCase
+from app.modules.ai.models.match_analysis import MatchAnalysis
+from app.modules.ai.models.player_rival import PlayerRival
+from app.modules.ai.schemas.fair_play import Resolve
+from app.modules.ai.services.fair_play import drain, resolve, review, run_analysis
+from app.modules.matches.helpers import bots
+from app.modules.matches.helpers.keys import pending_analysis_key
+from app.modules.matches.schemas.state import GameSeat
+from app.modules.matches.services.settlement import persist
 from scripts.judge_ai import Sample, Verdict, parse_verdict, summarize
 
 

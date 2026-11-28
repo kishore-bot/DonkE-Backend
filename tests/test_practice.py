@@ -136,16 +136,16 @@ def test_finished_matches_give_way_to_new_ones():
 
 
 def test_a_position_is_searched_once_for_repeated_hints(client, monkeypatch):
-    from app.modules.game import service
+    from app.modules.game.services import practice as practice_service
 
     searches = []
-    real = service.hint_game
+    real = practice_service.hint_game
 
     def counted(game, iterations):
         searches.append(game)
         return real(game, iterations)
 
-    monkeypatch.setattr(service, "hint_game", counted)
+    monkeypatch.setattr(practice_service, "hint_game", counted)
     view, path, headers = create_game(client)
     first = client.get(f"{path}/hint", headers=headers)
     assert first.status_code == 200

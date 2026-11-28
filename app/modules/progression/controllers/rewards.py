@@ -6,9 +6,7 @@ from fastapi import APIRouter, Path, Response
 
 from app.modules.identity.dependencies import CurrentPlayer, PlayerWrites
 from app.modules.progression.dependencies import SeasonRewards
-from app.modules.progression.schemas import (
-    SeasonGifts,
-)
+from app.modules.progression.schemas.gifts import SeasonGifts
 
 router = APIRouter()
 

@@ -4,14 +4,11 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.progression.analytics import (
-    MatchAnalytics,
-    finishing_ranks,
-)
-from app.modules.progression.models import (
-    PlayerSkill,
-)
-from app.modules.progression.skill import Rating, rate
+from app.modules.progression.dto.rating import Rating
+from app.modules.progression.helpers.skill import rate
+from app.modules.progression.models.player_skill import PlayerSkill
+from app.modules.progression.schemas.analytics import MatchAnalytics
+from app.modules.progression.services.analytics import finishing_ranks
 
 
 async def update_skills(db: AsyncSession, analytics: MatchAnalytics) -> None:

@@ -3,14 +3,13 @@ from fastapi import APIRouter, Request, Response
 from app.core.dependencies import PlatformDep
 from app.core.rate_limit import client_host, limit
 from app.modules.identity.dependencies import CurrentPlayer, Google
-from app.modules.identity.schemas import (
+from app.modules.identity.schemas.auth import (
     GoogleSignIn,
-    Profile,
-    ProfileUpdate,
     RefreshRequest,
     SessionTokens,
 )
-from app.modules.identity.service import IdentityService
+from app.modules.identity.schemas.profile import Profile, ProfileUpdate
+from app.modules.identity.services.identity import IdentityService
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Identity"])
 

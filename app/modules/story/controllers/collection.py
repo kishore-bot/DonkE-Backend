@@ -9,9 +9,10 @@ from app.modules.game.dependencies import Practice
 from app.modules.identity.dependencies import (
     CurrentPlayer,
 )
-from app.modules.story.archive import CollectionEntry, archive_attempt, collection
 from app.modules.story.dependencies import StoryClock
-from app.modules.story.schemas import StoryAttempt
+from app.modules.story.schemas.archive import CollectionEntry
+from app.modules.story.schemas.duel import StoryAttempt
+from app.modules.story.services.archive import archive_attempt, collection
 from app.modules.story.services.duels import story_attempt
 
 router = APIRouter()

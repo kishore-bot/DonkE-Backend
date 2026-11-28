@@ -5,17 +5,19 @@ from fastapi import APIRouter, Path
 from fastapi.responses import Response
 
 from app.core.rate_limit import limit
-from app.modules.ai.commentary import line
 from app.modules.ai.dependencies import AI
-from app.modules.ai.schemas import (
-    Commentary,
-    VoiceOption,
-    VoiceStatus,
-)
-from app.modules.ai.voice import Voice
-from app.modules.ai.voice import enabled as voice_enabled
+from app.modules.ai.schemas.commentary import Commentary
+from app.modules.ai.schemas.voice import VoiceOption, VoiceStatus
+from app.modules.ai.services.commentary import line
+from app.modules.ai.services.voice import Voice
+from app.modules.ai.services.voice import enabled as voice_enabled
 from app.modules.identity.dependencies import CurrentPlayer
-from app.modules.identity.schemas import DEFAULT_VOICE, VOICES, Language, VoiceId
+from app.modules.identity.schemas.profile import (
+    DEFAULT_VOICE,
+    VOICES,
+    Language,
+    VoiceId,
+)
 
 router = APIRouter()
 

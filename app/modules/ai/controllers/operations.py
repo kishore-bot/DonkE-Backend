@@ -6,13 +6,12 @@ from fastapi import APIRouter
 from app.core.dependencies import PlatformDep
 from app.core.errors import AppError
 from app.modules.admin.dependencies import Admin, Cookie, CsrfToken, RequestId
-from app.modules.admin.service import admin_write
+from app.modules.admin.services.audit import admin_write
 from app.modules.ai.dependencies import AI
-from app.modules.ai.fair_play import CaseView, Resolve, cases, resolve
-from app.modules.ai.index import reindex
-from app.modules.ai.schemas import (
-    ReindexRequest,
-)
+from app.modules.ai.schemas.coach import ReindexRequest
+from app.modules.ai.schemas.fair_play import CaseView, Resolve
+from app.modules.ai.services.fair_play import cases, resolve
+from app.modules.ai.services.rule_index import reindex
 
 router = APIRouter()
 

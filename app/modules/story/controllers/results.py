@@ -4,25 +4,26 @@ from fastapi import APIRouter, Response
 
 from app.core.dependencies import PlatformDep
 from app.core.errors import AppError
-from app.modules.game.seeded import SeededDuel
-from app.modules.game.story_store import PIN, StoryStore
+from app.modules.game.helpers.seeded_duel import SeededDuel
+from app.modules.game.services.story_store import PIN, StoryStore
 from app.modules.identity.dependencies import (
     CurrentPlayer,
     PlayerWrites,
 )
 from app.modules.story.dependencies import StoryClock
-from app.modules.story.progression import (
+from app.modules.story.schemas.duel import ResultRequest
+from app.modules.story.schemas.progression import (
     AwakeningPath,
     PendingAwakening,
     StoryProgress,
     StoryResult,
-    awaken,
+)
+from app.modules.story.services.progression import (
     awakening_path,
     pending_awakening,
     progress,
-    settle,
 )
-from app.modules.story.schemas import ResultRequest
+from app.modules.story.services.settlement import awaken, settle
 
 router = APIRouter()
 

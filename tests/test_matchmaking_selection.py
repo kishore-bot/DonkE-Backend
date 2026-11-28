@@ -8,9 +8,9 @@ from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.platform import open_platform
 from app.main import create_app
-from app.modules.lobby.repository import LobbyRepository
-from app.modules.lobby.selection import choose
-from app.modules.lobby.service import LobbyService
+from app.modules.lobby.helpers.selection import choose
+from app.modules.lobby.repositories.lobby import LobbyRepository
+from app.modules.lobby.services.lobby import LobbyService
 from app.workers.matchmaking import DatabaseFacts, match_once
 
 

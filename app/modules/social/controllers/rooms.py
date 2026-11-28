@@ -4,13 +4,10 @@ from fastapi import APIRouter, Request
 
 from app.core.rate_limit import limit
 from app.modules.identity.dependencies import CurrentPlayer, PlayerWrites
-from app.modules.lobby.schemas import Room
-from app.modules.social import live
+from app.modules.lobby.schemas.rooms import Room
 from app.modules.social.dependencies import RoomInvites
-from app.modules.social.schemas import (
-    InviteCode,
-    InviteLink,
-)
+from app.modules.social.schemas import invites
+from app.modules.social.schemas.invites import InviteCode, InviteLink
 
 router = APIRouter()
 
@@ -28,7 +25,7 @@ async def invite_to_room(
 @router.get("/invites/rooms")
 async def room_invites(
     player: CurrentPlayer, social: RoomInvites
-) -> list[live.RoomInvite]:
+) -> list[invites.RoomInvite]:
     return await social.room_invites(player.profile.id)
 
 

@@ -8,8 +8,8 @@ from botocore.stub import Stubber
 from fake_storage import MemoryStore
 
 from app.core.config import Settings
-from app.core.storage import build_storage, register_storage
 from app.core.s3_storage import S3Store
+from app.core.storage import build_storage, register_storage
 
 
 def s3_store(monkeypatch, **overrides):

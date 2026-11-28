@@ -4,16 +4,11 @@ from uuid import UUID
 from sqlalchemy import select
 
 from app.core.platform import Platform
-from app.modules.identity.repository import profiles
-from app.modules.social.errors import missing
-from app.modules.social.models import (
-    PlayerReport,
-)
-from app.modules.social.safety import pair
-from app.modules.social.schemas import (
-    ReportCreate,
-    ReportView,
-)
+from app.modules.identity.repositories.players import profiles
+from app.modules.social.helpers.errors import missing
+from app.modules.social.helpers.moderation import pair
+from app.modules.social.models.player_report import PlayerReport
+from app.modules.social.schemas.reports import ReportCreate, ReportView
 
 
 class ReportService:

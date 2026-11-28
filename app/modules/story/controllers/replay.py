@@ -7,15 +7,17 @@ from starlette.concurrency import run_in_threadpool
 from app.core.dependencies import PlatformDep
 from app.core.rate_limit import client_host, limit
 from app.modules.ai.dependencies import AI
-from app.modules.ai.index import ranked_rules
+from app.modules.ai.services.rule_index import ranked_rules
 from app.modules.game.dependencies import AccessToken, Practice
-from app.modules.game.schemas import StoryEvent
+from app.modules.game.schemas.story import StoryEvent
 from app.modules.identity.dependencies import (
     CurrentPlayer,
 )
-from app.modules.story.coach import DuelCoach, explain, grounded_replay
-from app.modules.story.highlights import StoryHighlight, stored_highlight
+from app.modules.story.schemas.coach import DuelCoach
+from app.modules.story.schemas.highlights import StoryHighlight
+from app.modules.story.services.coach import explain, grounded_replay
 from app.modules.story.services.duels import finished_duel
+from app.modules.story.services.highlights import stored_highlight
 
 router = APIRouter()
 

@@ -20,27 +20,28 @@ from app.core.errors import (
 from app.core.platform import open_platform
 from app.core.schema import check_storage_ready
 from app.core.storage import ObjectStore
-from app.modules.admin import flags
-from app.modules.admin.console.router import router as console_router
+from app.modules.admin.controllers.console.router import router as console_router
+from app.modules.admin.controllers.ui import mount_admin_ui
 from app.modules.admin.router import router as admin_router
-from app.modules.admin.service import AdminService
-from app.modules.admin.ui import mount_admin_ui
-from app.modules.ai.gateway import open_gateway
-from app.modules.ai.provider import AIProvider
+from app.modules.admin.services import flags
+from app.modules.admin.services.admin import AdminService
+from app.modules.ai.providers.base import AIProvider
 from app.modules.ai.router import router as ai_router
+from app.modules.ai.services.gateway import open_gateway
 from app.modules.game.repositories.practice import PracticeRepository
 from app.modules.game.router import router as practice_router
-from app.modules.game.service import PracticeService
-from app.modules.identity.google import GoogleIdentity, GoogleVerifier
+from app.modules.game.services.practice import PracticeService
 from app.modules.identity.router import router as identity_router
+from app.modules.identity.services.google import GoogleIdentity, GoogleVerifier
 from app.modules.lobby.router import matchmaking, rooms
-from app.modules.matches.health import OnlineHealth, online_health
 from app.modules.matches.router import router as matches_router
+from app.modules.matches.schemas.health import OnlineHealth
+from app.modules.matches.services.health import online_health
 from app.modules.progression.router import router as progress_router
 from app.modules.social.controllers.landing import landing as join_landing
 from app.modules.social.router import router as social_router
-from app.modules.story.cue_routes import router as cue_router
-from app.modules.story.media_routes import router as media_router
+from app.modules.story.controllers.cues import router as cue_router
+from app.modules.story.controllers.media import router as media_router
 from app.modules.story.router import router as story_router
 
 logger = logging.getLogger(__name__)

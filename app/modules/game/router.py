@@ -8,14 +8,14 @@ from app.core.dependencies import OptionalPlatform
 from app.core.errors import ErrorResponse
 from app.core.rate_limit import client_host, limit
 from app.modules.game.dependencies import AccessToken, Practice
-from app.modules.game.schemas import (
-    GameUpdate,
+from app.modules.game.schemas.practice import (
     PracticeCreated,
     PracticeHint,
     PracticePlayRequest,
     PracticeRequest,
 )
-from app.modules.game.story_store import for_attempt
+from app.modules.game.schemas.views import GameUpdate
+from app.modules.game.services.story_store import for_attempt
 
 router = APIRouter(prefix="/api/v1/practice", tags=["Practice"])
 AUTH_ERRORS: dict[int | str, dict[str, Any]] = {

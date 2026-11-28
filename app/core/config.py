@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     match_minutes: int = Field(default=45, ge=1, le=120)
     match_archive_seconds: int = Field(default=86400, ge=60, le=604800)
 
-    # Which registered backends to use; see app/modules/ai/providers.py and
+    # Which registered backends to use; see app/modules/ai/providers/registry.py and
     # app/core/storage.py. "none" switches the feature off.
     ai_provider: str = Field(default="gemini", max_length=40)
     storage_provider: str = Field(default="s3", max_length=40)

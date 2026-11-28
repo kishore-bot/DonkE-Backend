@@ -6,13 +6,13 @@ from fastapi import APIRouter, Path, Query
 from app.core.errors import AppError
 from app.core.rate_limit import limit
 from app.modules.identity.dependencies import CurrentPlayer, PlayerWrites
-from app.modules.identity.service import Principal
-from app.modules.social import live
+from app.modules.identity.dto.principal import Principal
 from app.modules.social.dependencies import RoomInvites
-from app.modules.social.safety import blocked_with, clean, ensure_can_chat
-from app.modules.social.schemas import (
-    ChatPost,
-)
+from app.modules.social.helpers.moderation import clean
+from app.modules.social.repositories import chat as chat_repo
+from app.modules.social.repositories.safety import blocked_with, ensure_can_chat
+from app.modules.social.schemas import chat
+from app.modules.social.schemas.chat import ChatPost
 from app.modules.social.services.room_invites import RoomInviteService
 
 router = APIRouter()
@@ -42,23 +42,23 @@ async def read_chat(
     player: CurrentPlayer,
     social: RoomInvites,
     after: Annotated[str | None, Query(pattern=r"^\d+-\d+$")] = None,
-) -> live.ChatPage:
+) -> chat.ChatPage:
     """Global or room chat, oldest first. Poll with `after` = `next_after`."""
     await chat_access(social, player, channel)
     async with social.platform.sessions() as db:
         hidden = await blocked_with(db, player.profile.id)
-    return await live.read_chat(social.platform, channel, after, hidden)
+    return await chat_repo.read_chat(social.platform, channel, after, hidden)
 
 
 @router.post("/chat/{channel}", status_code=201, dependencies=PlayerWrites)
 async def post_chat(
     channel: Channel, body: ChatPost, player: CurrentPlayer, social: RoomInvites
-) -> live.ChatMessage:
+) -> chat.ChatMessage:
     await limit(social.platform, "chat", str(player.profile.id), 5, 3)
     await chat_access(social, player, channel)
     async with social.platform.sessions() as db:
         await ensure_can_chat(db, player.profile.id)
-    return await live.post_chat(
+    return await chat_repo.post_chat(
         social.platform,
         channel,
         player.profile.id,

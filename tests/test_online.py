@@ -10,10 +10,10 @@ from fastapi.testclient import TestClient
 from app.core.config import Settings
 from app.core.platform import open_platform
 from app.main import create_app
-from app.modules.admin.service import AdminService
-from app.modules.identity.schemas import Profile
-from app.modules.lobby.repository import LobbyRepository
-from app.modules.lobby.service import LobbyService, queue_for
+from app.modules.admin.services.admin import AdminService
+from app.modules.identity.schemas.profile import Profile
+from app.modules.lobby.repositories.lobby import LobbyRepository
+from app.modules.lobby.services.lobby import LobbyService, queue_for
 from app.workers.matchmaking import match_once
 
 pytestmark = pytest.mark.integration
@@ -341,7 +341,7 @@ def test_ready_reports_unavailable_store_without_affecting_liveness(settings, ke
 def test_a_lost_refresh_response_can_be_retried_but_theft_still_revokes(settings):
     from datetime import UTC, datetime, timedelta
 
-    from app.modules.identity import service as identity_service
+    from app.modules.identity.services import identity
 
     config = settings.model_copy(update={"refresh_reuse_grace_seconds": 20})
     with TestClient(
@@ -365,11 +365,11 @@ def test_a_lost_refresh_response_can_be_retried_but_theft_still_revokes(settings
             def now(cls, tz=None):
                 return later
 
-        identity_service.datetime = Later
+        identity.datetime = Later
         try:
             stolen = client.post("/api/v1/auth/refresh", json=payload)
         finally:
-            identity_service.datetime = datetime
+            identity.datetime = datetime
         assert stolen.status_code == 401
         assert (
             client.get("/api/v1/auth/me", headers=headers(retry.json())).status_code
@@ -380,7 +380,7 @@ def test_a_lost_refresh_response_can_be_retried_but_theft_still_revokes(settings
 def test_a_grace_retry_supersedes_the_earlier_replacement(settings):
     from datetime import UTC, datetime, timedelta
 
-    from app.modules.identity import service as identity_service
+    from app.modules.identity.services import identity
 
     config = settings.model_copy(update={"refresh_reuse_grace_seconds": 20})
     with TestClient(
@@ -399,7 +399,7 @@ def test_a_grace_retry_supersedes_the_earlier_replacement(settings):
             def now(cls, tz=None):
                 return later
 
-        identity_service.datetime = Later
+        identity.datetime = Later
         try:
             superseded = client.post(
                 "/api/v1/auth/refresh",
@@ -410,7 +410,7 @@ def test_a_grace_retry_supersedes_the_earlier_replacement(settings):
                 json={"refresh_token": thief["refresh_token"]},
             )
         finally:
-            identity_service.datetime = datetime
+            identity.datetime = datetime
         assert superseded.status_code == 401
         assert follow_up.status_code == 401
         assert client.get("/api/v1/auth/me", headers=headers(thief)).status_code == 401

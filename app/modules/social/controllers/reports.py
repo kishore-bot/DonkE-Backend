@@ -3,10 +3,7 @@ from fastapi import APIRouter
 from app.core.rate_limit import limit
 from app.modules.identity.dependencies import CurrentPlayer, PlayerWrites
 from app.modules.social.dependencies import Reports
-from app.modules.social.schemas import (
-    ReportCreate,
-    ReportView,
-)
+from app.modules.social.schemas.reports import ReportCreate, ReportView
 
 router = APIRouter()
 

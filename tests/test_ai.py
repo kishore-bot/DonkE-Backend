@@ -11,18 +11,19 @@ from test_online import settings as settings  # noqa: PLC0414
 from app.core.errors import AppError
 from app.core.platform import open_platform
 from app.main import create_app
-from app.modules.admin.service import AdminService
-from app.modules.ai import commentary
+from app.modules.admin.services.admin import AdminService
 from app.modules.ai.controllers.audio import voice as request_voice
-from app.modules.ai.gateway import Gateway
-from app.modules.ai.knowledge import NO_MATCH, sources
-from app.modules.ai.provider import Selected
-from app.modules.ai.schemas import VoiceStatus
-from app.modules.ai.voice import Voice
-from app.modules.identity.schemas import Profile
-from app.modules.identity.service import Principal
-from app.modules.matches.schemas import EventBatch, GameSeat, MatchReplay
-from app.modules.matches.settlement import persist
+from app.modules.ai.dto.provider import Selected
+from app.modules.ai.helpers.knowledge import NO_MATCH, sources
+from app.modules.ai.schemas.voice import VoiceStatus
+from app.modules.ai.services import commentary
+from app.modules.ai.services.gateway import Gateway
+from app.modules.ai.services.voice import Voice
+from app.modules.identity.dto.principal import Principal
+from app.modules.identity.schemas.profile import Profile
+from app.modules.matches.schemas.results import MatchReplay
+from app.modules.matches.schemas.state import EventBatch, GameSeat
+from app.modules.matches.services.settlement import persist
 
 
 class FakeProvider:
@@ -320,7 +321,7 @@ def test_pydantic_ai_selection_through_the_gemini_adapter():
     from pydantic_ai.models.test import TestModel
 
     from app.core.config import Settings
-    from app.modules.ai.gemini import Gemini
+    from app.modules.ai.providers.gemini import Gemini
 
     async def select():
         gemini = Gemini(Settings(gemini_api_key="synthetic-test-model"))
@@ -340,10 +341,10 @@ def test_pydantic_ai_selection_through_the_gemini_adapter():
 
 def test_the_registry_swaps_ai_providers_without_touching_features():
     from app.core.config import Settings
-    from app.modules.ai.gateway import Gateway
-    from app.modules.ai.provider import Models, Written
-    from app.modules.ai.providers import build_provider, register_provider
-    from app.modules.ai.gemini import Gemini
+    from app.modules.ai.dto.provider import Models, Written
+    from app.modules.ai.providers.gemini import Gemini
+    from app.modules.ai.providers.registry import build_provider, register_provider
+    from app.modules.ai.services.gateway import Gateway
 
     class Echo:
         models = Models(text="echo-1", voice="echo-voice", embedding="echo-embed")

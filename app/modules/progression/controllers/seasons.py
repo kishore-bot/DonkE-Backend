@@ -4,20 +4,19 @@ from fastapi import APIRouter, Response
 
 from app.core.dependencies import OptionalPlatform, PlatformDep
 from app.modules.identity.dependencies import CurrentPlayer, PlayerWrites
-from app.modules.progression import squad
-from app.modules.progression.clock import utc_now
 from app.modules.progression.dependencies import SeasonProgress
-from app.modules.progression.emotes import EmoteSelection, SeasonEmotes, season_emotes
-from app.modules.progression.schemas import (
-    MySeason,
-    Standing,
-)
-from app.modules.progression.season_content import (
+from app.modules.progression.helpers.clock import utc_now
+from app.modules.progression.schemas import squads
+from app.modules.progression.schemas.content import (
     CharacterSelection,
     SeasonManifest,
     SelectCharacter,
 )
+from app.modules.progression.schemas.emotes import EmoteSelection, SeasonEmotes
+from app.modules.progression.schemas.seasons import MySeason, Standing
 from app.modules.progression.services import seasons
+from app.modules.progression.services import squads as squads_service
+from app.modules.progression.services.emotes import season_emotes
 
 router = APIRouter()
 
@@ -30,26 +29,26 @@ async def current(player: CurrentPlayer, progress: SeasonProgress) -> MySeason |
 @router.get("/seasons/squads")
 async def season_squads(
     player: CurrentPlayer, platform: PlatformDep, response: Response
-) -> squad.SquadOverview:
+) -> squads.SquadOverview:
     response.headers["Cache-Control"] = "no-store"
     async with platform.sessions() as db:
-        return await squad.overview(db, player.profile.id, utc_now())
+        return await squads_service.overview(db, player.profile.id, utc_now())
 
 
 @router.post("/seasons/{season_id}/squad", dependencies=PlayerWrites)
 async def enroll_squad(
     season_id: UUID, player: CurrentPlayer, platform: PlatformDep
-) -> squad.SquadProgress:
+) -> squads.SquadProgress:
     async with platform.sessions.begin() as db:
-        return await squad.enroll(db, season_id, player.profile.id, utc_now())
+        return await squads_service.enroll(db, season_id, player.profile.id, utc_now())
 
 
 @router.post("/seasons/{season_id}/squad/claim", dependencies=PlayerWrites)
 async def claim_squad(
     season_id: UUID, player: CurrentPlayer, platform: PlatformDep
-) -> squad.SquadProgress:
+) -> squads.SquadProgress:
     async with platform.sessions.begin() as db:
-        return await squad.claim(db, season_id, player.profile.id, utc_now())
+        return await squads_service.claim(db, season_id, player.profile.id, utc_now())
 
 
 @router.get("/seasons/active/manifest")

@@ -8,13 +8,13 @@ from test_online import headers, profile, sign_in
 from test_online import settings as settings  # noqa: PLC0414
 
 from app.core.platform import open_platform
-from app.modules.progression import clock as progression_routes
-from app.modules.progression.models import Season
+from app.modules.progression.helpers import clock as progression_routes
+from app.modules.progression.models.season import Season
 from app.modules.progression.repositories.economy import credit, wallet_lock
-from app.modules.progression.schemas import SeasonCreate
+from app.modules.progression.schemas.seasons import SeasonCreate
 from app.modules.progression.services.seasons import create_season
 from app.modules.story import dependencies as story_clock
-from app.modules.story import highlights
+from app.modules.story.services import highlights
 
 pytestmark = pytest.mark.integration
 FAN = "grimoire_fan:emote"
