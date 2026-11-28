@@ -96,10 +96,15 @@ local function save_room(room)
     end
     room.revision = (room.revision or 0) + 1
     if ready then
-        room.start_at_ms = room.start_at_ms or (now_ms() + input.start_delay_ms)
+        if not room.start_at_ms then
+            local now = now_ms()
+            room.start_at_ms = now + input.start_delay_ms
+            room.ready_locks_at_ms = now + math.min(12000, input.start_delay_ms)
+        end
         redis.call('ZADD', key('rooms', 'ready'), room.start_at_ms, room.id)
     else
         room.start_at_ms = nil
+        room.ready_locks_at_ms = nil
         redis.call('ZREM', key('rooms', 'ready'), room.id)
     end
     room.status = ready and 'ready' or 'waiting'
@@ -109,6 +114,16 @@ local function save_room(room)
             write('member', seat.player_id, {kind = 'room', id = room.id, mode = room.mode}, input.room_ttl)
         end
     end
+end
+
+local function room_response(room)
+    room.server_now_ms = now_ms()
+    return cjson.encode(room)
+end
+
+local function ready_locked(room)
+    return room.status == 'ready' and room.ready_locks_at_ms
+        and now_ms() >= room.ready_locks_at_ms
 end
 
 local function room_seat(room, player)
@@ -252,7 +267,7 @@ if op == 'finalize' or op == 'rollback' then
             rollback(input.claim_id, claim)
             return failure('claim_cancelled')
         end
-        table.insert(seats, new_seat(entry.player_id, entry.name, true, false))
+        table.insert(seats, new_seat(entry.player_id, entry.name, false, false))
     end
     if read('room', input.room_id) then return failure('id_collision') end
     for index = #seats + 1, claim.seats do
@@ -264,7 +279,7 @@ if op == 'finalize' or op == 'rollback' then
     }
     save_room(room)
     drop_claim(input.claim_id)
-    return cjson.encode(room)
+    return room_response(room)
 end
 
 local member = membership(input.player)
@@ -330,7 +345,7 @@ if op == 'create_room' then
         seats = {new_seat(input.player, input.name, false, false)},
     }
     save_room(room)
-    return cjson.encode(room)
+    return room_response(room)
 end
 
 if op == 'leave_room' and not matching_id(member, 'room', input.room_id) then
@@ -343,31 +358,34 @@ local seat = room_seat(room, input.player)
 local owns_seat = seat and matching_id(member, 'room', room.id)
 
 if op == 'join_room' then
-    if owns_seat then return cjson.encode(room) end
+    if owns_seat then return room_response(room) end
     if room.mode or room.game_id or room.status == 'playing' or room.status == 'finished' then
         return failure('room_not_found')
     end
     if member then return failure('player_busy') end
+    if ready_locked(room) then return failure('room_locked') end
     if #room.seats >= room.capacity then return failure('room_full') end
     table.insert(room.seats, new_seat(input.player, input.name, false, false))
     save_room(room)
-    return cjson.encode(room)
+    return room_response(room)
 end
 
 if not owns_seat then return failure('room_not_found') end
-if op == 'get_room' then return cjson.encode(room) end
+if op == 'get_room' then return room_response(room) end
 if room.status == 'playing' then return failure('game_in_progress') end
 
 if op == 'ready' then
-    if room.mode then return failure('matchmade_room') end
+    if room.seats[seat].ready == input.ready then return room_response(room) end
+    if ready_locked(room) then return failure('room_locked') end
     room.seats[seat].ready = input.ready
     save_room(room)
-    return cjson.encode(room)
+    return room_response(room)
 end
 
 if op == 'kick' then
     if room.mode then return failure('matchmade_room') end
     if room.host_id ~= input.player then return failure('host_required') end
+    if ready_locked(room) then return failure('room_locked') end
     if input.target == input.player then return failure('cannot_kick_self') end
     local target = room_seat(room, input.target)
     if not target then return failure('seat_not_found') end
@@ -376,10 +394,11 @@ if op == 'kick' then
         remove('member', input.target)
     end
     save_room(room)
-    return cjson.encode(room)
+    return room_response(room)
 end
 
 if op == 'leave_room' then
+    if ready_locked(room) then return failure('room_locked') end
     if room.mode then
         for _, occupied in ipairs(room.seats) do
             if occupied.player_id and matching_id(membership(occupied.player_id), 'room', room.id) then

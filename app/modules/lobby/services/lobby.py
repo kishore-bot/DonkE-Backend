@@ -27,6 +27,7 @@ ERRORS = {
     "seat_not_found": (404, "Seat not found"),
     "player_busy": (409, "Leave your current room or queue first"),
     "room_full": (409, "This room is full"),
+    "room_locked": (409, "The ready countdown is locked. The match is about to start."),
     "matchmade_room": (409, "The lobby is managed by matchmaking"),
     "host_required": (403, "Only the host can remove a seat"),
     "cannot_kick_self": (422, "Use leave to give up your own seat"),

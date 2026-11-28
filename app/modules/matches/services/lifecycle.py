@@ -38,7 +38,12 @@ async def start_match(
             for player, profile in (await profiles(db, humans)).items()
         }
     rival = bots.assign(seats, mmrs, game_id)
-    opening_events: list[dict] = [{"event": "game_started", "turn": game.turn}]
+    prep_ms = round(platform.settings.hand_prep_seconds * 1000)
+    opening_events: list[dict] = [
+        {"event": "hand_dealt"}
+        if prep_ms
+        else {"event": "game_started", "turn": game.turn}
+    ]
     if rival is not None:
         opening_events.append(
             {
@@ -65,11 +70,14 @@ async def start_match(
                 started_ms=now,
                 turn=game.turn,
                 deadline_ms=now,
-                turn_opened_ms=now,
-                limit_ms=now + platform.settings.match_minutes * 60_000,
+                turn_opened_ms=None if prep_ms else now,
+                prepare_until_ms=now + prep_ms if prep_ms else None,
+                limit_ms=now + prep_ms + platform.settings.match_minutes * 60_000,
                 admission=admission,
             )
-            state.deadline_ms = deadline(platform.settings, state, now)
+            state.deadline_ms = state.prepare_until_ms or deadline(
+                platform.settings, state, now
+            )
             guard = (
                 {"admit_before_ms": ceil(boundary.timestamp() * 1000)}
                 if boundary is not None

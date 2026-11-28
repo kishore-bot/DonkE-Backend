@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
@@ -8,12 +9,16 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
+from app.core.errors import AppError
 from app.core.platform import open_platform
 from app.main import create_app
 from app.modules.admin.services.admin import AdminService
 from app.modules.identity.schemas.profile import Profile
+from app.modules.game.schemas.practice import PlayRequest
 from app.modules.lobby.repositories.lobby import LobbyRepository
 from app.modules.lobby.services.lobby import LobbyService, queue_for
+from app.modules.matches.repositories.matches import MatchConflict
+from app.modules.matches.services.match import MatchService
 from app.workers.matchmaking import match_once
 
 pytestmark = pytest.mark.integration
@@ -37,6 +42,8 @@ def settings():
         auth_secret="synthetic-test-key-with-at-least-32-bytes",
         redis_prefix=f"test-{uuid4().hex}",
         bot_fill_seconds=0,
+        room_start_seconds=20,
+        hand_prep_seconds=0,
         # Most tests check theft detection; the retry window has its own test.
         refresh_reuse_grace_seconds=0,
     )
@@ -185,10 +192,23 @@ def test_worker_publishes_private_ranked_lobby_with_bots(client, settings):
     assert first["status"] == "matched"
     path = f"/api/v1/rooms/{first['room_id']}"
     room = client.get(path, headers=players[0]).json()
-    assert room["status"] == "ready"
+    assert room["status"] == "waiting"
     assert room["mode"] == "ranked"
     assert sum(seat["bot"] for seat in room["seats"]) == 2
     assert client.post(f"{path}/join", headers=visitor).status_code == 404
+    first_vote = client.put(
+        f"{path}/ready", json={"ready": True}, headers=players[0]
+    ).json()
+    assert first_vote["status"] == "waiting"
+    countdown = client.put(
+        f"{path}/ready", json={"ready": True}, headers=players[1]
+    ).json()
+    assert countdown["status"] == "ready"
+    assert countdown["start_at_ms"] - countdown["ready_locks_at_ms"] == 8000
+    reset = client.put(
+        f"{path}/ready", json={"ready": False}, headers=players[0]
+    ).json()
+    assert reset["status"] == "waiting" and reset["start_at_ms"] is None
     assert client.post(f"{path}/leave", headers=players[0]).status_code == 204
     assert (
         client.get("/api/v1/matchmaking/status", headers=players[1]).json()["status"]
@@ -198,6 +218,69 @@ def test_worker_publishes_private_ranked_lobby_with_bots(client, settings):
 
 def sample():
     return Profile(id=uuid4(), display_name="Test player", language="ml", mmr=1200)
+
+
+def test_ready_lock_and_preparation_do_not_consume_the_first_turn(settings):
+    config = settings.model_copy(update={"hand_prep_seconds": 20, "turn_seconds": 45})
+
+    async def scenario():
+        async with open_platform(config) as platform:
+            lobby = LobbyService(LobbyRepository(platform.redis, config))
+            matches = MatchService(platform)
+            first, second = sample(), sample()
+            room = await lobby.create_room(first, 2)
+            await lobby.room("join_room", second, room.id)
+            await lobby.room("ready", first, room.id, ready=True)
+            room = await lobby.room("ready", second, room.id, ready=True)
+            assert room.start_at_ms - room.ready_locks_at_ms == 8_000
+            room_key = f"{config.redis_prefix}:lobby:room:{room.id}"
+            persisted = await platform.redis.get(room_key)
+            assert persisted
+            lobby_state = json.loads(persisted)
+            lobby_state["ready_locks_at_ms"] = await matches.repo.now_ms() - 1
+            await platform.redis.set(room_key, json.dumps(lobby_state))
+            with pytest.raises(AppError, match="countdown is locked"):
+                await lobby.room("ready", first, room.id, ready=False)
+            lobby_state["start_at_ms"] = lobby_state["ready_locks_at_ms"]
+            await platform.redis.set(room_key, json.dumps(lobby_state))
+            game_id = await matches.start(room.id)
+            assert game_id
+            state = await matches.load(game_id, first.id)
+            assert state.prepare_until_ms == state.started_ms + 20_000
+            assert state.turn is not None
+            player = state.seats[state.turn].player_id
+            assert player is not None
+            first_hand = matches.view(state, first.id)
+            second_hand = matches.view(state, second.id)
+            assert first_hand.view.hand != second_hand.view.hand
+            assert len(first_hand.view.hand) == len(second_hand.view.hand) == 26
+            assert first_hand.view.turn is first_hand.turn_deadline_ms is None
+            assert first_hand.view.legal_moves == []
+
+            owner = "test-owner"
+            await matches.repo.connect(game_id, player, owner)
+            command = PlayRequest.model_validate(
+                {
+                    "card": {"suit": "Spades", "rank": "Ace"},
+                    "request_id": str(uuid4()),
+                    "expected_version": state.version,
+                }
+            )
+            with pytest.raises(MatchConflict, match="hand_preparation"):
+                await matches.play(game_id, player, owner, command)
+
+            state.deadline_ms = state.prepare_until_ms = await matches.repo.now_ms() - 1
+            await platform.redis.set(
+                matches.repo.game_key("state", game_id), state.model_dump_json()
+            )
+            await matches.on_deadline(game_id)
+            active = await matches.load(game_id, player)
+            assert active.prepare_until_ms is None and active.turn_opened_ms is not None
+            assert active.deadline_ms - active.turn_opened_ms == 45_000
+            assert active.seats[active.turn].timeouts == 0
+            assert matches.view(active, player).view.legal_moves == [command.card]
+
+    asyncio.run(scenario())
 
 
 def test_cancellation_and_rollback_preserve_new_membership_and_fifo(settings):

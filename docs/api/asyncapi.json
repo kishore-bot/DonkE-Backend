@@ -239,6 +239,18 @@
               ],
               "title": "Outcome"
             },
+            "prepare_until_ms": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Prepare Until Ms"
+            },
             "seats": {
               "items": {
                 "$ref": "#/components/schemas/GameSeat"
@@ -249,6 +261,18 @@
             "sequence": {
               "title": "Sequence",
               "type": "integer"
+            },
+            "server_now_ms": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Server Now Ms"
             },
             "status": {
               "enum": [

@@ -65,7 +65,9 @@ async def socket_loop(
             socket,
             {
                 "type": "state_sync",
-                **service.view(state, player_id).model_dump(mode="json"),
+                **service.view(
+                    state, player_id, now_ms=await service.repo.now_ms()
+                ).model_dump(mode="json"),
             },
         )
         return state.sequence

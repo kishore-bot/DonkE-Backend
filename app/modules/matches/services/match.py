@@ -40,20 +40,27 @@ class MatchService:
         position(state, player_id)
         return state
 
-    def view(self, state: MatchState, player_id: UUID) -> PublicMatch:
+    def view(
+        self, state: MatchState, player_id: UUID, *, now_ms: int | None = None
+    ) -> PublicMatch:
         seat = position(state, player_id)
         game = OnlineGame.restore(state.native)
         view = PlayerView.model_validate_json(game.view(seat))
-        if state.seats[seat].bot or state.status == "finished":
+        preparing = state.prepare_until_ms is not None
+        if state.seats[seat].bot or state.status == "finished" or preparing:
             view.legal_moves = []
-        if state.status == "finished":
+        if state.status == "finished" or preparing:
             view.turn = None
         return PublicMatch(
             id=state.id,
             status=state.status,
             sequence=state.sequence,
             version=state.version,
-            turn_deadline_ms=state.deadline_ms if state.status == "active" else None,
+            turn_deadline_ms=state.deadline_ms
+            if state.status == "active" and not preparing
+            else None,
+            prepare_until_ms=state.prepare_until_ms,
+            server_now_ms=now_ms,
             outcome=state.outcome,
             seats=state.seats,
             view=view,
@@ -83,6 +90,8 @@ class MatchService:
             raise MatchConflict("stale_version")
         if state.status != "active":
             raise MatchConflict("game_finished")
+        if state.prepare_until_ms is not None:
+            raise MatchConflict("hand_preparation")
         if state.seats[seat].bot or state.turn != seat:
             raise MatchConflict("out_of_turn")
         game = OnlineGame.restore(state.native)
@@ -125,7 +134,7 @@ class MatchService:
             return
         state.seats[seat].bot = True
         state.seats[seat].forfeited = True
-        if state.turn == seat:
+        if state.turn == seat and state.prepare_until_ms is None:
             state.deadline_ms = deadline(
                 self.platform.settings, state, await self.repo.now_ms()
             )
@@ -183,6 +192,15 @@ class MatchService:
         now = await self.repo.now_ms()
         if state.turn is None or state.status != "active" or state.deadline_ms > now:
             return
+        if state.prepare_until_ms is not None:
+            state.prepare_until_ms = None
+            state.turn_opened_ms = now
+            state.limit_ms = now + self.platform.settings.match_minutes * 60_000
+            state.deadline_ms = deadline(self.platform.settings, state, now)
+            await self.commit(
+                state, [{"event": "game_started", "turn": state.turn}], owner
+            )
+            return
         if now >= state.limit_ms:
             state.status = "finished"
             state.outcome = {"reason": "time_limit"}
@@ -228,7 +246,6 @@ class MatchService:
                 for event in played:
                     if event.get("event") == "card_played":
                         event["auto"] = True
-            played.extend(bots.persona_events(seat, state.seats[seat], played))
         events.extend(played)
         await self.commit_play(state, game, events, owner)
 
@@ -240,6 +257,18 @@ class MatchService:
         owner: str,
         **context: str | int | bool,
     ) -> Acknowledgement:
+        reactions = [
+            line
+            for index, bot in enumerate(state.seats)
+            if bot.bot
+            for line in bots.persona_events(index, bot, events)
+        ]
+        terminal = (
+            len(events) - 1
+            if events and events[-1]["event"] == "game_finished"
+            else len(events)
+        )
+        events[terminal:terminal] = reactions
         state.native, state.turn = game.snapshot(), game.turn
         now = await self.repo.now_ms()
         state.turn_opened_ms = now

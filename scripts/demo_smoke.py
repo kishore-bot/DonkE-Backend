@@ -217,13 +217,21 @@ async def play_match(
     async with AsyncExitStack() as stack:
         peers = [await open_peer(stack, base, game_id, player) for player in players]
         snapshots = await asyncio.gather(*(peer.snapshot() for peer in peers))
+        if any(state.prepare_until_ms is not None for state in snapshots):
+            version = max(
+                state.version + int(state.prepare_until_ms is not None)
+                for state in snapshots
+            )
+            snapshots = await asyncio.gather(
+                *(peer.snapshot(version) for peer in peers)
+            )
         seats = {player.player_id: i for i, player in enumerate(players)}
         roster = [seat.player_id for seat in snapshots[0].seats]
         if len(roster) != len(seats) or set(roster) != set(seats):
             raise SmokeFailure("The match seats do not match the demo players")
         by_seat = [seats[seat] for seat in roster if seat is not None]
         opening = snapshots[0].view.turn
-        if opening is None or snapshots[0].version != 0:
+        if opening is None or snapshots[0].view.version != 0:
             raise SmokeFailure("The demo did not receive the opening turn")
         actor = by_seat[opening]
         acting = peers[actor]
@@ -237,10 +245,11 @@ async def play_match(
             "The opening move was not the Ace of Spades",
         )
         request = uuid4()
-        ack = await acting.play(0, cards[0], request)
-        retry = await acting.play(0, cards[0], request)
+        version = snapshots[actor].version
+        ack = await acting.play(version, cards[0], request)
+        retry = await acting.play(version, cards[0], request)
         check(
-            retry == ack and ack.version == 1,
+            retry == ack and ack.version == version + 1,
             "Retrying the opening changed its acknowledgement",
         )
 

@@ -5,7 +5,7 @@
 - Granian serves the FastAPI practice, player identity, lobby, matchmaking and admin APIs. With online settings absent, local practice runs on its own. In online mode, `/ready` checks the required PostgreSQL tables, pgvector and Redis connectivity. `/api/v1/online/health` also checks the game worker heartbeat and reports pending turn lag.
 - PostgreSQL owns player identities, session families, admin accounts and audit history. The Alembic baseline creates the current tables and enables pgvector.
 - Standalone Redis owns waiting rooms, queue membership, leases and rate counters. The matchmaking worker claims and finalizes lobbies independently of HTTP workers. Redis must use a no-eviction policy for these records.
-- A ready lobby has reserved seats. The worker starts its multiplayer match when the countdown ends and publishes the game UUID on the room.
+- Matchmaking reserves seats and waits for every human to ready up. The server starts a 20-second ready countdown and locks room changes after 12 seconds. The worker publishes the game UUID and deals private hands for a separate 20-second preparation window. It opens the first turn after preparation and allows 45 seconds per human turn by default.
 
 ## Database setup
 
@@ -27,7 +27,7 @@ Refresh tokens are stored as digests. Rotation locks the session row, marks ever
 | Action | HTTP flow |
 | --- | --- |
 | Create or join a private room | Create at `POST /api/v1/rooms`. Share the room UUID with other players. They join at `POST /api/v1/rooms/{id}/join`. Rooms accept 2–5 seats and expose the roster to seated players. |
-| Ready up | Send `{"ready": true}` to `PUT /api/v1/rooms/{id}/ready`. A custom lobby is ready when it seats at least two players and every player is ready. |
+| Ready up | Send `{"ready": true}` to `PUT /api/v1/rooms/{id}/ready`. Bots start ready. A room needs at least two occupied seats and every human ready. Read `start_at_ms` and `ready_locks_at_ms` from the room to render the countdown. |
 | Leave or remove a seat | Use `POST /api/v1/rooms/{id}/leave` or have the host call `DELETE /api/v1/rooms/{id}/members/{player_id}`. A custom lobby transfers ownership to the next seat when the host leaves. A matchmade lobby releases all reservations when a human leaves before play. |
 | Matchmake | Send `{"mode": "classic"}` or `{"mode": "ranked"}` to `POST /api/v1/matchmaking/join`. Poll `GET /api/v1/matchmaking/status` until it returns `matched` and a `room_id`. |
 | Stop matchmaking | Call `POST /api/v1/matchmaking/cancel` while queued or matching. Leave the room if matchmaking has already published it. |

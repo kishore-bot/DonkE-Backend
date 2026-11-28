@@ -59,6 +59,10 @@ impl OnlineGame {
         serde_json::to_string(&view).map_err(|_| PyRuntimeError::new_err("invalid_view"))
     }
 
+    fn exposed_leads(&self, seat: usize) -> PyResult<String> {
+        to_json(&self.game.exposed_leads(seat))
+    }
+
     /// Play a card. Without a card, play the timeout auto-move (lowest card).
     #[pyo3(signature = (seat, card_json=None))]
     fn play(&mut self, py: Python<'_>, seat: usize, card_json: Option<&str>) -> PyResult<String> {

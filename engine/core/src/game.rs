@@ -199,6 +199,24 @@ impl Game {
         hand.clone()
     }
 
+    /// Legal leads that another active seat has already shown it can cut.
+    /// This uses disclosed voids and does not inspect another player's hand.
+    pub fn exposed_leads(&self, seat: usize) -> Vec<Card> {
+        if !self.table.is_empty() {
+            return Vec::new();
+        }
+        let void_suits = self
+            .voids
+            .iter()
+            .enumerate()
+            .filter(|(other, _)| *other != seat && !self.escape_order.contains(other))
+            .fold(0, |suits, (_, voids)| suits | *voids);
+        self.legal_moves(seat)
+            .into_iter()
+            .filter(|card| void_suits & suit_bit(card.suit) != 0)
+            .collect()
+    }
+
     pub fn play(&mut self, seat: usize, card: Card) -> Result<Vec<Event>, GameError> {
         let turn = self.turn().ok_or(GameError::Finished)?;
         if seat != turn {

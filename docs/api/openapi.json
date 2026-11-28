@@ -3853,6 +3853,17 @@
             ],
             "title": "Mode"
           },
+          "ready_locks_at_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ready Locks At Ms"
+          },
           "revision": {
             "default": 0,
             "title": "Revision",
@@ -3864,6 +3875,17 @@
             },
             "title": "Seats",
             "type": "array"
+          },
+          "server_now_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server Now Ms"
           },
           "start_at_ms": {
             "anyOf": [

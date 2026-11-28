@@ -49,6 +49,28 @@ fn opening_cut_returns_provisional_last_card_and_pile() {
 }
 
 #[test]
+fn exposed_leads_use_public_voids_from_active_seats() {
+    let spade = card(Rank::Ace, Suit::Spades);
+    let heart = card(Rank::Two, Suit::Hearts);
+    let mut game = game_with(
+        vec![
+            vec![spade, heart],
+            vec![card(Rank::King, Suit::Clubs)],
+            vec![],
+        ],
+        1,
+    );
+    game.voids = vec![0, suit_bit(Suit::Spades), suit_bit(Suit::Hearts)];
+    game.escape_order = vec![2];
+    assert_eq!(game.exposed_leads(0), [spade]);
+    game.table.push(PlayedCard {
+        seat: 1,
+        card: spade,
+    });
+    assert!(game.exposed_leads(0).is_empty());
+}
+
+#[test]
 fn follow_suit_is_required_and_clean_winner_passes_lead_when_escaped() {
     let ace = Card::ACE_OF_SPADES;
     let low = card(Rank::Two, Suit::Spades);

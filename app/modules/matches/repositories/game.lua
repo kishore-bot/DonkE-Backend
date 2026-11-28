@@ -191,7 +191,10 @@ if input.command then
 end
 if state.version ~= input.expected then return fail('stale_version') end
 if state.status ~= 'active' then return fail('game_finished') end
-if input.player_id and not input.is_leave and state.deadline_ms <= now then return fail('turn_expired') end
+if input.player_id and not input.is_leave then
+    if type(state.prepare_until_ms) == 'number' then return fail('hand_preparation') end
+    if state.deadline_ms <= now then return fail('turn_expired') end
+end
 
 local next_state = cjson.decode(input.state)
 redis.call('SET', state_key, input.state)

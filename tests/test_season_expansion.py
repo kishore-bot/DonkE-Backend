@@ -160,7 +160,10 @@ def test_season_objectives_rival_memory_archives_and_scoped_evidence(
         assert settings.auth_secret is not None
         secret = settings.auth_secret.get_secret_value()
         claims = jwt.decode(
-            player["access_token"], secret, algorithms=["HS256"], audience="donke-player"
+            player["access_token"],
+            secret,
+            algorithms=["HS256"],
+            audience="donke-player",
         )
         claims["exp"] = datetime.now(UTC) - timedelta(seconds=1)
         expired = jwt.encode(claims, secret, algorithm="HS256")

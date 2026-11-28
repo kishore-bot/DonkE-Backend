@@ -23,6 +23,7 @@ PERSONAS: dict[Persona, str] = {
 
 
 NEAR_BEST = 0.05
+KNOWN_CUT_COST = 0.15
 
 
 RANK_ORDER = [
@@ -89,21 +90,32 @@ def assign(seats: list[GameSeat], mmrs: dict[UUID, int], game_id: UUID) -> int |
 
 def choose(game: OnlineGame, seat: int, bot: GameSeat, seed: int) -> str:
     """The card JSON a bot seat plays now."""
-    if bot.persona is None or bot.level != "hard":
+    exposed = json.loads(game.exposed_leads(seat))
+    if bot.level != "hard" or (bot.persona is None and not exposed):
         card = game.bot_move(seat, bot.level or "medium", bot.iterations, seed)
         assert card is not None, "the bot seat is to act"
+        if exposed and json.loads(card) in exposed:
+            legal = json.loads(game.view(seat))["legal_moves"]
+            safer = [move for move in legal if move not in exposed]
+            if safer:
+                return json.dumps(
+                    min(safer, key=lambda move: RANK_ORDER.index(move["rank"]))
+                )
         return card
     scores: list[dict[str, Any]] = json.loads(game.evaluate(seat, bot.iterations, seed))
     # scores[0] is the engine's choice (most visited). A persona may pick any
     # move about as safe, but only among well-sampled ones: a move with a few
     # lucky playouts is not "near best", it is unknown.
-    top = scores[0]["safe_rate"]
     trusted = max(2, scores[0]["visits"] // 4)
-    near = [
-        score
-        for score in scores
-        if score["safe_rate"] >= top - NEAR_BEST and score["visits"] >= trusted
-    ] or scores[:1]
+    considered = [score for score in scores if score["visits"] >= trusted] or scores[:1]
+
+    def safety(score: dict[str, Any]) -> float:
+        return score["safe_rate"] - KNOWN_CUT_COST * (score["card"] in exposed)
+
+    if exposed:
+        considered.sort(key=safety, reverse=True)
+    top = safety(considered[0])
+    near = [score for score in considered if safety(score) >= top - NEAR_BEST]
     if bot.persona == "thug":
         # Loud and fearless: dumps the biggest card it safely can.
         pick = max(near, key=lambda score: RANK_ORDER.index(score["card"]["rank"]))

@@ -42,6 +42,7 @@ class MatchState(BaseModel):
     limit_ms: int
     deadline_ms: int
     turn_opened_ms: int | None = None
+    prepare_until_ms: int | None = None
     turn: int | None
     outcome: dict[str, Any] | None = None
 
@@ -52,6 +53,8 @@ class PublicMatch(BaseModel):
     sequence: int
     version: int
     turn_deadline_ms: int | None
+    prepare_until_ms: int | None = None
+    server_now_ms: int | None = None
     outcome: dict[str, Any] | None
     seats: list[GameSeat]
     view: PlayerView
