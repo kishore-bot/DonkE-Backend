@@ -54,7 +54,7 @@ Seasonal performances follow the publishing workflow. LangGraph drafts English a
 | `story_replay_event` | Optional local stdio tool scoped to the current player. It authenticates and verifies ownership of the finished attempt. HTTP mode exposes the public tools. |
 | A2A localization reviewer | Separate optional service that reviews one to eight bilingual cue pairs. Task IDs support recovery across service restarts. Staff use the admin publication step after review. |
 
-Run `uv run --locked python -m app.modules.ai.mcp_server` for stdio, or add `--http` for Streamable HTTP on `127.0.0.1:8001`. Configure `DONKE_MCP_PLAYER_TOKEN` through the local environment for the player-scoped stdio tool. Keep it out of tool arguments and prompts. [A2A setup and task recovery](SEASON_RELEASE.md#standalone-localization-reviewer)
+Run `uv run --locked python -m app.modules.ai.mcp_server` for stdio, or add `--http` for Streamable HTTP on `127.0.0.1:8001`. The stdio server lists `story_replay_event` when its launcher supplies `DONKE_MCP_PLAYER_TOKEN` in the environment. When the session expires, sign in again and restart the MCP subprocess with the fresh access token. Keep the token out of tool arguments and prompts. [A2A setup and task recovery](SEASON_RELEASE.md#standalone-localization-reviewer)
 
 ## Gemini context cache benchmark
 

@@ -4,15 +4,18 @@ import wave
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
+import jwt
 import pytest
 from fake_storage import MemoryStore
 from fastapi.testclient import TestClient
+from mcp.server.mcpserver.exceptions import ToolError
 from sqlalchemy import delete
 from test_admin_console import admin_login
 from test_online import TestGoogle, headers, sign_in
 from test_online import client as client  # noqa: PLC0414
 from test_online import settings as settings  # noqa: PLC0414
 
+from app.core.errors import AppError
 from app.core.platform import open_platform
 from app.main import create_app
 from app.modules.ai import mcp_server
@@ -141,20 +144,36 @@ def test_season_objectives_rival_memory_archives_and_scoped_evidence(
         assert private["citation"] is None
 
         monkeypatch.setattr(mcp_server, "Settings", lambda: settings)
-        monkeypatch.setattr(mcp_server, "player_scope", player["access_token"])
-        evidence = asyncio.run(
-            mcp_server.story_replay_event(UUID(attempt["game_id"]), event["sequence"])
-        )
-        assert evidence["event"]["sequence"] == event["sequence"]
-        monkeypatch.setattr(mcp_server, "player_scope", outsider["access_token"])
-        assert (
-            asyncio.run(
-                mcp_server.story_replay_event(
-                    UUID(attempt["game_id"]), event["sequence"]
+        attempt_id = UUID(attempt["game_id"])
+
+        def replay(player_token):
+            return asyncio.run(
+                mcp_server.read_story_replay_event(
+                    attempt_id, event["sequence"], player_token=player_token
                 )
             )
-            == {}
+
+        evidence = replay(player["access_token"])
+        assert evidence["event"]["sequence"] == event["sequence"]
+        assert replay(outsider["access_token"]) == {}
+
+        assert settings.auth_secret is not None
+        secret = settings.auth_secret.get_secret_value()
+        claims = jwt.decode(
+            player["access_token"], secret, algorithms=["HS256"], audience="donke-player"
         )
+        claims["exp"] = datetime.now(UTC) - timedelta(seconds=1)
+        expired = jwt.encode(claims, secret, algorithm="HS256")
+        with pytest.raises(ToolError, match="restart the stdio server"):
+            replay(expired)
+
+        async def rate_limited(*_args):
+            raise AppError(429, "rate_limited", "Too many attempts. Try again later")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(mcp_server, "limit", rate_limited)
+            with pytest.raises(ToolError, match="Too many attempts"):
+                replay(player["access_token"])
 
         rematch = begin(arena, adaptive=True)
         assert rematch["rival_target_rating"] == 1260
