@@ -209,6 +209,7 @@ def test_worker_publishes_private_ranked_lobby_with_bots(client, settings):
         f"{path}/ready", json={"ready": False}, headers=players[0]
     ).json()
     assert reset["status"] == "waiting" and reset["start_at_ms"] is None
+    assert reset["accept_until_ms"] > reset["server_now_ms"]
     assert client.post(f"{path}/leave", headers=players[0]).status_code == 204
     assert (
         client.get("/api/v1/matchmaking/status", headers=players[1]).json()["status"]
@@ -218,6 +219,46 @@ def test_worker_publishes_private_ranked_lobby_with_bots(client, settings):
 
 def sample():
     return Profile(id=uuid4(), display_name="Test player", language="ml", mmr=1200)
+
+
+@pytest.mark.parametrize("sweep_first", [True, False])
+def test_expired_acceptance_requeues_ready_solo_without_splitting_party(
+    settings, sweep_first
+):
+    async def scenario():
+        async with open_platform(settings) as platform:
+            lobby = LobbyService(LobbyRepository(platform.redis, settings))
+            ready_player, no_show, party_lead, party_mate = [sample() for _ in range(4)]
+            queued = await lobby.join_queue(ready_player, "classic")
+            await lobby.join_queue(no_show, "classic")
+            await lobby.join_party(uuid4(), [party_lead, party_mate])
+            claim = await lobby.claim("classic", "classic")
+            assert claim is not None
+            room = await lobby.finalize(claim)
+            assert room is not None and room.accept_until_ms is not None
+            assert room.server_now_ms is not None
+            assert 19_000 <= room.accept_until_ms - room.server_now_ms <= 20_000
+            await lobby.room("ready", ready_player, room.id, ready=True)
+            await lobby.room("ready", party_lead, room.id, ready=True)
+
+            prefix = f"{settings.redis_prefix}:lobby"
+            key = f"{prefix}:room:{room.id}"
+            stored = json.loads(await platform.redis.get(key))
+            stored["accept_until_ms"] = 1
+            await platform.redis.set(key, json.dumps(stored))
+            await platform.redis.zadd(f"{prefix}:rooms:acceptances", {str(room.id): 1})
+            if sweep_first:
+                assert await lobby.recover() == 1
+            with pytest.raises(AppError, match="Room not found"):
+                await lobby.room("ready", no_show, room.id, ready=True)
+            assert await lobby.recover() == 0
+            requeued = await lobby.queue_status(ready_player)
+            assert requeued.status == "queued"
+            assert requeued.enqueued_at_ms == queued.enqueued_at_ms
+            for player in (no_show, party_lead, party_mate):
+                assert (await lobby.queue_status(player)).status == "idle"
+
+    asyncio.run(scenario())
 
 
 def test_ready_lock_and_preparation_do_not_consume_the_first_turn(settings):

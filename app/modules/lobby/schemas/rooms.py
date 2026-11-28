@@ -21,6 +21,7 @@ class Room(BaseModel):
     revision: int = 0
     start_at_ms: int | None = None
     ready_locks_at_ms: int | None = None
+    accept_until_ms: int | None = None
     server_now_ms: int | None = None
     game_id: UUID | None = None
     mode: Mode | None = None

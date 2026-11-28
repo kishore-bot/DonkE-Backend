@@ -55,6 +55,15 @@ def decision_point(seed=2):
     raise AssertionError("no rich decision found")
 
 
+def test_bots_use_distinct_display_names_when_the_roster_exceeds_personas():
+    player = uuid4()
+    seats = [seat(player), seat(), seat(), seat(), seat()]
+    assert bots.assign(seats, {player: 1200}, UUID(int=5)) == 1
+    names = [item.display_name for item in seats if item.bot]
+    assert len(set(names)) == 4
+    assert len({item.persona for item in seats if item.bot}) == len(bots.PERSONAS)
+
+
 def test_personas_only_choose_among_near_best_moves():
     game, turn = decision_point()
     scores = json.loads(game.evaluate(turn, 120, 7))

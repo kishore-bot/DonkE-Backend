@@ -71,20 +71,32 @@ def assign(seats: list[GameSeat], mmrs: dict[UUID, int], game_id: UUID) -> int |
     )
     level, iterations = strength(average)
     rival_seat = None
+    used: set[Persona] = set()
     for index, seat in enumerate(seats):
         if not seat.bot:
             continue
         seat.level, seat.iterations = level, iterations
+        persona: Persona
         if rival_seat is None and humans and humans[0].player_id:
             rival_seat = index
             seat.rival_of = humans[0].player_id
-            seat.persona = persona_for(humans[0].player_id)
+            persona = persona_for(humans[0].player_id)
             seat.level = "hard"
             seat.iterations = max(iterations, 200)
-            seat.display_name = f"{PERSONAS[seat.persona]} (Rival)"
+            seat.display_name = f"{PERSONAS[persona]} (Rival)"
         else:
-            seat.persona = persona_for((game_id, index))
-            seat.display_name = PERSONAS[seat.persona]
+            persona = persona_for((game_id, index))
+            available: list[Persona] = [
+                candidate for candidate in PERSONAS if candidate not in used
+            ]
+            if persona in used and available:
+                persona = available[0]
+            name = PERSONAS[persona]
+            seat.display_name = (
+                f"{name} · Seat {index + 1}" if persona in used else name
+            )
+        seat.persona = persona
+        used.add(persona)
     return rival_seat
 
 

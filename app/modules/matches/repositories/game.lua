@@ -99,6 +99,7 @@ if operation == 'start' then
     end
     local state = cjson.decode(input.state)
     room.status, room.game_id = 'playing', id
+    room.queue, room.queue_entries = nil, nil
     redis.call('SET', room_key, cjson.encode(room))
     for _, seat in ipairs(room.seats) do
         if seat.player_id then redis.call('PERSIST', key('lobby', 'member', seat.player_id)) end

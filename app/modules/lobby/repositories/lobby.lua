@@ -35,6 +35,8 @@ local function now_ms()
     return tonumber(clock[1]) * 1000 + math.floor(tonumber(clock[2]) / 1000)
 end
 
+local acceptances = key('rooms', 'acceptances')
+
 local function live_room(id)
     local room = read('room', id)
     if not room or type(room.game_id) ~= 'string' then return room end
@@ -52,6 +54,7 @@ local function live_room(id)
         end
         remove('room', id)
         redis.call('ZREM', key('rooms', 'ready'), id)
+        redis.call('ZREM', acceptances, id)
         if orphaned then
             for _, index in ipairs({'turns', 'settlement', 'deferred_finishes'}) do
                 redis.call('ZREM', game .. ':index:' .. index, room.game_id)
@@ -102,10 +105,16 @@ local function save_room(room)
             room.ready_locks_at_ms = now + math.min(12000, input.start_delay_ms)
         end
         redis.call('ZADD', key('rooms', 'ready'), room.start_at_ms, room.id)
+        room.accept_until_ms = nil
+        redis.call('ZREM', acceptances, room.id)
     else
         room.start_at_ms = nil
         room.ready_locks_at_ms = nil
         redis.call('ZREM', key('rooms', 'ready'), room.id)
+        if room.queue then
+            room.accept_until_ms = room.accept_until_ms or (now_ms() + input.accept_delay_ms)
+            redis.call('ZADD', acceptances, room.accept_until_ms, room.id)
+        end
     end
     room.status = ready and 'ready' or 'waiting'
     write('room', room.id, room, input.room_ttl)
@@ -117,6 +126,7 @@ local function save_room(room)
 end
 
 local function room_response(room)
+    room.queue, room.queue_entries = nil, nil
     room.server_now_ms = now_ms()
     return cjson.encode(room)
 end
@@ -144,6 +154,30 @@ local function enqueue(player, name, mode, queue, since, party, mates)
     redis.call('ZADD', key('queue', queue), since, player)
 end
 
+local function expire_acceptance(room, now)
+    if not room or room.status ~= 'waiting' or not room.accept_until_ms
+        or now < room.accept_until_ms then return false end
+    local ready = {}
+    for _, seat in ipairs(room.seats) do
+        if seat.player_id and matching_id(read('member', seat.player_id), 'room', room.id) then
+            ready[seat.player_id] = seat.ready
+            remove('member', seat.player_id)
+        end
+    end
+    for _, entry in ipairs(room.queue_entries) do
+        local accepted = true
+        for _, mate in ipairs(entry.mates or {entry.player_id}) do
+            if not ready[mate] then accepted = false break end
+        end
+        if accepted then
+            enqueue(entry.player_id, entry.name, room.mode, room.queue, entry.since, entry.party, entry.mates)
+        end
+    end
+    remove('room', room.id)
+    redis.call('ZREM', acceptances, room.id)
+    return true
+end
+
 local claims = key('claims', 'deadlines')
 
 local function drop_claim(id)
@@ -163,12 +197,17 @@ local function rollback(id, claim)
 end
 
 if op == 'recover' then
-    local due = redis.call('ZRANGEBYSCORE', claims, '-inf', now_ms(), 'LIMIT', 0, 32)
+    local now = now_ms()
+    local due = redis.call('ZRANGEBYSCORE', claims, '-inf', now, 'LIMIT', 0, 32)
     for _, id in ipairs(due) do
         local claim = read('claim', id)
         if claim then rollback(id, claim) else drop_claim(id) end
     end
-    return cjson.encode({count = #due})
+    local expired = redis.call('ZRANGEBYSCORE', acceptances, '-inf', now, 'LIMIT', 0, 32)
+    for _, id in ipairs(expired) do
+        if not expire_acceptance(read('room', id), now) then redis.call('ZREM', acceptances, id) end
+    end
+    return cjson.encode({count = #due + #expired})
 end
 
 if op == 'peek' then
@@ -276,6 +315,7 @@ if op == 'finalize' or op == 'rollback' then
     local room = {
         id = input.room_id, capacity = claim.seats, seats = seats,
         host_id = seats[1].player_id, mode = claim.mode,
+        queue = claim.queue, queue_entries = claim.entries,
     }
     save_room(room)
     drop_claim(input.claim_id)
@@ -283,6 +323,9 @@ if op == 'finalize' or op == 'rollback' then
 end
 
 local member = membership(input.player)
+if member and member.kind == 'room' and expire_acceptance(read('room', member.id), now_ms()) then
+    member = membership(input.player)
+end
 
 if op == 'status' then
     return cjson.encode(status(member))
@@ -407,6 +450,7 @@ if op == 'leave_room' then
         end
         remove('room', room.id)
         redis.call('ZREM', key('rooms', 'ready'), room.id)
+        redis.call('ZREM', acceptances, room.id)
     else
         table.remove(room.seats, seat)
         remove('member', input.player)

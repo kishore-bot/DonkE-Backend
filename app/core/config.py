@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     matchmaking_poll_seconds: float = Field(default=0.25, gt=0, le=2)
 
     room_start_seconds: float = Field(default=20, ge=0, le=30)
+    match_accept_seconds: float = Field(default=20, gt=0, le=60)
     hand_prep_seconds: float = Field(default=20, ge=0, le=60)
     turn_seconds: float = Field(default=45, gt=0, le=120)
     bot_turn_seconds: float = Field(default=1.5, gt=0, le=5)
